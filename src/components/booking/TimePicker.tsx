@@ -1,0 +1,181 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { cn } from '@/lib/utils'
+import { Loader2 } from 'lucide-react'
+
+interface TimeSlot {
+  start: string
+  end: string
+  available: boolean
+}
+
+interface TimePickerProps {
+  businessSlug: string
+  serviceId: string
+  staffId?: string
+  date: Date
+  onSelect: (time: Date) => void
+}
+
+export function TimePicker({
+  businessSlug,
+  serviceId,
+  staffId,
+  date,
+  onSelect,
+}: TimePickerProps) {
+  const [slots, setSlots] = useState<TimeSlot[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchSlots = async () => {
+      setIsLoading(true)
+      try {
+        const params = new URLSearchParams({
+          serviceId,
+          date: date.toISOString(),
+        })
+        if (staffId) {
+          params.set('staffId', staffId)
+        }
+
+        const response = await fetch(
+          `/api/${businessSlug}/availability?${params}`
+        )
+        if (response.ok) {
+          const data = await response.json()
+          setSlots(data.slots || [])
+        }
+      } catch (error) {
+        console.error('Failed to fetch time slots:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchSlots()
+  }, [businessSlug, serviceId, staffId, date])
+
+  const availableSlots = slots.filter((s) => s.available)
+
+  // Group slots by morning, afternoon, evening
+  const groupedSlots = {
+    morning: availableSlots.filter((s) => {
+      const hour = new Date(s.start).getHours()
+      return hour >= 6 && hour < 12
+    }),
+    afternoon: availableSlots.filter((s) => {
+      const hour = new Date(s.start).getHours()
+      return hour >= 12 && hour < 17
+    }),
+    evening: availableSlots.filter((s) => {
+      const hour = new Date(s.start).getHours()
+      return hour >= 17 && hour < 22
+    }),
+  }
+
+  const formatTime = (isoString: string) => {
+    const date = new Date(isoString)
+    return date.toLocaleTimeString('de-DE', {
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[200px] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+      </div>
+    )
+  }
+
+  if (availableSlots.length === 0) {
+    return (
+      <div>
+        <h2 className="mb-4 text-lg font-semibold text-gray-900">
+          Choose a Time
+        </h2>
+        <div className="rounded-lg border border-dashed border-gray-300 p-8 text-center">
+          <p className="text-gray-500">
+            No available time slots for this date. Please select a different date.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <h2 className="mb-4 text-lg font-semibold text-gray-900">
+        Choose a Time
+      </h2>
+
+      <div className="space-y-6">
+        {groupedSlots.morning.length > 0 && (
+          <div>
+            <h3 className="mb-3 text-sm font-medium text-gray-500">Morning</h3>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {groupedSlots.morning.map((slot) => (
+                <button
+                  key={slot.start}
+                  onClick={() => onSelect(new Date(slot.start))}
+                  className={cn(
+                    'rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium',
+                    'transition-all hover:border-primary hover:bg-primary/5',
+                    'focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2'
+                  )}
+                >
+                  {formatTime(slot.start)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {groupedSlots.afternoon.length > 0 && (
+          <div>
+            <h3 className="mb-3 text-sm font-medium text-gray-500">Afternoon</h3>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {groupedSlots.afternoon.map((slot) => (
+                <button
+                  key={slot.start}
+                  onClick={() => onSelect(new Date(slot.start))}
+                  className={cn(
+                    'rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium',
+                    'transition-all hover:border-primary hover:bg-primary/5',
+                    'focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2'
+                  )}
+                >
+                  {formatTime(slot.start)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {groupedSlots.evening.length > 0 && (
+          <div>
+            <h3 className="mb-3 text-sm font-medium text-gray-500">Evening</h3>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {groupedSlots.evening.map((slot) => (
+                <button
+                  key={slot.start}
+                  onClick={() => onSelect(new Date(slot.start))}
+                  className={cn(
+                    'rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium',
+                    'transition-all hover:border-primary hover:bg-primary/5',
+                    'focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2'
+                  )}
+                >
+                  {formatTime(slot.start)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
