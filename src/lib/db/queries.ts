@@ -34,6 +34,102 @@ export async function getBusinessById(id: string) {
   return results[0] || null
 }
 
+export async function getBusinessForUser(clerkUserId: string) {
+  const results = await db
+    .select()
+    .from(businesses)
+    .where(eq(businesses.clerkUserId, clerkUserId))
+    .limit(1)
+  return results[0] || null
+}
+
+export async function createBusinessForUser(data: {
+  clerkUserId: string
+  name: string
+  slug: string
+  type: string
+  timezone?: string
+  email?: string
+}) {
+  const result = await db
+    .insert(businesses)
+    .values({
+      clerkUserId: data.clerkUserId,
+      name: data.name,
+      slug: data.slug,
+      type: data.type,
+      timezone: data.timezone || 'Europe/Berlin',
+      email: data.email,
+    })
+    .returning()
+
+  return result[0]
+}
+
+// ============================================
+// OWNERSHIP VERIFICATION
+// ============================================
+
+export async function verifyServiceOwnership(serviceId: string, businessId: string): Promise<boolean> {
+  const result = await db
+    .select({ id: services.id })
+    .from(services)
+    .where(and(
+      eq(services.id, serviceId),
+      eq(services.businessId, businessId)
+    ))
+    .limit(1)
+  return result.length > 0
+}
+
+export async function verifyStaffOwnership(staffId: string, businessId: string): Promise<boolean> {
+  const result = await db
+    .select({ id: staff.id })
+    .from(staff)
+    .where(and(
+      eq(staff.id, staffId),
+      eq(staff.businessId, businessId)
+    ))
+    .limit(1)
+  return result.length > 0
+}
+
+export async function verifyBookingOwnership(bookingId: string, businessId: string): Promise<boolean> {
+  const result = await db
+    .select({ id: bookings.id })
+    .from(bookings)
+    .where(and(
+      eq(bookings.id, bookingId),
+      eq(bookings.businessId, businessId)
+    ))
+    .limit(1)
+  return result.length > 0
+}
+
+export async function verifyTemplateOwnership(templateId: string, businessId: string): Promise<boolean> {
+  const result = await db
+    .select({ id: availabilityTemplates.id })
+    .from(availabilityTemplates)
+    .where(and(
+      eq(availabilityTemplates.id, templateId),
+      eq(availabilityTemplates.businessId, businessId)
+    ))
+    .limit(1)
+  return result.length > 0
+}
+
+export async function verifyOverrideOwnership(overrideId: string, businessId: string): Promise<boolean> {
+  const result = await db
+    .select({ id: availabilityOverrides.id })
+    .from(availabilityOverrides)
+    .where(and(
+      eq(availabilityOverrides.id, overrideId),
+      eq(availabilityOverrides.businessId, businessId)
+    ))
+    .limit(1)
+  return result.length > 0
+}
+
 // ============================================
 // SERVICE QUERIES
 // ============================================

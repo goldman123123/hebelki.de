@@ -1,17 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
-import { deleteAvailabilityOverride } from '@/lib/db/queries'
+import { requireBusinessAuth } from '@/lib/auth'
+import { deleteAvailabilityOverride, verifyOverrideOwnership } from '@/lib/db/queries'
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { userId } = await auth()
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const authResult = await requireBusinessAuth()
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
   }
 
   const { id } = await params
+
+  // Verify ownership
+  const isOwner = await verifyOverrideOwnership(id, authResult.business.id)
+  if (!isOwner) {
+    return NextResponse.json({ error: 'Override not found' }, { status: 404 })
+  }
+
   await deleteAvailabilityOverride(id)
 
   return NextResponse.json({ success: true })

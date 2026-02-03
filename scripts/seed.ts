@@ -14,6 +14,9 @@ import {
 const sql = neon(process.env.DATABASE_URL!)
 const db = drizzle(sql)
 
+// Get Clerk user ID from environment variable or use a test placeholder
+const CLERK_USER_ID = process.env.SEED_CLERK_USER_ID || 'user_test_seed_data'
+
 async function seed() {
   console.log('🌱 Seeding database...\n')
 
@@ -29,9 +32,11 @@ async function seed() {
 
   // Create PhysioPlus Business
   console.log('Creating PhysioPlus business...')
+  console.log(`   Clerk User ID: ${CLERK_USER_ID}`)
   const [business] = await db
     .insert(businesses)
     .values({
+      clerkUserId: CLERK_USER_ID,
       name: 'PhysioPlus Clinic',
       slug: 'physioplus',
       type: 'clinic',
@@ -184,12 +189,21 @@ async function seed() {
   console.log('═══════════════════════════════════════\n')
   console.log('📋 Summary:')
   console.log(`   • Business: ${business.name}`)
+  console.log(`   • Clerk User ID: ${CLERK_USER_ID}`)
   console.log(`   • Booking URL: /book/${business.slug}`)
   console.log(`   • Services: 4`)
   console.log(`   • Staff: 3`)
   console.log(`   • Availability: Mon-Fri 8-18, Sat 9-13\n`)
   console.log('🚀 You can now test the booking widget at:')
   console.log(`   http://localhost:3005/book/${business.slug}\n`)
+
+  if (CLERK_USER_ID === 'user_test_seed_data') {
+    console.log('⚠️  Note: Using test Clerk user ID.')
+    console.log('   To assign this data to your account, set SEED_CLERK_USER_ID')
+    console.log('   in .env.local to your Clerk user ID before running seed.\n')
+    console.log('   Example:')
+    console.log('   SEED_CLERK_USER_ID=user_2abc123xyz npm run db:seed\n')
+  }
 }
 
 seed()

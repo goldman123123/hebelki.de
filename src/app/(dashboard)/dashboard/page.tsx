@@ -1,33 +1,23 @@
+import { auth } from '@clerk/nextjs/server'
+import { redirect } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Calendar, Clock, Users, TrendingUp } from 'lucide-react'
 import { getBookingStats, getTodaysBookings } from '@/lib/db/queries'
+import { getBusinessForUser } from '@/lib/auth'
 import { formatTime } from '@/lib/utils'
-import { db } from '@/lib/db'
-import { businesses } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
-
-// For MVP, we'll use a hardcoded business ID or get the first one
-async function getFirstBusiness() {
-  const results = await db.select().from(businesses).limit(1)
-  return results[0] || null
-}
 
 export default async function DashboardPage() {
-  const business = await getFirstBusiness()
+  const { userId } = await auth()
+
+  if (!userId) {
+    redirect('/sign-in')
+  }
+
+  const business = await getBusinessForUser(userId)
 
   if (!business) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12">
-        <h1 className="text-2xl font-bold text-gray-900">Welcome to Freiplatz</h1>
-        <p className="mt-2 text-gray-600">
-          No business configured yet. Run the seed script to get started.
-        </p>
-        <code className="mt-4 rounded bg-gray-100 px-4 py-2 text-sm">
-          npm run db:seed
-        </code>
-      </div>
-    )
+    redirect('/onboarding')
   }
 
   const [stats, todaysBookings] = await Promise.all([

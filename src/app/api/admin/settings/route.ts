@@ -1,14 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
-import { db } from '@/lib/db'
-import { businesses } from '@/lib/db/schema'
+import { requireBusinessAuth } from '@/lib/auth'
 import { updateBusiness } from '@/lib/db/queries'
 import { z } from 'zod'
-
-async function getFirstBusiness() {
-  const results = await db.select().from(businesses).limit(1)
-  return results[0] || null
-}
 
 const businessInfoSchema = z.object({
   name: z.string().min(2).max(100).optional(),
@@ -39,28 +32,18 @@ const regionalSettingsSchema = z.object({
 })
 
 export async function GET() {
-  const { userId } = await auth()
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const authResult = await requireBusinessAuth()
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
   }
 
-  const business = await getFirstBusiness()
-  if (!business) {
-    return NextResponse.json({ error: 'No business configured' }, { status: 404 })
-  }
-
-  return NextResponse.json({ business })
+  return NextResponse.json({ business: authResult.business })
 }
 
 export async function PATCH(request: NextRequest) {
-  const { userId } = await auth()
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const business = await getFirstBusiness()
-  if (!business) {
-    return NextResponse.json({ error: 'No business configured' }, { status: 404 })
+  const authResult = await requireBusinessAuth()
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
   }
 
   const body = await request.json()
@@ -96,7 +79,7 @@ export async function PATCH(request: NextRequest) {
     ])
   )
 
-  const updated = await updateBusiness(business.id, cleanedData)
+  const updated = await updateBusiness(authResult.business.id, cleanedData)
 
   return NextResponse.json({ business: updated })
 }

@@ -1,40 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
-import { db } from '@/lib/db'
-import { businesses } from '@/lib/db/schema'
+import { requireBusinessAuth } from '@/lib/auth'
 import { getAllStaff, createStaff } from '@/lib/db/queries'
 import { staffSchema } from '@/lib/validations/schemas'
 
-async function getFirstBusiness() {
-  const results = await db.select().from(businesses).limit(1)
-  return results[0] || null
-}
-
 export async function GET() {
-  const { userId } = await auth()
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const authResult = await requireBusinessAuth()
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
   }
 
-  const business = await getFirstBusiness()
-  if (!business) {
-    return NextResponse.json({ error: 'No business configured' }, { status: 404 })
-  }
-
-  const staff = await getAllStaff(business.id)
+  const staff = await getAllStaff(authResult.business.id)
 
   return NextResponse.json({ staff })
 }
 
 export async function POST(request: NextRequest) {
-  const { userId } = await auth()
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const business = await getFirstBusiness()
-  if (!business) {
-    return NextResponse.json({ error: 'No business configured' }, { status: 404 })
+  const authResult = await requireBusinessAuth()
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
   }
 
   const body = await request.json()
@@ -46,7 +29,7 @@ export async function POST(request: NextRequest) {
 
   const { email, avatarUrl, ...rest } = parsed.data
   const staffMember = await createStaff({
-    businessId: business.id,
+    businessId: authResult.business.id,
     email: email || null,
     avatarUrl: avatarUrl || null,
     ...rest,

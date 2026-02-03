@@ -15,6 +15,9 @@ export default function Home() {
             <span className="text-xl font-bold">Freiplatz</span>
           </div>
           <div className="flex items-center gap-4">
+            <Link href="/pricing" className="text-sm font-medium text-gray-600 hover:text-gray-900">
+              Pricing
+            </Link>
             <Link href="/sign-in">
               <Button variant="ghost">Sign In</Button>
             </Link>

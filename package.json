@@ -11,6 +11,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:migrate": "drizzle-kit migrate",
+    "db:migrate:tenant": "tsx scripts/migrate-add-clerk-user-id.ts",
     "db:seed": "tsx scripts/seed.ts"
   },
   "dependencies": {

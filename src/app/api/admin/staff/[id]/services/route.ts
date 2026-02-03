@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
-import { updateStaffServices, getStaffWithServices } from '@/lib/db/queries'
+import { requireBusinessAuth } from '@/lib/auth'
+import { updateStaffServices, getStaffWithServices, verifyStaffOwnership } from '@/lib/db/queries'
 import { z } from 'zod'
 
 const serviceIdsSchema = z.object({
@@ -11,12 +11,19 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { userId } = await auth()
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const authResult = await requireBusinessAuth()
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
   }
 
   const { id } = await params
+
+  // Verify ownership
+  const isOwner = await verifyStaffOwnership(id, authResult.business.id)
+  if (!isOwner) {
+    return NextResponse.json({ error: 'Staff not found' }, { status: 404 })
+  }
+
   const body = await request.json()
 
   const parsed = serviceIdsSchema.safeParse(body)

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
-import { updateAvailabilityTemplateSlots, getAvailabilitySlots } from '@/lib/db/queries'
+import { requireBusinessAuth } from '@/lib/auth'
+import { updateAvailabilityTemplateSlots, getAvailabilitySlots, verifyTemplateOwnership } from '@/lib/db/queries'
 import { z } from 'zod'
 
 const slotsSchema = z.object({
@@ -15,12 +15,19 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { userId } = await auth()
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const authResult = await requireBusinessAuth()
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
   }
 
   const { id } = await params
+
+  // Verify ownership
+  const isOwner = await verifyTemplateOwnership(id, authResult.business.id)
+  if (!isOwner) {
+    return NextResponse.json({ error: 'Template not found' }, { status: 404 })
+  }
+
   const slots = await getAvailabilitySlots(id)
 
   return NextResponse.json({ slots })
@@ -30,12 +37,19 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { userId } = await auth()
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const authResult = await requireBusinessAuth()
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
   }
 
   const { id } = await params
+
+  // Verify ownership
+  const isOwner = await verifyTemplateOwnership(id, authResult.business.id)
+  if (!isOwner) {
+    return NextResponse.json({ error: 'Template not found' }, { status: 404 })
+  }
+
   const body = await request.json()
 
   const parsed = slotsSchema.safeParse(body)

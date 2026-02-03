@@ -331,6 +331,94 @@ ${data.businessName}
   return { subject, html, text }
 }
 
+export function bookingConfirmedEmail(data: BookingEmailData): { subject: string; html: string; text: string } {
+  const subject = `Termin bestätigt - ${data.serviceName} am ${formatDate(data.startsAt)}`
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>${baseStyles}</style>
+</head>
+<body>
+  <div class="header" style="background: #10b981;">
+    <h1>Termin bestätigt</h1>
+  </div>
+  <div class="content">
+    <p>Hallo ${data.customerName},</p>
+    <p>Ihr Termin bei <strong>${data.businessName}</strong> wurde bestätigt!</p>
+
+    <div class="details">
+      <h3 style="margin-top: 0;">Ihre Buchung</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280; width: 140px;">Service:</td>
+          <td style="padding: 8px 0; font-weight: 600;">${data.serviceName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;">Datum:</td>
+          <td style="padding: 8px 0; font-weight: 600;">${formatDate(data.startsAt)}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;">Uhrzeit:</td>
+          <td style="padding: 8px 0; font-weight: 600;">${formatTime(data.startsAt)} - ${formatTime(data.endsAt)} Uhr</td>
+        </tr>
+        ${data.staffName ? `
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;">Mitarbeiter:</td>
+          <td style="padding: 8px 0; font-weight: 600;">${data.staffName}</td>
+        </tr>
+        ` : ''}
+        ${data.price ? `
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;">Preis:</td>
+          <td style="padding: 8px 0; font-weight: 600;">${formatPrice(data.price, data.currency)}</td>
+        </tr>
+        ` : ''}
+      </table>
+    </div>
+
+    <div class="highlight" style="background: #d1fae5; border-left-color: #10b981;">
+      <strong>Bestätigt!</strong> Wir freuen uns auf Ihren Besuch.
+    </div>
+
+    <p>Bei Fragen können Sie diese E-Mail beantworten oder uns direkt kontaktieren.</p>
+
+    <p>Mit freundlichen Grüßen,<br><strong>${data.businessName}</strong></p>
+  </div>
+  <div class="footer">
+    <p>Buchungsnummer: ${data.confirmationToken}</p>
+    <p>Powered by Freiplatz</p>
+  </div>
+</body>
+</html>
+`
+
+  const text = `
+Termin bestätigt
+
+Hallo ${data.customerName},
+
+Ihr Termin bei ${data.businessName} wurde bestätigt!
+
+IHRE BUCHUNG
+------------
+Service: ${data.serviceName}
+Datum: ${formatDate(data.startsAt)}
+Uhrzeit: ${formatTime(data.startsAt)} - ${formatTime(data.endsAt)} Uhr
+${data.staffName ? `Mitarbeiter: ${data.staffName}\n` : ''}${data.price ? `Preis: ${formatPrice(data.price, data.currency)}\n` : ''}
+Buchungsnummer: ${data.confirmationToken}
+
+Wir freuen uns auf Ihren Besuch!
+
+Mit freundlichen Grüßen,
+${data.businessName}
+`
+
+  return { subject, html, text }
+}
+
 export function bookingReminderEmail(data: BookingEmailData): { subject: string; html: string; text: string } {
   const subject = `Terminerinnerung - ${data.serviceName} morgen um ${formatTime(data.startsAt)} Uhr`
 
