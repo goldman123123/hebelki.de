@@ -4,6 +4,7 @@ import { getBookingById, updateBookingStatus, verifyBookingOwnership } from '@/l
 import { bookingStatusSchema } from '@/lib/validations/schemas'
 import { db } from '@/lib/db'
 import { emitEventStandalone } from '@/modules/core/events'
+import { processEvents } from '@/modules/core/events/processor'
 
 export async function GET(
   request: NextRequest,
@@ -106,6 +107,12 @@ export async function PATCH(
           reason: cancellationReason || undefined,
           cancelledBy: cancelledBy || 'staff',
         })
+      }
+      // Process events immediately (send emails right away)
+      try {
+        await processEvents(10)
+      } catch (processError) {
+        console.error('Error processing events after status change:', processError)
       }
     } catch (eventError) {
       console.error('Error emitting status change event:', eventError)

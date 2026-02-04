@@ -9,6 +9,7 @@ import { isSlotAvailable } from '@/lib/availability'
 import { db } from '@/lib/db'
 import { bookings } from '@/lib/db/schema'
 import { emitEvent } from '@/modules/core/events'
+import { processEvents } from '@/modules/core/events/processor'
 
 export async function POST(
   request: NextRequest,
@@ -135,6 +136,15 @@ export async function POST(
 
       return booking
     })
+
+    // Process events immediately (send emails right away)
+    // This runs in background - if it fails, booking is already saved
+    try {
+      await processEvents(10) // Process up to 10 pending events
+    } catch (emailError) {
+      console.error('Error processing events after booking creation:', emailError)
+      // Don't fail the booking if email processing fails
+    }
 
     return NextResponse.json({
       id: booking.id,
