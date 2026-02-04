@@ -986,7 +986,7 @@ export async function createBusinessMember(data: {
     })
     .returning()
 
-  return result[0]
+  return result[0] as any
 }
 
 export async function updateMemberRole(memberId: string, role: string) {
