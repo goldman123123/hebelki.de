@@ -30,7 +30,7 @@ export type Feature =
   | 'analytics'          // Advanced analytics dashboard
   | 'inventory'          // Inventory management
   | 'api'                // REST API access
-  | 'whitelabel'         // Remove Freiplatz branding
+  | 'whitelabel'         // Remove Hebelki branding
   | 'sms'                // SMS notifications
   | 'calendar_sync'      // Google Calendar sync
   | 'custom_domain'      // Custom domain support
@@ -296,7 +296,7 @@ export function getFeatureDescription(feature: Feature): string {
     analytics: 'Erweiterte Analytik',
     inventory: 'Bestandsverwaltung',
     api: 'REST-API-Zugriff',
-    whitelabel: 'Freiplatz-Branding entfernen',
+    whitelabel: 'Hebelki-Branding entfernen',
     sms: 'SMS-Benachrichtigungen',
     calendar_sync: 'Google Kalender-Synchronisierung',
     custom_domain: 'Benutzerdefinierte Domain',

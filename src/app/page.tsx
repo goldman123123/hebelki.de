@@ -16,7 +16,7 @@ export default async function Home() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white">
               <Calendar className="h-5 w-5" />
             </div>
-            <span className="text-xl font-bold">Freiplatz</span>
+            <span className="text-xl font-bold">Hebelki</span>
           </div>
           <div className="flex items-center gap-4">
             <Link href="/pricing" className="text-sm font-medium text-gray-600 hover:text-gray-900">
@@ -127,7 +127,7 @@ export default async function Home() {
             {isLoggedIn ? "Welcome back!" : "Ready to streamline your bookings?"}
           </h2>
           <p className="mt-4 text-xl text-gray-600">
-            {isLoggedIn ? "Continue managing your bookings" : "Join thousands of businesses using Freiplatz"}
+            {isLoggedIn ? "Continue managing your bookings" : "Join thousands of businesses using Hebelki"}
           </p>
           <Link href={isLoggedIn ? "/dashboard" : "/sign-up"} className="mt-8 inline-block">
             <Button size="lg" className="text-lg">
@@ -140,7 +140,7 @@ export default async function Home() {
       {/* Footer */}
       <footer className="border-t py-8">
         <div className="mx-auto max-w-6xl px-4 text-center text-sm text-gray-500">
-          &copy; {new Date().getFullYear()} Freiplatz. All rights reserved.
+          &copy; {new Date().getFullYear()} Hebelki. All rights reserved.
         </div>
       </footer>
     </div>

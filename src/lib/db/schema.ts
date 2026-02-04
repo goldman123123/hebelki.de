@@ -22,7 +22,7 @@ export const businesses = pgTable('businesses', {
   id: uuid('id').defaultRandom().primaryKey(),
   clerkUserId: text('clerk_user_id'), // Legacy field - kept for backward compatibility, no longer unique
   name: text('name').notNull(),
-  slug: text('slug').notNull().unique(), // URL: freiplatz.app/book/[slug]
+  slug: text('slug').notNull().unique(), // URL: hebelki.de/book/[slug]
   type: text('type').notNull(), // 'clinic', 'salon', 'consultant', 'gym'
 
   // Branding

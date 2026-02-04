@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "Freiplatz - Online Booking Made Simple",
-  description: "Book appointments online with ease. Powered by Freiplatz.",
+  title: "Hebelki - Online Booking Made Simple",
+  description: "Book appointments online with ease. Powered by Hebelki.",
 }
 
 export default function RootLayout({

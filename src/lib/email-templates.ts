@@ -115,7 +115,7 @@ export function bookingConfirmationEmail(data: BookingEmailData): { subject: str
   </div>
   <div class="footer">
     <p>Buchungsnummer: ${data.confirmationToken}</p>
-    <p>Powered by Freiplatz</p>
+    <p>Powered by Hebelki</p>
   </div>
 </body>
 </html>
@@ -301,7 +301,7 @@ export function bookingCancellationEmail(data: BookingEmailData & { reason?: str
   </div>
   <div class="footer">
     <p>Buchungsnummer: ${data.confirmationToken}</p>
-    <p>Powered by Freiplatz</p>
+    <p>Powered by Hebelki</p>
   </div>
 </body>
 </html>
@@ -389,7 +389,7 @@ export function bookingConfirmedEmail(data: BookingEmailData): { subject: string
   </div>
   <div class="footer">
     <p>Buchungsnummer: ${data.confirmationToken}</p>
-    <p>Powered by Freiplatz</p>
+    <p>Powered by Hebelki</p>
   </div>
 </body>
 </html>
@@ -471,7 +471,7 @@ export function bookingReminderEmail(data: BookingEmailData): { subject: string;
   </div>
   <div class="footer">
     <p>Buchungsnummer: ${data.confirmationToken}</p>
-    <p>Powered by Freiplatz</p>
+    <p>Powered by Hebelki</p>
   </div>
 </body>
 </html>

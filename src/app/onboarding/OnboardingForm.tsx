@@ -106,7 +106,7 @@ export function OnboardingForm() {
           <div className="space-y-2">
             <Label htmlFor="slug">Booking URL *</Label>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500">freiplatz.app/book/</span>
+              <span className="text-sm text-gray-500">hebelki.de/book/</span>
               <Input
                 id="slug"
                 placeholder="my-business"

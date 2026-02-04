@@ -319,13 +319,13 @@ async function handleMemberInvited(payload: MemberInvitedPayload): Promise<void>
 
   // TODO: Create invitation email template
   // For now, send a simple email
-  const subject = `Einladung zu ${payload.businessName} auf Freiplatz`
+  const subject = `Einladung zu ${payload.businessName} auf Hebelki`
   const html = `
     <h2>Sie wurden zu ${payload.businessName} eingeladen</h2>
     <p>Hallo ${payload.inviteeName || ''},</p>
     <p>${payload.inviterName} hat Sie eingeladen, ${payload.businessName} als ${payload.role} beizutreten.</p>
     <p><a href="${payload.invitationUrl}">Einladung annehmen</a></p>
-    <p>Mit freundlichen Grüßen,<br>Das Freiplatz-Team</p>
+    <p>Mit freundlichen Grüßen,<br>Das Hebelki-Team</p>
   `
 
   await sendEmail({

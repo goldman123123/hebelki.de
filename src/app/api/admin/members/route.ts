@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
       inviteeName: undefined,
       inviterName: authResult.userId, // TODO: Get actual user name from Clerk
       role,
-      invitationUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.freiplatz.work'}/accept-invitation/${newMember.id}`,
+      invitationUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.hebelki.de'}/accept-invitation/${newMember.id}`,
     })
 
     return NextResponse.json({ member: newMember }, { status: 201 })

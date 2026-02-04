@@ -11,16 +11,16 @@ const tiers = [
     name: 'Free',
     price: '$0',
     period: 'forever',
-    description: 'Perfect for trying out Freiplatz',
+    description: 'Perfect for trying out Hebelki',
     features: [
       '1 staff member',
       '50 bookings/month',
       'Email confirmations',
       'Basic booking page',
-      'freiplatz.io/book/slug URL',
+      'hebelki.de/book/slug URL',
     ],
     limitations: [
-      'Freiplatz branding',
+      'Hebelki branding',
     ],
     cta: 'Get Started',
     ctaVariant: 'outline' as const,
@@ -35,7 +35,7 @@ const tiers = [
       'Up to 3 staff members',
       'Unlimited bookings',
       'Email + SMS reminders',
-      'Remove Freiplatz branding',
+      'Remove Hebelki branding',
       'Custom colors & logo',
       'Customer management',
       'Basic analytics',
@@ -121,7 +121,7 @@ export default async function PricingPage() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white">
               <Calendar className="h-5 w-5" />
             </div>
-            <span className="text-xl font-bold">Freiplatz</span>
+            <span className="text-xl font-bold">Hebelki</span>
           </Link>
           <div className="flex items-center gap-4">
             {isLoggedIn ? (
@@ -324,7 +324,7 @@ export default async function PricingPage() {
             {isLoggedIn ? "Upgrade your plan" : "Ready to get started?"}
           </h2>
           <p className="mt-4 text-xl text-gray-600">
-            {isLoggedIn ? "Choose a plan that fits your business needs" : "Join thousands of businesses using Freiplatz to manage their bookings"}
+            {isLoggedIn ? "Choose a plan that fits your business needs" : "Join thousands of businesses using Hebelki to manage their bookings"}
           </p>
           <div className="mt-8 flex items-center justify-center gap-4">
             <Link href={isLoggedIn ? "/dashboard" : "/sign-up"}>
@@ -344,7 +344,7 @@ export default async function PricingPage() {
       {/* Footer */}
       <footer className="border-t py-8">
         <div className="mx-auto max-w-6xl px-4 text-center text-sm text-gray-500">
-          &copy; {new Date().getFullYear()} Freiplatz. All rights reserved.
+          &copy; {new Date().getFullYear()} Hebelki. All rights reserved.
         </div>
       </footer>
     </div>
