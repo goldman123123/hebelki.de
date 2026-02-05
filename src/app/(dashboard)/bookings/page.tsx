@@ -34,10 +34,18 @@ export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
   const [counts, setCounts] = useState<Record<string, number>>({})
+  const [timezone, setTimezone] = useState('Europe/Berlin')
 
   const fetchBookings = useCallback(async () => {
     setLoading(true)
     try {
+      // Fetch business settings to get timezone
+      const settingsRes = await fetch('/api/admin/settings')
+      const settingsData = await settingsRes.json()
+      if (settingsData.business?.timezone) {
+        setTimezone(settingsData.business.timezone)
+      }
+
       const res = await fetch(`/api/admin/bookings?status=${filter}`)
       const data = await res.json()
       setBookings(data.bookings || [])
@@ -113,10 +121,10 @@ export default function BookingsPage() {
                   <TableRow key={booking.id}>
                     <TableCell>
                       <div className="font-medium">
-                        {formatDate(booking.startsAt)}
+                        {formatDate(booking.startsAt, timezone)}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {formatTime(booking.startsAt)}
+                        {formatTime(booking.startsAt, timezone)}
                       </div>
                     </TableCell>
                     <TableCell>

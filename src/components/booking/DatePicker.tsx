@@ -71,7 +71,7 @@ export function DatePicker({
   return (
     <div>
       <h2 className="mb-4 text-lg font-semibold text-gray-900">
-        Choose a Date
+        Wählen Sie ein Datum
       </h2>
 
       <div className="flex justify-center">
@@ -111,7 +111,7 @@ export function DatePicker({
       </div>
 
       <p className="mt-4 text-center text-sm text-gray-500">
-        Available dates are highlighted in green
+        Verfügbare Termine sind grün markiert
       </p>
     </div>
   )

@@ -40,15 +40,19 @@ export function WeeklyScheduleEditor({
   }
 
   return (
-    <div className="divide-y rounded-lg border">
-      {DAYS.map(({ key, label }) => (
-        <TimeSlotRow
+    <div className="divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white">
+      {DAYS.map(({ key, label }, index) => (
+        <div
           key={key}
-          day={label}
-          slots={schedule[key] || []}
-          onChange={(slots) => handleDayChange(key, slots)}
-          disabled={disabled}
-        />
+          className={index === 0 ? 'rounded-t-lg' : index === DAYS.length - 1 ? 'rounded-b-lg' : ''}
+        >
+          <TimeSlotRow
+            day={label}
+            slots={schedule[key] || []}
+            onChange={(slots) => handleDayChange(key, slots)}
+            disabled={disabled}
+          />
+        </div>
       ))}
     </div>
   )

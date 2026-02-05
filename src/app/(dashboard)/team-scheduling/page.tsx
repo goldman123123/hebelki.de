@@ -1,0 +1,196 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { Loader2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { TeamMembersTab } from '@/components/team-scheduling/TeamMembersTab'
+import { BusinessHoursTab } from '@/components/team-scheduling/BusinessHoursTab'
+import { TimeOffTab } from '@/components/team-scheduling/TimeOffTab'
+
+interface TimeSlot {
+  startTime: string
+  endTime: string
+}
+
+interface WeeklySchedule {
+  [key: number]: TimeSlot[]
+}
+
+interface Template {
+  id: string
+  name: string
+  isDefault: boolean
+  staffId: string | null
+  slots: {
+    dayOfWeek: number
+    startTime: string
+    endTime: string
+  }[]
+}
+
+interface Override {
+  override: {
+    id: string
+    date: string
+    isAvailable: boolean | null
+    startTime: string | null
+    endTime: string | null
+    reason: string | null
+    staffId: string | null
+  }
+  staffMember: { name: string } | null
+}
+
+interface StaffMember {
+  id: string
+  name: string
+  email: string | null
+  phone: string | null
+  title: string | null
+  bio: string | null
+  avatarUrl: string | null
+  isActive: boolean | null
+  serviceIds?: string[]
+}
+
+interface Service {
+  id: string
+  name: string
+  category: string | null
+}
+
+const tabs = [
+  { id: 'team', label: 'Team Members' },
+  { id: 'business', label: 'Business Hours' },
+  { id: 'timeoff', label: 'Time Off' },
+]
+
+export default function TeamSchedulingPage() {
+  const [activeTab, setActiveTab] = useState<'team' | 'business' | 'timeoff'>('team')
+  const [loading, setLoading] = useState(true)
+
+  // Team Members Tab State
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
+  const [services, setServices] = useState<Service[]>([])
+
+  // Business Hours Tab State
+  const [businessTemplate, setBusinessTemplate] = useState<Template | null>(null)
+  const [businessSchedule, setBusinessSchedule] = useState<WeeklySchedule>({})
+
+  // Time Off Tab State
+  const [overrides, setOverrides] = useState<Override[]>([])
+
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [templatesRes, staffRes, servicesRes, overridesRes] = await Promise.all([
+        fetch('/api/admin/availability/templates'),
+        fetch('/api/admin/staff'),
+        fetch('/api/admin/services'),
+        fetch('/api/admin/availability/overrides'),
+      ])
+
+      const [templatesData, staffData, servicesData, overridesData] = await Promise.all([
+        templatesRes.json(),
+        staffRes.json(),
+        servicesRes.json(),
+        overridesRes.json(),
+      ])
+
+      // Business template
+      const businessTpl = templatesData.templates?.find(
+        (t: Template) => !t.staffId && t.isDefault
+      )
+      if (businessTpl) {
+        setBusinessTemplate(businessTpl)
+        setBusinessSchedule(slotsToSchedule(businessTpl.slots))
+      }
+
+      setStaffMembers(staffData.staff || [])
+      setServices(servicesData.services?.filter((s: Service & { isActive: boolean }) => s.isActive) || [])
+      setOverrides(overridesData.overrides || [])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  function slotsToSchedule(slots: { dayOfWeek: number; startTime: string; endTime: string }[]): WeeklySchedule {
+    const schedule: WeeklySchedule = {}
+    slots.forEach((slot) => {
+      if (!schedule[slot.dayOfWeek]) {
+        schedule[slot.dayOfWeek] = []
+      }
+      schedule[slot.dayOfWeek].push({
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+      })
+    })
+    return schedule
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">Team & Scheduling</h1>
+        <p className="text-gray-600">Manage your team members, business hours, and time off</p>
+      </div>
+
+      {/* Tabs */}
+      <div className="mb-6 flex gap-1 rounded-lg border bg-gray-50 p-1">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as typeof activeTab)}
+            className={cn(
+              'rounded-md px-4 py-2 text-sm font-medium transition-colors',
+              activeTab === tab.id
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'team' && (
+        <TeamMembersTab
+          staffMembers={staffMembers}
+          services={services}
+          businessSchedule={businessSchedule}
+          onRefresh={fetchData}
+        />
+      )}
+
+      {activeTab === 'business' && (
+        <BusinessHoursTab
+          businessTemplate={businessTemplate}
+          businessSchedule={businessSchedule}
+          onBusinessTemplateChange={setBusinessTemplate}
+          onBusinessScheduleChange={setBusinessSchedule}
+        />
+      )}
+
+      {activeTab === 'timeoff' && (
+        <TimeOffTab
+          overrides={overrides}
+          staffMembers={staffMembers.filter((s) => s.isActive)}
+          onRefresh={fetchData}
+        />
+      )}
+    </div>
+  )
+}

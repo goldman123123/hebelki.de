@@ -13,28 +13,59 @@ export function formatCurrency(amount: number | string, currency = "EUR"): strin
   }).format(num)
 }
 
-export function formatTime(date: Date | string): string {
+/**
+ * Formats time in the specified timezone (or business timezone by default)
+ */
+export function formatTime(
+  date: Date | string,
+  timezone: string = "Europe/Berlin"
+): string {
   const d = typeof date === "string" ? new Date(date) : date
   return d.toLocaleTimeString("de-DE", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: timezone,
   })
 }
 
-export function formatDate(date: Date | string): string {
+/**
+ * Formats date in the specified timezone (or business timezone by default)
+ */
+export function formatDate(
+  date: Date | string,
+  timezone: string = "Europe/Berlin"
+): string {
   const d = typeof date === "string" ? new Date(date) : date
   return d.toLocaleDateString("de-DE", {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: timezone,
   })
 }
 
-export function formatDateShort(date: Date | string): string {
+/**
+ * Formats date (short format) in the specified timezone
+ */
+export function formatDateShort(
+  date: Date | string,
+  timezone: string = "Europe/Berlin"
+): string {
   const d = typeof date === "string" ? new Date(date) : date
   return d.toLocaleDateString("de-DE", {
     month: "short",
     day: "numeric",
+    timeZone: timezone,
   })
+}
+
+/**
+ * Formats both date and time in the specified timezone
+ */
+export function formatDateTime(
+  date: Date | string,
+  timezone: string = "Europe/Berlin"
+): string {
+  return `${formatDate(date, timezone)}, ${formatTime(date, timezone)}`
 }

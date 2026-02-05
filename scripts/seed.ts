@@ -4,11 +4,16 @@ import { neon } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-http'
 import {
   businesses,
+  businessMembers,
   services,
   staff,
   staffServices,
   availabilityTemplates,
   availabilitySlots,
+  availabilityOverrides,
+  customers,
+  bookings,
+  waitlist,
 } from '../src/lib/db/schema'
 
 const sql = neon(process.env.DATABASE_URL!)
@@ -22,11 +27,16 @@ async function seed() {
 
   // Clear existing data (in reverse order of dependencies)
   console.log('Clearing existing data...')
+  await db.delete(waitlist)
+  await db.delete(bookings)
+  await db.delete(customers)
+  await db.delete(availabilityOverrides)
   await db.delete(availabilitySlots)
   await db.delete(availabilityTemplates)
   await db.delete(staffServices)
   await db.delete(staff)
   await db.delete(services)
+  await db.delete(businessMembers)
   await db.delete(businesses)
   console.log('✓ Cleared existing data\n')
 
@@ -184,6 +194,42 @@ async function seed() {
   await db.insert(availabilitySlots).values(slots)
   console.log(`✓ Created availability schedule (Mon-Fri 8-18, Sat 9-13)\n`)
 
+  // Create Business Members (for dev user switcher)
+  console.log('Creating business members...')
+  const testBusinessMembers = [
+    {
+      businessId: business.id,
+      clerkUserId: CLERK_USER_ID, // Main owner (can be your real Clerk ID)
+      role: 'owner',
+      status: 'active',
+      joinedAt: new Date('2023-12-01'),
+    },
+    {
+      businessId: business.id,
+      clerkUserId: 'user_39BpeA3jCcyxEh87W5ExKl9nNgO', // Sarah Miller (admin)
+      role: 'admin',
+      status: 'active',
+      joinedAt: new Date('2024-01-15'),
+    },
+    {
+      businessId: business.id,
+      clerkUserId: 'user_39BpeGsrbC5YpiBr4qACT7zjVwK', // Thomas Berg (staff)
+      role: 'staff',
+      status: 'active',
+      joinedAt: new Date('2024-02-01'),
+    },
+    {
+      businessId: business.id,
+      clerkUserId: 'user_39BprFTtTuT57hvTC71Qfb5wHsp', // Lina Schmidt (staff)
+      role: 'staff',
+      status: 'active',
+      joinedAt: new Date('2024-03-10'),
+    },
+  ]
+
+  await db.insert(businessMembers).values(testBusinessMembers)
+  console.log(`✓ Created ${testBusinessMembers.length} business members\n`)
+
   console.log('═══════════════════════════════════════')
   console.log('✅ Database seeded successfully!')
   console.log('═══════════════════════════════════════\n')
@@ -193,6 +239,7 @@ async function seed() {
   console.log(`   • Booking URL: /book/${business.slug}`)
   console.log(`   • Services: 4`)
   console.log(`   • Staff: 3`)
+  console.log(`   • Business Members: ${testBusinessMembers.length}`)
   console.log(`   • Availability: Mon-Fri 8-18, Sat 9-13\n`)
   console.log('🚀 You can now test the booking widget at:')
   console.log(`   http://localhost:3005/book/${business.slug}\n`)

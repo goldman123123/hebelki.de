@@ -3,26 +3,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { ConfirmDialog } from '@/components/forms'
-import { ServiceForm } from '@/components/forms/ServiceForm'
-import { formatCurrency } from '@/lib/utils'
-import { Clock, Plus, Pencil, Trash2, Loader2, MoreVertical } from 'lucide-react'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-interface ServiceFormData {
-  name: string
-  description?: string | null
-  category?: string | null
-  durationMinutes: number
-  bufferMinutes?: number
-  price?: string | null
-  isActive?: boolean
-}
+import { Clock, Plus, Edit, Check, X, Trash2, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react'
+import { StaffPriorityInline } from './components/StaffPriorityInline'
 
 interface Service {
   id: string
@@ -32,21 +19,43 @@ interface Service {
   durationMinutes: number
   bufferMinutes: number | null
   price: string | null
+  capacity: number | null
   isActive: boolean | null
   sortOrder: number | null
+}
+
+interface EditingService extends Partial<Service> {
+  name: string
+  durationMinutes: number
 }
 
 export default function ServicesPage() {
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [editingService, setEditingService] = useState<Service | null>(null)
+  const [showInactive, setShowInactive] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingData, setEditingData] = useState<EditingService | null>(null)
+  const [creatingNew, setCreatingNew] = useState(false)
+  const [newService, setNewService] = useState<EditingService>({
+    name: '',
+    description: '',
+    category: '',
+    durationMinutes: 60,
+    bufferMinutes: 0,
+    price: '',
+    capacity: 1,
+    isActive: true,
+  })
   const [deleteService, setDeleteService] = useState<Service | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [savingId, setSavingId] = useState<string | null>(null)
 
   const fetchServices = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/services')
+      // Add cache busting to prevent stale data
+      const res = await fetch(`/api/admin/services?_t=${Date.now()}`, {
+        cache: 'no-store',
+      })
       const data = await res.json()
       setServices(data.services || [])
     } finally {
@@ -58,27 +67,71 @@ export default function ServicesPage() {
     fetchServices()
   }, [fetchServices])
 
-  async function handleCreate(data: ServiceFormData) {
-    const res = await fetch('/api/admin/services', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+  function startEditing(service: Service) {
+    setEditingId(service.id)
+    setEditingData({
+      name: service.name,
+      description: service.description || '',
+      category: service.category || '',
+      durationMinutes: service.durationMinutes,
+      bufferMinutes: service.bufferMinutes || 0,
+      price: service.price || '',
+      capacity: service.capacity || 1,
+      isActive: service.isActive ?? true,
     })
-    if (res.ok) {
-      fetchServices()
+  }
+
+  function cancelEditing() {
+    setEditingId(null)
+    setEditingData(null)
+  }
+
+  async function saveEditing(serviceId: string) {
+    if (!editingData) return
+
+    setSavingId(serviceId)
+    try {
+      const res = await fetch(`/api/admin/services/${serviceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingData),
+      })
+      if (res.ok) {
+        setEditingId(null)
+        setEditingData(null)
+        fetchServices()
+      }
+    } finally {
+      setSavingId(null)
     }
   }
 
-  async function handleEdit(data: ServiceFormData) {
-    if (!editingService) return
-    const res = await fetch(`/api/admin/services/${editingService.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    })
-    if (res.ok) {
-      setEditingService(null)
-      fetchServices()
+  async function createService() {
+    if (!newService.name.trim()) return
+
+    setSavingId('new')
+    try {
+      const res = await fetch('/api/admin/services', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newService),
+      })
+      if (res.ok) {
+        setCreatingNew(false)
+        setNewService({
+          name: '',
+          description: '',
+          category: '',
+          durationMinutes: 60,
+          bufferMinutes: 0,
+          price: '',
+          capacity: 1,
+          isActive: true,
+        })
+        fetchServices()
+      }
+    } finally {
+      setSavingId(null)
     }
   }
 
@@ -89,10 +142,17 @@ export default function ServicesPage() {
       const res = await fetch(`/api/admin/services/${deleteService.id}`, {
         method: 'DELETE',
       })
+      const data = await res.json()
+
       if (res.ok) {
         setDeleteService(null)
-        fetchServices()
+        await fetchServices()
+      } else {
+        alert(`Failed to delete service: ${data.error || 'Unknown error'}`)
       }
+    } catch (error) {
+      console.error('Delete error:', error)
+      alert('Failed to delete service. Please try again.')
     } finally {
       setIsDeleting(false)
     }
@@ -107,118 +167,461 @@ export default function ServicesPage() {
     fetchServices()
   }
 
+  // Filter services based on active/inactive toggle
+  // Note: isActive can be true, false, or null (treat null as true for backwards compatibility)
+  const filteredServices = showInactive
+    ? services
+    : services.filter(s => s.isActive !== false)
+
   // Group by category
-  const grouped = services.reduce((acc, service) => {
+  const grouped = filteredServices.reduce((acc, service) => {
     const cat = service.category || 'Uncategorized'
     if (!acc[cat]) acc[cat] = []
     acc[cat].push(service)
     return acc
   }, {} as Record<string, Service[]>)
 
+  const activeCount = services.filter(s => s.isActive !== false).length
+  const inactiveCount = services.filter(s => s.isActive === false).length
+
   return (
-    <div>
+    <div className="max-w-7xl mx-auto">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Services</h1>
-          <p className="text-gray-600">Manage your service offerings</p>
+          <h1 className="text-3xl font-bold text-gray-900">Services</h1>
+          <p className="text-gray-600 mt-1">
+            Manage your service offerings
+            {!loading && (
+              <span className="ml-2">
+                ({activeCount} active{inactiveCount > 0 && `, ${inactiveCount} inactive`})
+              </span>
+            )}
+          </p>
         </div>
-        <Button onClick={() => setShowForm(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          New Service
-        </Button>
+        <div className="flex items-center gap-2">
+          {inactiveCount > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => setShowInactive(!showInactive)}
+            >
+              {showInactive ? (
+                <>
+                  <Eye className="mr-2 h-4 w-4" />
+                  Hide Inactive
+                </>
+              ) : (
+                <>
+                  <EyeOff className="mr-2 h-4 w-4" />
+                  Show Inactive ({inactiveCount})
+                </>
+              )}
+            </Button>
+          )}
+          <Button onClick={() => setCreatingNew(true)} disabled={creatingNew}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Service
+          </Button>
+        </div>
       </div>
 
       {loading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
         </div>
-      ) : services.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-gray-500">No services configured yet.</p>
-            <Button className="mt-4" onClick={() => setShowForm(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Your First Service
+      ) : activeCount === 0 && !creatingNew ? (
+        <>
+          <Alert className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Add Your First Service</AlertTitle>
+            <AlertDescription>
+              Set up your services to start accepting bookings. We can detect them from your website automatically.
+            </AlertDescription>
+            <Button asChild className="mt-4" variant="outline">
+              <Link href="/onboarding/wizard?step=3&mode=booking">
+                Set Up Services
+              </Link>
             </Button>
-          </CardContent>
-        </Card>
+          </Alert>
+
+          <Card>
+            <CardContent className="py-12 text-center">
+              <p className="text-gray-500 mb-4">No services configured yet.</p>
+              <Button onClick={() => setCreatingNew(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Your First Service
+              </Button>
+            </CardContent>
+          </Card>
+        </>
       ) : (
-        <div className="space-y-8">
-          {Object.entries(grouped).map(([category, categoryServices]) => (
-            <Card key={category}>
+        <div className="space-y-6">
+          {/* New Service Form */}
+          {creatingNew && (
+            <Card className="border-2 border-blue-200 bg-blue-50/30">
               <CardHeader>
-                <CardTitle>{category}</CardTitle>
-                <CardDescription>
-                  {categoryServices.length} service{categoryServices.length !== 1 ? 's' : ''}
-                </CardDescription>
+                <CardTitle className="text-lg">New Service</CardTitle>
+                <CardDescription>Fill in the details for your new service</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="divide-y">
-                  {categoryServices.map((service) => (
-                    <div
-                      key={service.id}
-                      className="flex items-center justify-between py-4 first:pt-0 last:pb-0"
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{service.name}</span>
-                          {!service.isActive && (
-                            <Badge variant="outline" className="text-xs">
-                              Inactive
-                            </Badge>
-                          )}
-                        </div>
-                        {service.description && (
-                          <p className="mt-1 text-sm text-gray-500">
-                            {service.description}
-                          </p>
-                        )}
-                        <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-4 w-4" />
-                            {service.durationMinutes} min
-                          </span>
-                          {service.bufferMinutes && service.bufferMinutes > 0 && (
-                            <span>+ {service.bufferMinutes} min buffer</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          {service.price ? (
-                            <span className="text-lg font-semibold">
-                              {formatCurrency(service.price, 'EUR')}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400">Free</span>
-                          )}
-                        </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setEditingService(service)}>
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleToggleActive(service)}>
-                              {service.isActive ? 'Deactivate' : 'Activate'}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-red-600"
-                              onClick={() => setDeleteService(service)}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <label className="text-sm font-medium text-gray-700 mb-1 block">
+                        Service Name *
+                      </label>
+                      <Input
+                        value={newService.name}
+                        onChange={(e) => setNewService({ ...newService, name: e.target.value })}
+                        placeholder="e.g., Haircut, Massage, Consultation"
+                        className="font-medium"
+                      />
                     </div>
-                  ))}
+                    <div className="col-span-2">
+                      <label className="text-sm font-medium text-gray-700 mb-1 block">
+                        Description
+                      </label>
+                      <Textarea
+                        value={newService.description || ''}
+                        onChange={(e) => setNewService({ ...newService, description: e.target.value })}
+                        placeholder="Describe your service..."
+                        rows={2}
+                        className="resize-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 mb-1 block">
+                        Category
+                      </label>
+                      <Input
+                        value={newService.category || ''}
+                        onChange={(e) => setNewService({ ...newService, category: e.target.value })}
+                        placeholder="e.g., Hair, Wellness"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 mb-1 block">
+                        Duration (minutes) *
+                      </label>
+                      <Input
+                        type="number"
+                        value={newService.durationMinutes}
+                        onChange={(e) => setNewService({ ...newService, durationMinutes: Number(e.target.value) })}
+                        min="1"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 mb-1 block">
+                        Buffer Time (minutes)
+                      </label>
+                      <Input
+                        type="number"
+                        value={newService.bufferMinutes || 0}
+                        onChange={(e) => setNewService({ ...newService, bufferMinutes: Number(e.target.value) })}
+                        min="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 mb-1 block">
+                        Price (€)
+                      </label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={newService.price || ''}
+                        onChange={(e) => setNewService({ ...newService, price: e.target.value })}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 mb-1 block">
+                        Capacity (Participants)
+                      </label>
+                      <Input
+                        type="number"
+                        value={newService.capacity || 1}
+                        onChange={(e) => setNewService({ ...newService, capacity: Number(e.target.value) })}
+                        min="1"
+                        max="100"
+                        placeholder="1"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        How many people can book this service at the same time?
+                        Set to 1 for private sessions, higher for group classes.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <Button
+                      onClick={createService}
+                      disabled={!newService.name.trim() || savingId === 'new'}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      {savingId === 'new' ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4 mr-2" />
+                          Save Service
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setCreatingNew(false)
+                        setNewService({
+                          name: '',
+                          description: '',
+                          category: '',
+                          durationMinutes: 60,
+                          bufferMinutes: 0,
+                          price: '',
+                          capacity: 1,
+                          isActive: true,
+                        })
+                      }}
+                      disabled={savingId === 'new'}
+                    >
+                      <X className="w-4 h-4 mr-2" />
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Services by Category */}
+          {Object.entries(grouped).map(([category, categoryServices]) => (
+            <Card key={category}>
+              <CardHeader className="bg-gray-50 border-b">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>{category}</CardTitle>
+                    <CardDescription>
+                      {categoryServices.length} service{categoryServices.length !== 1 ? 's' : ''}
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="divide-y">
+                  {categoryServices.map((service) => {
+                    const isEditing = editingId === service.id
+                    const isSaving = savingId === service.id
+
+                    return (
+                      <div
+                        key={service.id}
+                        className={`p-4 transition-colors ${isEditing ? 'bg-blue-50/50' : 'hover:bg-gray-50'}`}
+                      >
+                        {isEditing && editingData ? (
+                          /* Edit Mode */
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="col-span-2">
+                                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                                  Service Name
+                                </label>
+                                <Input
+                                  value={editingData.name}
+                                  onChange={(e) => setEditingData({ ...editingData, name: e.target.value })}
+                                  className="font-medium"
+                                />
+                              </div>
+                              <div className="col-span-2">
+                                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                                  Description
+                                </label>
+                                <Textarea
+                                  value={editingData.description || ''}
+                                  onChange={(e) => setEditingData({ ...editingData, description: e.target.value })}
+                                  rows={2}
+                                  className="resize-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                                  Category
+                                </label>
+                                <Input
+                                  value={editingData.category || ''}
+                                  onChange={(e) => setEditingData({ ...editingData, category: e.target.value })}
+                                />
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                                  Duration (minutes)
+                                </label>
+                                <Input
+                                  type="number"
+                                  value={editingData.durationMinutes}
+                                  onChange={(e) => setEditingData({ ...editingData, durationMinutes: Number(e.target.value) })}
+                                  min="1"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                                  Buffer Time (minutes)
+                                </label>
+                                <Input
+                                  type="number"
+                                  value={editingData.bufferMinutes || 0}
+                                  onChange={(e) => setEditingData({ ...editingData, bufferMinutes: Number(e.target.value) })}
+                                  min="0"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                                  Price (€)
+                                </label>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  value={editingData.price || ''}
+                                  onChange={(e) => setEditingData({ ...editingData, price: e.target.value })}
+                                  placeholder="0.00"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                                  Capacity (Participants)
+                                </label>
+                                <Input
+                                  type="number"
+                                  value={editingData.capacity || 1}
+                                  onChange={(e) => setEditingData({ ...editingData, capacity: Number(e.target.value) })}
+                                  min="1"
+                                  max="100"
+                                  placeholder="1"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                  How many people can book this service at the same time?
+                                  Set to 1 for private sessions, higher for group classes.
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Staff Priority Section */}
+                            <div className="border-t pt-4 mt-4">
+                              <h4 className="text-sm font-semibold text-gray-900 mb-3">Staff Priority</h4>
+                              <p className="text-xs text-gray-500 mb-3">
+                                Drag to reorder. Top staff are tried first for automatic assignment.
+                              </p>
+                              <StaffPriorityInline serviceId={service.id} />
+                            </div>
+
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => saveEditing(service.id)}
+                                disabled={isSaving || !editingData.name.trim()}
+                                className="bg-blue-600 hover:bg-blue-700"
+                              >
+                                {isSaving ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    Saving...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Check className="w-4 h-4 mr-2" />
+                                    Save Changes
+                                  </>
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={cancelEditing}
+                                disabled={isSaving}
+                              >
+                                <X className="w-4 h-4 mr-2" />
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          /* View Mode */
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="font-semibold text-gray-900 text-lg">{service.name}</h3>
+                                {!service.isActive && (
+                                  <Badge variant="outline" className="text-xs">
+                                    Inactive
+                                  </Badge>
+                                )}
+                              </div>
+                              {service.description && (
+                                <p className="text-sm text-gray-600 mb-2">{service.description}</p>
+                              )}
+                              <div className="flex items-center gap-4 text-sm text-gray-500">
+                                <span className="flex items-center gap-1">
+                                  <Clock className="h-4 w-4" />
+                                  {service.durationMinutes} min
+                                </span>
+                                {service.bufferMinutes && service.bufferMinutes > 0 && (
+                                  <span>+ {service.bufferMinutes} min buffer</span>
+                                )}
+                                {service.price ? (
+                                  <span className="font-semibold text-gray-900">€{service.price}</span>
+                                ) : (
+                                  <span className="text-gray-400">Free</span>
+                                )}
+                                {service.capacity && service.capacity > 1 && (
+                                  <Badge variant="secondary" className="ml-1">
+                                    Group: {service.capacity} spots
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleToggleActive(service)}
+                                className="gap-2"
+                              >
+                                {service.isActive ? (
+                                  <>
+                                    <EyeOff className="h-4 w-4" />
+                                    Hide
+                                  </>
+                                ) : (
+                                  <>
+                                    <Eye className="h-4 w-4" />
+                                    Show
+                                  </>
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => startEditing(service)}
+                              >
+                                <Edit className="h-4 w-4 mr-1" />
+                                Edit
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setDeleteService(service)}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               </CardContent>
             </Card>
@@ -226,33 +629,11 @@ export default function ServicesPage() {
         </div>
       )}
 
-      <ServiceForm
-        open={showForm}
-        onOpenChange={setShowForm}
-        onSubmit={handleCreate}
-      />
-
-      <ServiceForm
-        open={!!editingService}
-        onOpenChange={(open) => !open && setEditingService(null)}
-        onSubmit={handleEdit}
-        defaultValues={editingService ? {
-          name: editingService.name,
-          description: editingService.description,
-          category: editingService.category,
-          durationMinutes: editingService.durationMinutes,
-          bufferMinutes: editingService.bufferMinutes || 0,
-          price: editingService.price,
-          isActive: editingService.isActive ?? true,
-        } : undefined}
-        isEditing
-      />
-
       <ConfirmDialog
         open={!!deleteService}
         onOpenChange={(open) => !open && setDeleteService(null)}
         title="Delete Service"
-        description={`Are you sure you want to delete "${deleteService?.name}"? This will hide it from booking but preserve historical data.`}
+        description={`Are you sure you want to delete "${deleteService?.name}"? This will hide it from your services list and prevent new bookings, but historical booking data will be preserved.`}
         onConfirm={handleDelete}
         isConfirming={isDeleting}
         confirmLabel="Delete"

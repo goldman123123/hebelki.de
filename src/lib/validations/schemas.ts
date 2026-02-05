@@ -11,6 +11,7 @@ export const serviceSchema = z.object({
   durationMinutes: z.number().min(5, 'Duration must be at least 5 minutes').max(480, 'Duration cannot exceed 8 hours'),
   bufferMinutes: z.number().min(0).max(60).default(0),
   price: z.string().regex(/^(\d+(\.\d{1,2})?)?$/, 'Invalid price format').optional().nullable(),
+  capacity: z.number().min(1, 'Capacity must be at least 1').max(100, 'Capacity cannot exceed 100').default(1),
   isActive: z.boolean().default(true),
 })
 

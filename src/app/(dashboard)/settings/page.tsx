@@ -46,6 +46,7 @@ export default function SettingsPage() {
   })
 
   const [contactForm, setContactForm] = useState({
+    name: '',
     email: '',
     phone: '',
     address: '',
@@ -89,6 +90,7 @@ export default function SettingsPage() {
         primaryColor: business.primaryColor || '#3B82F6',
       })
       setContactForm({
+        name: business.name || '',
         email: business.email || '',
         phone: business.phone || '',
         address: business.address || '',
@@ -166,10 +168,6 @@ export default function SettingsPage() {
               <p className="mt-1">{business.name}</p>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-500">Type</label>
-              <p className="mt-1 capitalize">{business.type}</p>
-            </div>
-            <div>
               <label className="text-sm font-medium text-gray-500">Booking URL</label>
               <p className="mt-1">
                 <code className="rounded bg-gray-100 px-2 py-1 text-sm">
@@ -187,16 +185,6 @@ export default function SettingsPage() {
                 />
               </div>
             )}
-            <div>
-              <label className="text-sm font-medium text-gray-500">Primary Color</label>
-              <div className="mt-1 flex items-center gap-2">
-                <div
-                  className="h-6 w-6 rounded border"
-                  style={{ backgroundColor: business.primaryColor || '#3B82F6' }}
-                />
-                <code className="text-sm">{business.primaryColor}</code>
-              </div>
-            </div>
           </CardContent>
         </Card>
 
@@ -212,6 +200,12 @@ export default function SettingsPage() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-4">
+            {business.name && (
+              <div>
+                <label className="text-sm font-medium text-gray-500">Business Name</label>
+                <p className="mt-1">{business.name}</p>
+              </div>
+            )}
             {business.email && (
               <div className="flex items-center gap-3">
                 <Mail className="h-5 w-5 text-gray-400" />
@@ -346,20 +340,6 @@ export default function SettingsPage() {
           onChange={(e) => setBusinessForm({ ...businessForm, slug: e.target.value })}
           description="Used in booking URL: /book/your-slug"
         />
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Business Type</label>
-          <select
-            value={businessForm.type}
-            onChange={(e) => setBusinessForm({ ...businessForm, type: e.target.value })}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          >
-            <option value="clinic">Clinic</option>
-            <option value="salon">Salon</option>
-            <option value="consultant">Consultant</option>
-            <option value="gym">Gym</option>
-            <option value="other">Other</option>
-          </select>
-        </div>
         <FormInput
           label="Logo URL"
           name="logoUrl"
@@ -367,24 +347,6 @@ export default function SettingsPage() {
           onChange={(e) => setBusinessForm({ ...businessForm, logoUrl: e.target.value })}
           placeholder="https://..."
         />
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Primary Color</label>
-          <div className="flex items-center gap-2">
-            <input
-              type="color"
-              value={businessForm.primaryColor}
-              onChange={(e) => setBusinessForm({ ...businessForm, primaryColor: e.target.value })}
-              className="h-10 w-14 cursor-pointer rounded border"
-            />
-            <input
-              type="text"
-              value={businessForm.primaryColor}
-              onChange={(e) => setBusinessForm({ ...businessForm, primaryColor: e.target.value })}
-              className="flex h-10 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
-              placeholder="#3B82F6"
-            />
-          </div>
-        </div>
       </FormDialog>
 
       {/* Contact Info Edit Dialog */}
@@ -395,6 +357,13 @@ export default function SettingsPage() {
         onSubmit={() => handleSave('contact', contactForm)}
         isSubmitting={isSaving}
       >
+        <FormInput
+          label="Business Name"
+          name="name"
+          value={contactForm.name}
+          onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
+          required
+        />
         <FormInput
           label="Email"
           name="email"

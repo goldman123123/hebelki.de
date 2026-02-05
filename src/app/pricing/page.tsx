@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Calendar, Check, LogOut } from 'lucide-react'
+import { DevUserSwitcherPublic } from '@/components/DevUserSwitcherPublic'
 
 const tiers = [
   {
@@ -124,6 +125,7 @@ export default async function PricingPage() {
             <span className="text-xl font-bold">Hebelki</span>
           </Link>
           <div className="flex items-center gap-4">
+            <DevUserSwitcherPublic />
             {isLoggedIn ? (
               <>
                 <Link href="/dashboard">

@@ -36,12 +36,22 @@ export async function getBusinessById(id: string) {
 }
 
 export async function getBusinessForUser(clerkUserId: string) {
+  // ✅ Query business_members table (many-to-many)
   const results = await db
-    .select()
-    .from(businesses)
-    .where(eq(businesses.clerkUserId, clerkUserId))
+    .select({
+      business: businesses,
+      role: businessMembers.role,
+      status: businessMembers.status,
+    })
+    .from(businessMembers)
+    .innerJoin(businesses, eq(businesses.id, businessMembers.businessId))
+    .where(and(
+      eq(businessMembers.clerkUserId, clerkUserId),
+      eq(businessMembers.status, 'active')
+    ))
     .limit(1)
-  return results[0] || null
+
+  return results[0]?.business || null
 }
 
 export async function createBusinessForUser(data: {
@@ -52,10 +62,11 @@ export async function createBusinessForUser(data: {
   timezone?: string
   email?: string
 }) {
-  const result = await db
+  // Step 1: Create the business (without clerkUserId field)
+  const businessResult = await db
     .insert(businesses)
     .values({
-      clerkUserId: data.clerkUserId,
+      // ✅ DO NOT set clerkUserId - use business_members instead
       name: data.name,
       slug: data.slug,
       type: data.type,
@@ -64,7 +75,20 @@ export async function createBusinessForUser(data: {
     })
     .returning()
 
-  return result[0]
+  const business = businessResult[0]
+
+  // Step 2: Create owner membership in business_members table
+  await db
+    .insert(businessMembers)
+    .values({
+      businessId: business.id,
+      clerkUserId: data.clerkUserId,
+      role: 'owner',
+      status: 'active',
+      joinedAt: new Date(),
+    })
+
+  return business
 }
 
 // ============================================
@@ -479,8 +503,13 @@ export async function getBookingStats(businessId: string) {
   today.setHours(0, 0, 0, 0)
   const tomorrow = new Date(today)
   tomorrow.setDate(tomorrow.getDate() + 1)
-  const weekAgo = new Date(today)
-  weekAgo.setDate(weekAgo.getDate() - 7)
+
+  // Calculate week boundaries (Sunday to Saturday)
+  const weekStart = new Date(today)
+  weekStart.setDate(weekStart.getDate() - today.getDay()) // Start of week (Sunday)
+  weekStart.setHours(0, 0, 0, 0)
+  const weekEnd = new Date(weekStart)
+  weekEnd.setDate(weekEnd.getDate() + 7) // End of week
 
   const [todayCount, weekCount, pendingCount, totalCount] = await Promise.all([
     db.select({ count: sql<number>`count(*)` })
@@ -495,7 +524,8 @@ export async function getBookingStats(businessId: string) {
       .from(bookings)
       .where(and(
         eq(bookings.businessId, businessId),
-        gte(bookings.createdAt, weekAgo),
+        gte(bookings.startsAt, weekStart),
+        lte(bookings.startsAt, weekEnd),
         sql`${bookings.status} NOT IN ('cancelled')`
       )),
     db.select({ count: sql<number>`count(*)` })
@@ -604,6 +634,7 @@ export async function createService(data: {
   durationMinutes: number
   bufferMinutes?: number
   price?: string | null
+  capacity?: number
   isActive?: boolean
 }) {
   const result = await db
@@ -616,6 +647,7 @@ export async function createService(data: {
       durationMinutes: data.durationMinutes,
       bufferMinutes: data.bufferMinutes || 0,
       price: data.price,
+      capacity: data.capacity || 1,
       isActive: data.isActive ?? true,
     })
     .returning()
@@ -632,6 +664,7 @@ export async function updateService(
     durationMinutes?: number
     bufferMinutes?: number
     price?: string | null
+    capacity?: number
     isActive?: boolean
   }
 ) {

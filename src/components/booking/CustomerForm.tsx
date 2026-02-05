@@ -41,13 +41,13 @@ export function CustomerForm({
     const newErrors: Record<string, string> = {}
 
     if (!name.trim()) {
-      newErrors.name = 'Name is required'
+      newErrors.name = 'Name ist erforderlich'
     }
 
     if (!email.trim()) {
-      newErrors.email = 'Email is required'
+      newErrors.email = 'E-Mail ist erforderlich'
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      newErrors.email = 'Please enter a valid email address'
+      newErrors.email = 'Bitte geben Sie eine gültige E-Mail-Adresse ein'
     }
 
     setErrors(newErrors)
@@ -64,13 +64,13 @@ export function CustomerForm({
   return (
     <div>
       <h2 className="mb-4 text-lg font-semibold text-gray-900">
-        Your Details
+        Ihre Angaben
       </h2>
 
       {/* Booking summary */}
       <div className="mb-6 rounded-lg bg-gray-50 p-4">
         <h3 className="mb-3 text-sm font-medium text-gray-700">
-          Booking Summary
+          Buchungsübersicht
         </h3>
         <div className="space-y-2 text-sm">
           <div className="flex items-center gap-2 text-gray-600">
@@ -107,7 +107,7 @@ export function CustomerForm({
           <Input
             id="name"
             type="text"
-            placeholder="Your full name"
+            placeholder="Ihr vollständiger Name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             className={errors.name ? 'border-red-500' : ''}
@@ -135,7 +135,7 @@ export function CustomerForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="phone">Phone (optional)</Label>
+          <Label htmlFor="phone">Telefon (optional)</Label>
           <Input
             id="phone"
             type="tel"
@@ -147,10 +147,10 @@ export function CustomerForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="notes">Notes (optional)</Label>
+          <Label htmlFor="notes">Anmerkungen (optional)</Label>
           <Textarea
             id="notes"
-            placeholder="Any special requests or information..."
+            placeholder="Besondere Wünsche oder Hinweise..."
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
@@ -167,10 +167,10 @@ export function CustomerForm({
           {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Booking...
+              Wird gebucht...
             </>
           ) : (
-            'Confirm Booking'
+            'Buchung bestätigen'
           )}
         </Button>
       </form>

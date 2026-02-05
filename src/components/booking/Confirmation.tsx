@@ -33,20 +33,20 @@ export function Confirmation({
 
       {/* Title */}
       <h2 className="mb-2 text-xl font-semibold text-gray-900">
-        {requireApproval ? 'Booking Request Sent!' : 'Booking Confirmed!'}
+        {requireApproval ? 'Buchungsanfrage gesendet!' : 'Buchung bestätigt!'}
       </h2>
 
       {/* Message */}
       <p className="mb-6 text-gray-600">
         {requireApproval
-          ? `Your booking request has been sent to ${businessName}. You'll receive a confirmation email once it's approved.`
-          : `Your appointment has been confirmed. A confirmation email has been sent to your inbox.`}
+          ? `Ihre Buchungsanfrage wurde an ${businessName} gesendet. Sie erhalten eine Bestätigungs-E-Mail, sobald sie genehmigt wurde.`
+          : `Ihr Termin wurde bestätigt. Eine Bestätigungs-E-Mail wurde an Ihre Adresse gesendet.`}
       </p>
 
       {/* Booking details */}
       <div className="mb-6 rounded-lg bg-gray-50 p-4 text-left">
         <h3 className="mb-3 text-sm font-medium text-gray-700">
-          Booking Details
+          Buchungsdetails
         </h3>
         <div className="space-y-2 text-sm">
           <div className="flex items-center gap-2 text-gray-600">
@@ -77,7 +77,7 @@ export function Confirmation({
         {/* Booking reference */}
         <div className="mt-4 border-t border-gray-200 pt-3">
           <p className="text-xs text-gray-500">
-            Booking reference:{' '}
+            Buchungsnummer:{' '}
             <span className="font-mono font-medium text-gray-700">
               {bookingId.slice(0, 8).toUpperCase()}
             </span>
@@ -92,7 +92,7 @@ export function Confirmation({
           className="w-full"
           onClick={onBookAnother}
         >
-          Book Another Appointment
+          Weiteren Termin buchen
         </Button>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -7,6 +7,8 @@ import { getBookingById } from '@/lib/db/queries'
 import { formatDate, formatTime, formatCurrency } from '@/lib/utils'
 import { ArrowLeft, User, Briefcase, Clock, DollarSign, Mail, Phone, FileText } from 'lucide-react'
 import { BookingDetailActions } from './BookingDetailActions'
+import { auth } from '@clerk/nextjs/server'
+import { getUserFirstBusiness } from '@/lib/auth-helpers'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -14,6 +16,15 @@ interface PageProps {
 
 export default async function BookingDetailPage({ params }: PageProps) {
   const { id } = await params
+  const { userId } = await auth()
+  if (!userId) redirect('/sign-in')
+
+  const memberData = await getUserFirstBusiness()
+  if (!memberData?.business) redirect('/onboarding')
+
+  const business = memberData.business
+  const timezone = business.timezone || 'Europe/Berlin'
+
   const result = await getBookingById(id)
 
   if (!result) {
@@ -36,7 +47,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Booking Details</h1>
             <p className="text-gray-600">
-              {formatDate(booking.startsAt)} at {formatTime(booking.startsAt)}
+              {formatDate(booking.startsAt, timezone)} at {formatTime(booking.startsAt, timezone)}
             </p>
           </div>
           <StatusBadge status={booking.status || 'pending'} className="text-sm px-3 py-1" />
@@ -56,10 +67,10 @@ export default async function BookingDetailPage({ params }: PageProps) {
             <div>
               <p className="text-sm text-gray-500">Date & Time</p>
               <p className="font-medium">
-                {formatDate(booking.startsAt)}
+                {formatDate(booking.startsAt, timezone)}
               </p>
               <p className="text-gray-600">
-                {formatTime(booking.startsAt)} - {formatTime(booking.endsAt)}
+                {formatTime(booking.startsAt, timezone)} - {formatTime(booking.endsAt, timezone)}
               </p>
             </div>
             <div>
@@ -167,7 +178,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
                 <p className="text-red-700">{booking.cancellationReason}</p>
                 {booking.cancelledAt && (
                   <p className="text-sm text-red-600">
-                    {formatDate(booking.cancelledAt)} at {formatTime(booking.cancelledAt)}
+                    {formatDate(booking.cancelledAt, timezone)} at {formatTime(booking.cancelledAt, timezone)}
                   </p>
                 )}
               </div>

@@ -185,7 +185,7 @@ export function BookingWidget({ business, services, staff }: BookingWidgetProps)
                 </Button>
               )}
               <span className="text-sm font-medium text-gray-700">
-                Step {currentStepIndex + 1} of {STEPS.length - 1}
+                Schritt {currentStepIndex + 1} von {STEPS.length - 1}
               </span>
             </div>
             <div className="flex gap-1">

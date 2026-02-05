@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getBusinessBySlug, getServiceById } from '@/lib/db/queries'
-import { getAvailableSlots, getAvailableDates } from '@/lib/availability'
+import { getAvailableSlots, getAvailableDates, getAvailableSlotsWithStaff } from '@/lib/availability'
 
 export async function GET(
   request: NextRequest,
@@ -46,18 +46,39 @@ export async function GET(
       minBookingNoticeHours: business.minBookingNoticeHours || 24,
       maxAdvanceBookingDays: business.maxAdvanceBookingDays || 60,
       timezone: business.timezone || 'Europe/Berlin',
+      capacity: service.capacity || 1,
     }
 
     // If date is provided, return time slots for that date
     if (date) {
-      const slots = await getAvailableSlots(config, new Date(date))
-      return NextResponse.json({
-        slots: slots.map((s) => ({
-          start: s.start.toISOString(),
-          end: s.end.toISOString(),
-          available: s.available,
-        })),
-      })
+      // Parse date string - just extract year/month/day components
+      // The availability function will handle timezone conversion properly
+      const [year, month, day] = date.split('-').map(Number)
+      const dateObj = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0))
+
+      // Use staff recommendation if staffId is not specified
+      if (!staffId) {
+        const slots = await getAvailableSlotsWithStaff(config, dateObj)
+        return NextResponse.json({
+          slots: slots.map((s) => ({
+            start: s.start.toISOString(),
+            end: s.end.toISOString(),
+            available: s.available,
+            recommendedStaffId: s.recommendedStaffId || null,
+            recommendedStaffName: s.recommendedStaffName || null,
+          })),
+        })
+      } else {
+        // Staff specified - use regular availability check
+        const slots = await getAvailableSlots(config, dateObj)
+        return NextResponse.json({
+          slots: slots.map((s) => ({
+            start: s.start.toISOString(),
+            end: s.end.toISOString(),
+            available: s.available,
+          })),
+        })
+      }
     }
 
     // If month is provided, return available dates for that month

@@ -15,6 +15,34 @@
       "when": 1770160227567,
       "tag": "0001_true_phantom_reporter",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1770176268291,
+      "tag": "0002_superb_johnny_storm",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1770213035593,
+      "tag": "0003_moaning_riptide",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1770241015672,
+      "tag": "0004_woozy_revanche",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1770264705964,
+      "tag": "0005_sudden_sally_floyd",
+      "breakpoints": true
     }
   ]
 }

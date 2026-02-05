@@ -26,7 +26,7 @@ export function ServicePicker({ services, currency, onSelect }: ServicePickerPro
   return (
     <div>
       <h2 className="mb-4 text-lg font-semibold text-gray-900">
-        Select a Service
+        Wählen Sie eine Leistung
       </h2>
 
       {categories.map((category) => (
@@ -80,7 +80,7 @@ export function ServicePicker({ services, currency, onSelect }: ServicePickerPro
 
       {services.length === 0 && (
         <div className="rounded-lg border border-dashed border-gray-300 p-8 text-center">
-          <p className="text-gray-500">No services available at the moment.</p>
+          <p className="text-gray-500">Momentan sind keine Leistungen verfügbar.</p>
         </div>
       )}
     </div>

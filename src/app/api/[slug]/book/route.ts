@@ -55,7 +55,7 @@ export async function POST(
       )
     }
 
-    // Verify slot is still available
+    // Verify slot is still available (with capacity check)
     const config = {
       businessId: business.id,
       serviceId,
@@ -65,6 +65,7 @@ export async function POST(
       minBookingNoticeHours: business.minBookingNoticeHours || 24,
       maxAdvanceBookingDays: business.maxAdvanceBookingDays || 60,
       timezone: business.timezone || 'Europe/Berlin',
+      capacity: service.capacity || 1, // Add capacity to config
     }
 
     const slotStart = new Date(startsAt)
@@ -75,6 +76,43 @@ export async function POST(
         { error: 'This time slot is no longer available. Please select another time.' },
         { status: 409 }
       )
+    }
+
+    // Additional capacity check: Query existing bookings for this specific slot and service
+    const slotEnd = new Date(slotStart.getTime() + service.durationMinutes * 60 * 1000)
+    const { bookings: existingSlotBookings } = await import('@/lib/db/schema')
+    const { eq, and, gte, lt } = await import('drizzle-orm')
+
+    const conflictingBookings = await db
+      .select()
+      .from(existingSlotBookings)
+      .where(
+        and(
+          eq(existingSlotBookings.businessId, business.id),
+          eq(existingSlotBookings.serviceId, serviceId),
+          gte(existingSlotBookings.startsAt, slotStart),
+          lt(existingSlotBookings.startsAt, slotEnd)
+        )
+      )
+
+    // If staff is specified, check staff availability
+    if (staffId) {
+      const staffBookings = conflictingBookings.filter(b => b.staffId === staffId)
+      if (staffBookings.length > 0) {
+        return NextResponse.json(
+          { error: 'Staff member is busy at this time. Please select another time or staff member.' },
+          { status: 409 }
+        )
+      }
+    } else {
+      // Check service capacity
+      const serviceCapacity = service.capacity || 1
+      if (conflictingBookings.length >= serviceCapacity) {
+        return NextResponse.json(
+          { error: 'This time slot is fully booked. Please select another time.' },
+          { status: 409 }
+        )
+      }
     }
 
     // Get or create customer
@@ -110,7 +148,7 @@ export async function POST(
           price: service.price || undefined,
           notes,
           source: 'web',
-          status: 'pending',
+          status: business.requireApproval ? 'pending' : 'confirmed',
         })
         .returning()
 

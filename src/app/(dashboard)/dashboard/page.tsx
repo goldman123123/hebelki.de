@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Calendar, Clock, Users, TrendingUp } from 'lucide-react'
 import { getBookingStats, getTodaysBookings } from '@/lib/db/queries'
 import { getBusinessForUser } from '@/lib/auth'
-import { formatTime } from '@/lib/utils'
+import { formatTime, formatDate } from '@/lib/utils'
 
 export default async function DashboardPage() {
   const { userId } = await auth()
@@ -24,6 +24,8 @@ export default async function DashboardPage() {
     getBookingStats(business.id),
     getTodaysBookings(business.id),
   ])
+
+  const timezone = business.timezone || 'Europe/Berlin'
 
   const statusColors: Record<string, string> = {
     pending: 'bg-yellow-100 text-yellow-800',
@@ -105,12 +107,7 @@ export default async function DashboardPage() {
         <CardHeader>
           <CardTitle>Today's Schedule</CardTitle>
           <CardDescription>
-            {new Date().toLocaleDateString('en-US', {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-            })}
+            {formatDate(new Date(), timezone)}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -128,7 +125,7 @@ export default async function DashboardPage() {
                   <div className="flex items-center gap-4">
                     <div className="text-center">
                       <div className="text-lg font-semibold">
-                        {formatTime(booking.startsAt)}
+                        {formatTime(booking.startsAt, timezone)}
                       </div>
                       <div className="text-xs text-gray-500">
                         {service?.durationMinutes || 0} min

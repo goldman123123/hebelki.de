@@ -3,6 +3,9 @@ import { requireBusinessAuth } from '@/lib/auth'
 import { getAllServices, createService } from '@/lib/db/queries'
 import { serviceSchema } from '@/lib/validations/schemas'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export async function GET() {
   const authResult = await requireBusinessAuth()
   if (!authResult.success) {
@@ -11,7 +14,11 @@ export async function GET() {
 
   const services = await getAllServices(authResult.business.id)
 
-  return NextResponse.json({ services })
+  return NextResponse.json({ services }, {
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+    },
+  })
 }
 
 export async function POST(request: NextRequest) {

@@ -3,11 +3,14 @@
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 
 interface TimeSlot {
   start: string
   end: string
   available: boolean
+  currentBookings?: number
+  capacity?: number
 }
 
 interface TimePickerProps {
@@ -83,6 +86,39 @@ export function TimePicker({
     })
   }
 
+  const renderSlotButton = (slot: TimeSlot) => {
+    const hasCapacity = slot.capacity && slot.capacity > 1
+    const remainingSpots = hasCapacity
+      ? slot.capacity! - (slot.currentBookings || 0)
+      : null
+
+    return (
+      <button
+        key={slot.start}
+        onClick={() => onSelect(new Date(slot.start))}
+        className={cn(
+          'rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium',
+          'transition-all hover:border-primary hover:bg-primary/5',
+          'focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2',
+          'flex flex-col items-center gap-1'
+        )}
+      >
+        <span>{formatTime(slot.start)}</span>
+        {hasCapacity && remainingSpots !== null && (
+          <Badge
+            variant="secondary"
+            className={cn(
+              'text-xs px-2 py-0',
+              remainingSpots <= 2 ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
+            )}
+          >
+            {remainingSpots}/{slot.capacity} spots
+          </Badge>
+        )}
+      </button>
+    )
+  }
+
   if (isLoading) {
     return (
       <div className="flex h-[200px] items-center justify-center">
@@ -95,11 +131,11 @@ export function TimePicker({
     return (
       <div>
         <h2 className="mb-4 text-lg font-semibold text-gray-900">
-          Choose a Time
+          Wählen Sie eine Uhrzeit
         </h2>
         <div className="rounded-lg border border-dashed border-gray-300 p-8 text-center">
           <p className="text-gray-500">
-            No available time slots for this date. Please select a different date.
+            Keine verfügbaren Zeitfenster für dieses Datum. Bitte wählen Sie ein anderes Datum.
           </p>
         </div>
       </div>
@@ -115,63 +151,27 @@ export function TimePicker({
       <div className="space-y-6">
         {groupedSlots.morning.length > 0 && (
           <div>
-            <h3 className="mb-3 text-sm font-medium text-gray-500">Morning</h3>
+            <h3 className="mb-3 text-sm font-medium text-gray-500">Vormittag</h3>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-              {groupedSlots.morning.map((slot) => (
-                <button
-                  key={slot.start}
-                  onClick={() => onSelect(new Date(slot.start))}
-                  className={cn(
-                    'rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium',
-                    'transition-all hover:border-primary hover:bg-primary/5',
-                    'focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2'
-                  )}
-                >
-                  {formatTime(slot.start)}
-                </button>
-              ))}
+              {groupedSlots.morning.map((slot) => renderSlotButton(slot))}
             </div>
           </div>
         )}
 
         {groupedSlots.afternoon.length > 0 && (
           <div>
-            <h3 className="mb-3 text-sm font-medium text-gray-500">Afternoon</h3>
+            <h3 className="mb-3 text-sm font-medium text-gray-500">Nachmittag</h3>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-              {groupedSlots.afternoon.map((slot) => (
-                <button
-                  key={slot.start}
-                  onClick={() => onSelect(new Date(slot.start))}
-                  className={cn(
-                    'rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium',
-                    'transition-all hover:border-primary hover:bg-primary/5',
-                    'focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2'
-                  )}
-                >
-                  {formatTime(slot.start)}
-                </button>
-              ))}
+              {groupedSlots.afternoon.map((slot) => renderSlotButton(slot))}
             </div>
           </div>
         )}
 
         {groupedSlots.evening.length > 0 && (
           <div>
-            <h3 className="mb-3 text-sm font-medium text-gray-500">Evening</h3>
+            <h3 className="mb-3 text-sm font-medium text-gray-500">Abend</h3>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-              {groupedSlots.evening.map((slot) => (
-                <button
-                  key={slot.start}
-                  onClick={() => onSelect(new Date(slot.start))}
-                  className={cn(
-                    'rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium',
-                    'transition-all hover:border-primary hover:bg-primary/5',
-                    'focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2'
-                  )}
-                >
-                  {formatTime(slot.start)}
-                </button>
-              ))}
+              {groupedSlots.evening.map((slot) => renderSlotButton(slot))}
             </div>
           </div>
         )}
