@@ -55,6 +55,28 @@ export interface IngestionJob {
   mime_type?: string // Joined from document_versions
 }
 
+export interface UrlIngestionJob {
+  id: string
+  business_id: string
+  source_type: 'url'
+  source_url: string
+  discovered_urls: string[]
+  scrape_config: {
+    audience: string
+    scopeType: string
+    dataClass: string
+  }
+  extract_services: boolean
+  status: JobStatus
+  stage?: string
+  error_code?: string
+  attempts: number
+  max_attempts: number
+  last_error: string | null
+  created_at: string
+  updated_at: string
+}
+
 /**
  * Claim jobs for processing using FOR UPDATE SKIP LOCKED
  * This prevents race conditions with multiple workers
@@ -284,6 +306,51 @@ export async function saveChunksWithEmbeddings(
       SET embedding = ${JSON.stringify(chunk.embedding)}::vector
     `
   }
+}
+
+/**
+ * Claim URL jobs for processing
+ * URL jobs have source_type='url' and status='queued'
+ */
+export async function claimUrlJobs(batchSize: number): Promise<UrlIngestionJob[]> {
+  const result = await sql`
+    WITH claimed AS (
+      SELECT ij.id
+      FROM ingestion_jobs ij
+      WHERE ij.source_type = 'url'
+        AND ij.status = 'queued'
+        AND (ij.next_retry_at IS NULL OR ij.next_retry_at <= NOW())
+      ORDER BY ij.created_at
+      LIMIT ${batchSize}
+      FOR UPDATE SKIP LOCKED
+    )
+    UPDATE ingestion_jobs
+    SET
+      status = 'processing',
+      stage = 'scraping',
+      attempts = attempts + 1,
+      started_at = NOW(),
+      updated_at = NOW()
+    WHERE id IN (SELECT id FROM claimed)
+    RETURNING
+      id,
+      business_id,
+      source_type,
+      source_url,
+      discovered_urls,
+      scrape_config,
+      extract_services,
+      status,
+      stage,
+      error_code,
+      attempts,
+      max_attempts,
+      last_error,
+      created_at,
+      updated_at
+  `
+
+  return result as UrlIngestionJob[]
 }
 
 export { sql }

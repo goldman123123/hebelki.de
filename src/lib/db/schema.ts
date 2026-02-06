@@ -609,6 +609,17 @@ export const chatbotKnowledge = pgTable('chatbot_knowledge', {
 
   isActive: boolean('is_active').default(true),
 
+  // Link to source document (for traceability - EU AI Act compliance)
+  sourceDocumentId: uuid('source_document_id').references(() => documents.id, { onDelete: 'set null' }),
+
+  // Access control (Phase 1: Business Logic Separation)
+  // audience: 'public' = safe for customer bot, 'internal' = staff/owner only
+  audience: text('audience').notNull().default('public'),
+  // scopeType: 'global' = everyone in business, 'customer' = specific customer, 'staff' = specific staff
+  scopeType: text('scope_type').notNull().default('global'),
+  // scopeId: Required when scopeType != 'global' (customerId or staffId)
+  scopeId: uuid('scope_id'),
+
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 }, (table) => ({
@@ -616,6 +627,10 @@ export const chatbotKnowledge = pgTable('chatbot_knowledge', {
   sourceIdx: index('chatbot_knowledge_source_idx').on(table.source),
   categoryIdx: index('chatbot_knowledge_category_idx').on(table.category),
   embeddingIdx: index('chatbot_knowledge_embedding_idx').using('hnsw', table.embedding.op('vector_cosine_ops')),
+  // Index for access control filtering
+  audienceScopeIdx: index('chatbot_knowledge_audience_scope_idx').on(table.businessId, table.audience, table.scopeType, table.scopeId),
+  // Index for document traceability
+  sourceDocumentIdx: index('chatbot_knowledge_source_document_idx').on(table.sourceDocumentId),
 }));
 
 // ============================================
@@ -794,6 +809,10 @@ export const chatbotKnowledgeRelations = relations(chatbotKnowledge, ({ one }) =
     fields: [chatbotKnowledge.businessId],
     references: [businesses.id],
   }),
+  sourceDocument: one(documents, {
+    fields: [chatbotKnowledge.sourceDocumentId],
+    references: [documents.id],
+  }),
 }));
 
 export const supportTicketsRelations = relations(supportTickets, ({ one, many }) => ({
@@ -831,5 +850,275 @@ export const invoicesRelations = relations(invoices, ({ one }) => ({
   booking: one(bookings, {
     fields: [invoices.bookingId],
     references: [bookings.id],
+  }),
+}));
+
+// ============================================
+// DOCUMENT INGESTION MODULE (PDF Connector)
+// ============================================
+
+/**
+ * Logical document record
+ * Tracks a document's lifecycle and metadata
+ */
+export const documents = pgTable('documents', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  businessId: uuid('business_id').notNull().references(() => businesses.id, { onDelete: 'cascade' }),
+
+  // Document metadata
+  title: text('title').notNull(),
+  originalFilename: text('original_filename').notNull(),
+
+  // Status: active, deleted_pending, deleted
+  status: text('status').notNull().default('active'),
+
+  // Who uploaded this document
+  uploadedBy: text('uploaded_by'), // clerkUserId
+
+  // Labels for organization (optional)
+  labels: jsonb('labels').default([]),
+
+  // Access control (Phase 1: Business Logic Separation)
+  // audience: 'public' = safe for customer bot, 'internal' = staff/owner only
+  audience: text('audience').notNull().default('public'),
+  // scopeType: 'global' = everyone in business, 'customer' = specific customer, 'staff' = specific staff
+  scopeType: text('scope_type').notNull().default('global'),
+  // scopeId: Required when scopeType != 'global' (customerId or staffId)
+  scopeId: uuid('scope_id'),
+  // dataClass: 'knowledge' = index for RAG, 'stored_only' = store but don't embed
+  dataClass: text('data_class').notNull().default('knowledge'),
+  // containsPii: True for CSV/log imports with potential sensitive data
+  containsPii: boolean('contains_pii').default(false),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+}, (table) => ({
+  businessIdx: index('documents_business_idx').on(table.businessId),
+  statusIdx: index('documents_status_idx').on(table.status),
+  // Index for access control filtering
+  audienceScopeIdx: index('documents_audience_scope_idx').on(table.businessId, table.audience, table.scopeType, table.scopeId),
+}));
+
+/**
+ * Physical file version in R2
+ * Supports versioning - never overwrite PDFs
+ */
+export const documentVersions = pgTable('document_versions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  documentId: uuid('document_id').notNull().references(() => documents.id, { onDelete: 'cascade' }),
+
+  // Version number (starts at 1)
+  version: integer('version').notNull().default(1),
+
+  // R2 storage key
+  r2Key: text('r2_key').notNull(),
+
+  // File metadata
+  fileSize: integer('file_size'), // in bytes
+  mimeType: text('mime_type').default('application/pdf'),
+
+  // Deduplication via content hash
+  sha256Hash: text('sha256_hash'),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  documentIdx: index('document_versions_document_idx').on(table.documentId),
+  // Unique version per document
+  versionIdx: uniqueIndex('document_versions_version_idx').on(table.documentId, table.version),
+  // Unique R2 key
+  r2KeyIdx: uniqueIndex('document_versions_r2_key_idx').on(table.r2Key),
+}));
+
+/**
+ * Processing job state machine
+ * Tracks extraction, chunking, and embedding pipeline
+ * Supports both PDF documents and URL scraping
+ */
+export const ingestionJobs = pgTable('ingestion_jobs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  // Nullable for URL jobs that don't have a document
+  documentVersionId: uuid('document_version_id').references(() => documentVersions.id, { onDelete: 'cascade' }),
+  businessId: uuid('business_id').notNull().references(() => businesses.id, { onDelete: 'cascade' }),
+
+  // Source type for parser router: 'pdf' | 'url'
+  sourceType: text('source_type').notNull().default('pdf'),
+
+  // URL scraping fields (null for PDF jobs)
+  sourceUrl: text('source_url'),
+  discoveredUrls: jsonb('discovered_urls').default([]),
+  scrapeConfig: jsonb('scrape_config').default({}),
+  extractServices: boolean('extract_services').default(false),
+
+  // Status: queued, processing, done, failed, retry_ready
+  // (Simplified - use 'stage' for progress, 'errorCode' for failure reason)
+  status: text('status').notNull().default('queued'),
+
+  // Current processing stage (for progress):
+  // PDF: uploaded, parsing, chunking, embedding, cleanup
+  // URL: discovering, scraping, chunking, embedding, extracting
+  stage: text('stage'),
+
+  // Error classification (why it failed): extraction_empty, needs_ocr, parse_failed, scrape_failed, etc.
+  errorCode: text('error_code'),
+
+  // Retry logic
+  attempts: integer('attempts').default(0).notNull(),
+  maxAttempts: integer('max_attempts').default(3).notNull(),
+  lastError: text('last_error'),
+  nextRetryAt: timestamp('next_retry_at', { withTimezone: true }),
+
+  // Timing
+  startedAt: timestamp('started_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+
+  // Pipeline metadata (parser version, chunker version, model, timings)
+  metrics: jsonb('metrics').default({}),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  versionIdx: index('ingestion_jobs_version_idx').on(table.documentVersionId),
+  businessIdx: index('ingestion_jobs_business_idx').on(table.businessId),
+  statusIdx: index('ingestion_jobs_status_idx').on(table.status),
+  // For job claim query (status + retry)
+  claimIdx: index('ingestion_jobs_claim_idx').on(table.status, table.nextRetryAt),
+  // For URL jobs lookup
+  sourceUrlIdx: index('ingestion_jobs_source_url_idx').on(table.sourceUrl),
+}));
+
+/**
+ * Per-page extracted text
+ * For citations and page-level references
+ */
+export const documentPages = pgTable('document_pages', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  documentVersionId: uuid('document_version_id').notNull().references(() => documentVersions.id, { onDelete: 'cascade' }),
+
+  // Page number (1-indexed)
+  pageNumber: integer('page_number').notNull(),
+
+  // Extracted text content
+  content: text('content').notNull(),
+
+  // Page metadata (word count, etc.)
+  metadata: jsonb('metadata').default({}),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  versionIdx: index('document_pages_version_idx').on(table.documentVersionId),
+  pageIdx: uniqueIndex('document_pages_page_idx').on(table.documentVersionId, table.pageNumber),
+}));
+
+/**
+ * Text chunks with provenance
+ * NO embedding here - kept separate for clean indexing
+ */
+export const documentChunks = pgTable('document_chunks', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  documentVersionId: uuid('document_version_id').notNull().references(() => documentVersions.id, { onDelete: 'cascade' }),
+  businessId: uuid('business_id').notNull().references(() => businesses.id, { onDelete: 'cascade' }),
+
+  // Position in document
+  chunkIndex: integer('chunk_index').notNull(),
+
+  // Chunk content
+  content: text('content').notNull(),
+
+  // Page provenance for citations
+  pageStart: integer('page_start').notNull(),
+  pageEnd: integer('page_end').notNull(),
+
+  // Chunk metadata (heading, section, etc.)
+  metadata: jsonb('metadata').default({}),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  versionIdx: index('document_chunks_version_idx').on(table.documentVersionId),
+  businessIdx: index('document_chunks_business_idx').on(table.businessId),
+  // Unique chunk per version
+  chunkIdx: uniqueIndex('document_chunks_chunk_idx').on(table.documentVersionId, table.chunkIndex),
+}));
+
+/**
+ * Chunk embeddings
+ * Separate table for clean HNSW indexing
+ */
+export const chunkEmbeddings = pgTable('chunk_embeddings', {
+  chunkId: uuid('chunk_id').primaryKey().references(() => documentChunks.id, { onDelete: 'cascade' }),
+  businessId: uuid('business_id').notNull().references(() => businesses.id, { onDelete: 'cascade' }),
+
+  // Embedding vector (1536 dimensions for text-embedding-3-small)
+  embedding: vector('embedding', { dimensions: 1536 }).notNull(),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  businessIdx: index('chunk_embeddings_business_idx').on(table.businessId),
+  embeddingIdx: index('chunk_embeddings_hnsw').using('hnsw', table.embedding.op('vector_cosine_ops')),
+}));
+
+// ============================================
+// DOCUMENT RELATIONS
+// ============================================
+
+export const documentsRelations = relations(documents, ({ one, many }) => ({
+  business: one(businesses, {
+    fields: [documents.businessId],
+    references: [businesses.id],
+  }),
+  versions: many(documentVersions),
+}));
+
+export const documentVersionsRelations = relations(documentVersions, ({ one, many }) => ({
+  document: one(documents, {
+    fields: [documentVersions.documentId],
+    references: [documents.id],
+  }),
+  jobs: many(ingestionJobs),
+  pages: many(documentPages),
+  chunks: many(documentChunks),
+}));
+
+export const ingestionJobsRelations = relations(ingestionJobs, ({ one }) => ({
+  documentVersion: one(documentVersions, {
+    fields: [ingestionJobs.documentVersionId],
+    references: [documentVersions.id],
+  }),
+  business: one(businesses, {
+    fields: [ingestionJobs.businessId],
+    references: [businesses.id],
+  }),
+}));
+
+export const documentPagesRelations = relations(documentPages, ({ one }) => ({
+  documentVersion: one(documentVersions, {
+    fields: [documentPages.documentVersionId],
+    references: [documentVersions.id],
+  }),
+}));
+
+export const documentChunksRelations = relations(documentChunks, ({ one }) => ({
+  documentVersion: one(documentVersions, {
+    fields: [documentChunks.documentVersionId],
+    references: [documentVersions.id],
+  }),
+  business: one(businesses, {
+    fields: [documentChunks.businessId],
+    references: [businesses.id],
+  }),
+  embedding: one(chunkEmbeddings, {
+    fields: [documentChunks.id],
+    references: [chunkEmbeddings.chunkId],
+  }),
+}));
+
+export const chunkEmbeddingsRelations = relations(chunkEmbeddings, ({ one }) => ({
+  chunk: one(documentChunks, {
+    fields: [chunkEmbeddings.chunkId],
+    references: [documentChunks.id],
+  }),
+  business: one(businesses, {
+    fields: [chunkEmbeddings.businessId],
+    references: [businesses.id],
   }),
 }));

@@ -50,6 +50,20 @@
       "when": 1770316737787,
       "tag": "0006_clean_kid_colt",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1770388354194,
+      "tag": "0007_lonely_dreaming_celestial",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1770405508844,
+      "tag": "0008_broken_santa_claus",
+      "breakpoints": true
     }
   ]
 }

@@ -5,8 +5,9 @@
  * Uses FOR UPDATE SKIP LOCKED for safe concurrent processing.
  */
 
-import { claimJobs, type IngestionJob } from './db.js'
+import { claimJobs, claimUrlJobs, type IngestionJob, type UrlIngestionJob } from './db.js'
 import { processJob } from './job-processor.js'
+import { processUrlJob } from './url-processor.js'
 
 const POLL_INTERVAL_MS = 3000 // 3 seconds when no work
 const WORKER_CONCURRENCY = parseInt(process.env.WORKER_CONCURRENCY || '2', 10)
@@ -45,27 +46,40 @@ async function main() {
 
   while (!isShuttingDown) {
     try {
-      // Claim jobs from the queue
-      const jobs = await claimJobs(JOB_BATCH_SIZE)
+      // Claim document jobs from the queue
+      const docJobs = await claimJobs(JOB_BATCH_SIZE)
 
-      if (jobs.length === 0) {
+      // Claim URL jobs from the queue
+      const urlJobs = await claimUrlJobs(JOB_BATCH_SIZE)
+
+      if (docJobs.length === 0 && urlJobs.length === 0) {
         // No work, sleep and try again
         await sleep(POLL_INTERVAL_MS)
         continue
       }
 
-      console.log(`\n[Worker] Claimed ${jobs.length} jobs`)
+      // Process document jobs
+      if (docJobs.length > 0) {
+        console.log(`\n[Worker] Claimed ${docJobs.length} document jobs`)
+        const docResults = await processJobsWithConcurrency(docJobs, WORKER_CONCURRENCY)
+        const docSucceeded = docResults.filter(r => r.success).length
+        const docFailed = docResults.filter(r => !r.success).length
+        totalProcessed += docSucceeded
+        totalFailed += docFailed
+        console.log(`[Worker] Document batch: ${docSucceeded} succeeded, ${docFailed} failed`)
+      }
 
-      // Process jobs with bounded concurrency
-      const results = await processJobsWithConcurrency(jobs, WORKER_CONCURRENCY)
+      // Process URL jobs
+      if (urlJobs.length > 0) {
+        console.log(`\n[Worker] Claimed ${urlJobs.length} URL jobs`)
+        const urlResults = await processUrlJobsWithConcurrency(urlJobs, WORKER_CONCURRENCY)
+        const urlSucceeded = urlResults.filter(r => r.success).length
+        const urlFailed = urlResults.filter(r => !r.success).length
+        totalProcessed += urlSucceeded
+        totalFailed += urlFailed
+        console.log(`[Worker] URL batch: ${urlSucceeded} succeeded, ${urlFailed} failed`)
+      }
 
-      // Update stats
-      const succeeded = results.filter(r => r.success).length
-      const failed = results.filter(r => !r.success).length
-      totalProcessed += succeeded
-      totalFailed += failed
-
-      console.log(`[Worker] Batch complete: ${succeeded} succeeded, ${failed} failed`)
       console.log(`[Worker] Total: ${totalProcessed} processed, ${totalFailed} failed`)
 
       // Small delay between batches to prevent tight loops
@@ -82,7 +96,7 @@ async function main() {
 }
 
 /**
- * Process jobs with bounded concurrency
+ * Process document jobs with bounded concurrency
  */
 async function processJobsWithConcurrency(
   jobs: IngestionJob[],
@@ -98,6 +112,55 @@ async function processJobsWithConcurrency(
       })
       .catch(error => {
         console.error(`[Worker] Unexpected error processing job ${job.id}:`, error)
+        results.push({ success: false })
+      })
+
+    executing.push(promise)
+
+    // If we've hit concurrency limit, wait for one to finish
+    if (executing.length >= concurrency) {
+      await Promise.race(executing)
+      // Remove completed promises
+      for (let i = executing.length - 1; i >= 0; i--) {
+        if (await Promise.race([executing[i], Promise.resolve('pending')]) !== 'pending') {
+          executing.splice(i, 1)
+        }
+      }
+    }
+  }
+
+  // Wait for remaining jobs to complete
+  await Promise.all(executing)
+
+  return results
+}
+
+/**
+ * Process URL jobs with bounded concurrency
+ */
+async function processUrlJobsWithConcurrency(
+  jobs: UrlIngestionJob[],
+  concurrency: number
+): Promise<Array<{ success: boolean }>> {
+  const results: Array<{ success: boolean }> = []
+  const executing: Promise<void>[] = []
+
+  for (const job of jobs) {
+    const promise = processUrlJob({
+      id: job.id,
+      business_id: job.business_id,
+      source_url: job.source_url,
+      discovered_urls: job.discovered_urls as string[],
+      scrape_config: job.scrape_config as { audience: string; scopeType: string; dataClass: string },
+      extract_services: job.extract_services,
+      attempts: job.attempts,
+      max_attempts: job.max_attempts,
+    })
+      .then(result => {
+        results.push({ success: result.success })
+      })
+      .catch(error => {
+        console.error(`[Worker] Unexpected error processing URL job ${job.id}:`, error)
         results.push({ success: false })
       })
 
