@@ -13,7 +13,7 @@ import {
   uniqueIndex,
   vector,
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 
 // ============================================
 // TYPE DEFINITIONS
@@ -259,16 +259,30 @@ export const customers = pgTable('customers', {
   id: uuid('id').defaultRandom().primaryKey(),
   businessId: uuid('business_id').notNull().references(() => businesses.id, { onDelete: 'cascade' }),
 
-  email: text('email').notNull(),
+  email: text('email'), // Nullable - allow customers with only phone
   name: text('name'),
   phone: text('phone'),
   notes: text('notes'), // internal notes
+  source: text('source'), // Track origin: 'booking', 'chatbot_escalation', 'manual', 'whatsapp'
 
   customFields: jsonb('custom_fields').default({}),
 
+  // WhatsApp Opt-In/Opt-Out Tracking (Twilio + Meta Compliance)
+  whatsappOptInStatus: text('whatsapp_opt_in_status')
+    .default('UNSET')
+    .$type<'UNSET' | 'OPTED_IN' | 'OPTED_OUT'>(),
+  whatsappOptInAt: timestamp('whatsapp_opt_in_at', { withTimezone: true }),
+  whatsappOptInSource: text('whatsapp_opt_in_source'), // e.g., 'first_message', 'explicit_request', 'keyword_start'
+  whatsappOptInEvidence: text('whatsapp_opt_in_evidence'), // message content that proves consent
+  whatsappOptOutAt: timestamp('whatsapp_opt_out_at', { withTimezone: true }),
+  whatsappOptOutReason: text('whatsapp_opt_out_reason'), // e.g., 'keyword_stop', message content
+
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 }, (table) => ({
-  businessEmailIdx: uniqueIndex('customers_business_email_idx').on(table.businessId, table.email),
+  // Only enforce unique email if email is provided
+  businessEmailIdx: uniqueIndex('customers_business_email_idx')
+    .on(table.businessId, table.email)
+    .where(sql`${table.email} IS NOT NULL`),
 }));
 
 // ============================================
@@ -527,6 +541,10 @@ export const chatbotConversations = pgTable('chatbot_conversations', {
   // Metadata (AI model used, tokens, etc.)
   metadata: jsonb('metadata').default({}),
 
+  // Data Retention (GDPR Compliance)
+  retentionDays: integer('retention_days').default(90), // Auto-delete after X days
+  markedForDeletionAt: timestamp('marked_for_deletion_at', { withTimezone: true }), // Scheduled deletion
+
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   closedAt: timestamp('closed_at', { withTimezone: true }),
@@ -549,6 +567,17 @@ export const chatbotMessages = pgTable('chatbot_messages', {
 
   // Metadata (AI model, tokens, intent, confidence, etc.)
   metadata: jsonb('metadata').default({}),
+
+  // Decision Traceability (EU AI Act Compliance)
+  decisionMetadata: jsonb('decision_metadata').$type<{
+    reasoning?: string
+    confidenceScore?: number
+    fallbackTriggered?: boolean
+    toolsUsed?: string[]
+    modelName?: string
+    promptTokens?: number
+    completionTokens?: number
+  }>(),
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 }, (table) => ({

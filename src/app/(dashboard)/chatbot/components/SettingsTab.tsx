@@ -12,7 +12,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Loader2, Save, ExternalLink } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Loader2, Save, ExternalLink, AlertCircle, Bot } from 'lucide-react'
 
 interface Business {
   id: string
@@ -21,6 +23,7 @@ interface Business {
   type: string | null
   primaryColor?: string | null
   settings?: {
+    chatbotEnabled?: boolean
     chatbotInstructions?: string
     chatbotWelcomeMessage?: string
     chatbotColor?: string
@@ -33,6 +36,7 @@ interface SettingsTabProps {
 
 export function SettingsTab({ business }: SettingsTabProps) {
   const [formData, setFormData] = useState({
+    chatbotEnabled: true,
     chatbotInstructions: '',
     chatbotWelcomeMessage: '',
     chatbotColor: business.primaryColor || '#3B82F6',
@@ -43,6 +47,7 @@ export function SettingsTab({ business }: SettingsTabProps) {
   useEffect(() => {
     if (business.settings) {
       setFormData({
+        chatbotEnabled: business.settings.chatbotEnabled !== false, // Default to true
         chatbotInstructions: business.settings.chatbotInstructions || '',
         chatbotWelcomeMessage: business.settings.chatbotWelcomeMessage || '',
         chatbotColor: business.settings.chatbotColor || business.primaryColor || '#3B82F6',
@@ -61,6 +66,7 @@ export function SettingsTab({ business }: SettingsTabProps) {
         body: JSON.stringify({
           settings: {
             ...business.settings,
+            chatbotEnabled: formData.chatbotEnabled,
             chatbotInstructions: formData.chatbotInstructions,
             chatbotWelcomeMessage: formData.chatbotWelcomeMessage,
             chatbotColor: formData.chatbotColor,
@@ -121,6 +127,43 @@ export function SettingsTab({ business }: SettingsTabProps) {
             Öffnen
           </Button>
         </div>
+      </Card>
+
+      {/* Enable/Disable Chatbot */}
+      <Card className="p-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Bot className="h-5 w-5 text-gray-700" />
+              <Label htmlFor="chatbot-enabled" className="text-base font-semibold cursor-pointer">
+                KI-Chatbot aktivieren
+              </Label>
+            </div>
+            <p className="text-sm text-gray-500">
+              Wenn deaktiviert, wird der AI-Assistent nicht auf Kundennachrichten antworten.
+              Nachrichten werden weiterhin gespeichert.
+            </p>
+          </div>
+          <Switch
+            id="chatbot-enabled"
+            checked={formData.chatbotEnabled}
+            onCheckedChange={(checked) =>
+              setFormData({ ...formData, chatbotEnabled: checked })
+            }
+          />
+        </div>
+
+        {/* Warning when disabled */}
+        {!formData.chatbotEnabled && (
+          <Alert variant="destructive" className="mt-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Chatbot ist deaktiviert</AlertTitle>
+            <AlertDescription>
+              Kunden können weiterhin Nachrichten senden, aber der KI-Assistent wird nicht antworten.
+              Aktivieren Sie den Chatbot, um automatische Antworten zu ermöglichen.
+            </AlertDescription>
+          </Alert>
+        )}
       </Card>
 
       {/* Settings Form */}

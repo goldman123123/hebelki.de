@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { ClerkProvider } from "@clerk/nextjs"
 import { Toaster } from "sonner"
+import { CookieConsentBanner } from "@/components/cookie-consent"
 import "./globals.css"
 
 const geistSans = Geist({
@@ -26,12 +27,13 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang="en">
+      <html lang="de">
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
           {children}
           <Toaster position="top-right" />
+          <CookieConsentBanner />
         </body>
       </html>
     </ClerkProvider>

@@ -35,6 +35,8 @@ export function ChatInterface({
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [conversationId, setConversationId] = useState<string | null>(null)
+  const [isEscalated, setIsEscalated] = useState(false)
+  const [awaitingContact, setAwaitingContact] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -93,6 +95,12 @@ export function ChatInterface({
         setConversationId(data.conversationId)
       }
 
+      // Check if escalation was completed
+      if (data.metadata?.escalated) {
+        setIsEscalated(true)
+        setAwaitingContact(false)
+      }
+
       const assistantMessage: Message = {
         role: 'assistant',
         content: data.response,
@@ -119,6 +127,43 @@ export function ChatInterface({
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       sendMessage()
+    }
+  }
+
+  const handleEscalate = async () => {
+    if (!conversationId) {
+      alert('Bitte senden Sie zuerst eine Nachricht.')
+      return
+    }
+
+    try {
+      const response = await fetch('/api/chatbot/escalate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        // Add the "please provide contact info" message
+        setMessages((prev) => [...prev, {
+          role: 'assistant',
+          content: data.message,
+          timestamp: new Date(),
+        }])
+
+        // Track that we're awaiting contact
+        if (data.awaitingContactInfo) {
+          setAwaitingContact(true)
+        }
+      } else {
+        console.error('Escalation failed:', data.error)
+        alert('Fehler beim Weiterleiten. Bitte versuchen Sie es erneut.')
+      }
+    } catch (error) {
+      console.error('Escalation error:', error)
+      alert('Fehler beim Weiterleiten. Bitte versuchen Sie es erneut.')
     }
   }
 
@@ -215,7 +260,7 @@ export function ChatInterface({
       </div>
 
       {/* Input */}
-      <div className="border-t border-gray-200 p-4">
+      <div className="border-t border-gray-200 p-4 space-y-3">
         <div className="flex gap-2">
           <Input
             type="text"
@@ -237,6 +282,26 @@ export function ChatInterface({
             )}
           </Button>
         </div>
+
+        {/* Escalation Button */}
+        {!isEscalated && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleEscalate}
+            className="w-full text-xs"
+            disabled={!conversationId}
+          >
+            <User className="h-3 w-3 mr-2" />
+            Mit einem Menschen sprechen
+          </Button>
+        )}
+
+        {isEscalated && (
+          <div className="text-xs text-center text-green-600">
+            ✓ An Team weitergeleitet
+          </div>
+        )}
       </div>
     </Card>
   )

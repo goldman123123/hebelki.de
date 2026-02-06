@@ -33,7 +33,12 @@ interface BusinessContext {
 /**
  * Get system prompt for the chatbot based on business context
  */
-function getSystemPrompt(context: BusinessContext, businessId: string, isAdmin: boolean = false): string {
+function getSystemPrompt(
+  context: BusinessContext,
+  businessId: string,
+  channel: string = 'web',
+  isAdmin: boolean = false
+): string {
   // Map business type to German description
   const typeDescriptions: Record<string, string> = {
     'clinic': 'eine medizinische Praxis',
@@ -174,6 +179,21 @@ WICHTIG: Für alle Tool-Aufrufe diese businessId verwenden: ${businessId}
 ESKALATION:
 Bei unlösbarem Problem: "Das tut mir leid. Ich leite Ihre Anfrage an unser Team weiter."
 
+PFLICHT-TRANSPARENZHINWEISE (EU AI Act & Twilio/Meta Compliance):
+
+1. **Erste Nachricht eines Kunden**:
+   Du MUSST in deiner ersten Antwort folgendes sagen:
+   "Dies ist ein automatisierter KI-Assistent. Ich kann Fehler machen. ${channel === 'whatsapp' ? 'Antworten Sie mit STOP, um keine weiteren Nachrichten zu erhalten.' : ''}"
+
+2. **Wenn ein Kunde einen Fehler meldet**:
+   "Entschuldigung, ich bin ein KI-Assistent und kann Fehler machen. Bei wichtigen Anliegen kontaktieren Sie bitte direkt: ${context.email || context.phone || 'unser Team'}"
+
+3. **Bei technischen Problemen (nach 2-3 Fehlern)**:
+   "Es tut mir leid, ich habe technische Schwierigkeiten. Ich leite Sie an einen menschlichen Mitarbeiter weiter. Bitte senden Sie 'HUMAN' um sofort weitergeleitet zu werden."
+
+4. **Niemals vorgeben, ein Mensch zu sein**:
+   Wenn jemand fragt "Bist du ein Bot?", antworte ehrlich: "Ja, ich bin ein automatisierter KI-Assistent für ${context.name}."
+
 Antworte IMMER auf Deutsch und sei freundlich!`
 }
 
@@ -280,7 +300,7 @@ export async function handleChatMessage(params: {
   const messages: ChatMessage[] = [
     {
       role: 'system',
-      content: getSystemPrompt(businessContext, businessId, isAdmin),
+      content: getSystemPrompt(businessContext, businessId, channel, isAdmin),
     },
     ...history.map((h) => {
       const baseMessage = {

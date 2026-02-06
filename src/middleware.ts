@@ -7,6 +7,10 @@ const isPublicRoute = createRouteMatcher([
   '/book/(.*)',
   '/(.*)/chat', // Public chat pages (e.g., /physioplus/chat)
   '/test-crawler', // Test page for Firecrawl
+  // Legal pages (must be public per German law)
+  '/datenschutz', // Privacy Policy (GDPR required)
+  '/allgemeine-geschaeftsbedingungen', // Terms of Service
+  '/impressum', // Legal Notice (German Impressumspflicht)
   '/api/(.*)/config',
   '/api/(.*)/services',
   '/api/(.*)/staff',
@@ -17,6 +21,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/chatbot/message', // Public chatbot message endpoint
   '/api/chatbot/businesses', // Public business list for testing
   '/api/chatbot/date', // Public date API for chatbot
+  '/api/whatsapp/webhook', // WhatsApp webhook from Twilio
   '/api/onboarding/(.*)', // Onboarding API endpoints (scraping, etc.)
   '/api/test-crawler', // Test endpoint for Firecrawl
   '/api/dev/(.*)', // Dev endpoints (all dev routes are public)

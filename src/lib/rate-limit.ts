@@ -109,3 +109,10 @@ export const authLimiter = rateLimit({
   interval: 15 * 60 * 1000, // 15 minutes
   uniqueTokenPerInterval: 500,
 })
+
+// Chatbot messages: 10 messages per minute per IP
+// Prevents abuse and DoS attacks on public chat endpoint
+export const chatbotLimiter = rateLimit({
+  interval: 60 * 1000, // 1 minute
+  uniqueTokenPerInterval: 2000,
+})

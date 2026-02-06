@@ -1,0 +1,257 @@
+/**
+ * Custom Cookie Consent Styles
+ *
+ * Overrides vanilla-cookieconsent default styles to match Hebelki branding
+ */
+
+/* ============================================
+   CONSENT MODAL (Initial popup)
+   ============================================ */
+
+#cm {
+  /* Modal container */
+  --cc-modal-border-radius: 0.75rem;
+  --cc-bg: #ffffff;
+  --cc-primary-color: #3b82f6; /* Hebelki blue */
+  --cc-secondary-color: #6b7280; /* Gray */
+  --cc-btn-primary-bg: #3b82f6;
+  --cc-btn-primary-hover-bg: #2563eb;
+  --cc-btn-secondary-bg: #f3f4f6;
+  --cc-btn-secondary-hover-bg: #e5e7eb;
+  --cc-separator-border-color: #e5e7eb;
+  --cc-cookie-category-block-bg: #f9fafb;
+  --cc-cookie-category-block-border: #e5e7eb;
+  --cc-toggle-on-bg: #3b82f6;
+  --cc-toggle-off-bg: #d1d5db;
+  --cc-toggle-readonly-bg: #9ca3af;
+}
+
+/* Modal box shadow */
+.cm {
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1) !important;
+}
+
+/* Modal title */
+.cm__title {
+  font-size: 1.25rem !important;
+  font-weight: 600 !important;
+  color: #111827 !important;
+  margin-bottom: 0.75rem !important;
+}
+
+/* Modal description */
+.cm__desc {
+  font-size: 0.875rem !important;
+  color: #6b7280 !important;
+  line-height: 1.5 !important;
+}
+
+/* Buttons */
+.cm__btn {
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  padding: 0.625rem 1.25rem !important;
+  border-radius: 0.5rem !important;
+  transition: all 0.15s ease !important;
+}
+
+.cm__btn:hover {
+  transform: translateY(-1px) !important;
+}
+
+/* Primary button (Accept all) */
+.cm__btn--primary {
+  background: var(--cc-btn-primary-bg) !important;
+  color: #ffffff !important;
+}
+
+.cm__btn--primary:hover {
+  background: var(--cc-btn-primary-hover-bg) !important;
+}
+
+/* Secondary button (Necessary only) */
+.cm__btn--secondary {
+  background: var(--cc-btn-secondary-bg) !important;
+  color: #374151 !important;
+  border: 1px solid #d1d5db !important;
+}
+
+.cm__btn--secondary:hover {
+  background: var(--cc-btn-secondary-hover-bg) !important;
+}
+
+/* Footer links */
+.cm__footer {
+  margin-top: 1rem !important;
+  padding-top: 1rem !important;
+  border-top: 1px solid var(--cc-separator-border-color) !important;
+}
+
+.cm__footer a {
+  color: var(--cc-primary-color) !important;
+  text-decoration: none !important;
+  font-size: 0.75rem !important;
+  margin-right: 1rem !important;
+  transition: color 0.15s ease !important;
+}
+
+.cm__footer a:hover {
+  color: var(--cc-btn-primary-hover-bg) !important;
+  text-decoration: underline !important;
+}
+
+/* ============================================
+   PREFERENCES MODAL (Settings panel)
+   ============================================ */
+
+.pm {
+  border-radius: 0.75rem !important;
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1) !important;
+}
+
+/* Preferences title */
+.pm__title {
+  font-size: 1.5rem !important;
+  font-weight: 600 !important;
+  color: #111827 !important;
+}
+
+/* Section title */
+.pm__section-title {
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+  color: #111827 !important;
+  margin-bottom: 0.5rem !important;
+}
+
+/* Section description */
+.pm__section-desc {
+  font-size: 0.875rem !important;
+  color: #6b7280 !important;
+  line-height: 1.5 !important;
+}
+
+/* Badge (Always active) */
+.pm__badge {
+  background: #dbeafe !important;
+  color: #1e40af !important;
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+  padding: 0.25rem 0.5rem !important;
+  border-radius: 0.25rem !important;
+  margin-left: 0.5rem !important;
+}
+
+/* Toggle switches */
+.pm__toggle {
+  width: 44px !important;
+  height: 24px !important;
+}
+
+.pm__toggle-btn {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+/* Category blocks */
+.pm__section {
+  background: var(--cc-cookie-category-block-bg) !important;
+  border: 1px solid var(--cc-cookie-category-block-border) !important;
+  border-radius: 0.5rem !important;
+  padding: 1rem !important;
+  margin-bottom: 1rem !important;
+}
+
+/* Cookie table */
+.pm__cookie-table {
+  font-size: 0.875rem !important;
+  margin-top: 1rem !important;
+}
+
+.pm__cookie-table th {
+  background: #f9fafb !important;
+  color: #374151 !important;
+  font-weight: 600 !important;
+  padding: 0.75rem !important;
+}
+
+.pm__cookie-table td {
+  padding: 0.75rem !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+/* Links in preferences */
+.pm a.cc__link {
+  color: var(--cc-primary-color) !important;
+  text-decoration: none !important;
+  transition: color 0.15s ease !important;
+}
+
+.pm a.cc__link:hover {
+  color: var(--cc-btn-primary-hover-bg) !important;
+  text-decoration: underline !important;
+}
+
+/* ============================================
+   OVERLAY
+   ============================================ */
+
+#cm-ov,
+#pm-ov {
+  background: rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(2px) !important;
+}
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================ */
+
+@media (max-width: 640px) {
+  .cm,
+  .pm {
+    max-width: calc(100vw - 2rem) !important;
+    margin: 1rem !important;
+  }
+
+  .cm__btn {
+    width: 100% !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .pm__section {
+    padding: 0.75rem !important;
+  }
+}
+
+/* ============================================
+   ACCESSIBILITY
+   ============================================ */
+
+/* Focus states */
+.cm__btn:focus,
+.pm__btn:focus,
+.pm__toggle:focus {
+  outline: 2px solid var(--cc-primary-color) !important;
+  outline-offset: 2px !important;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .cm,
+  .pm {
+    border: 2px solid #000000 !important;
+  }
+
+  .cm__btn--primary {
+    border: 2px solid #000000 !important;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .cm__btn:hover,
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

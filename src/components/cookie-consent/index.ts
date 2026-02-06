@@ -1,0 +1,1 @@
+export { CookieConsentBanner } from './CookieConsent'

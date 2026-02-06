@@ -43,6 +43,13 @@
       "when": 1770264705964,
       "tag": "0005_sudden_sally_floyd",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1770316737787,
+      "tag": "0006_clean_kid_colt",
+      "breakpoints": true
     }
   ]
 }
