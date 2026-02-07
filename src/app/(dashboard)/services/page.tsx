@@ -1,15 +1,17 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Checkbox } from '@/components/ui/checkbox'
 import { ConfirmDialog } from '@/components/forms'
-import { Clock, Plus, Edit, Check, X, Trash2, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react'
+import { Clock, Plus, Edit, Check, X, Trash2, Loader2, AlertCircle, Eye, EyeOff, Search, CheckSquare, Square } from 'lucide-react'
 import { StaffPriorityInline } from './components/StaffPriorityInline'
+import { ServiceDetector } from './components/ServiceDetector'
 
 interface Service {
   id: string
@@ -32,6 +34,8 @@ interface EditingService extends Partial<Service> {
 export default function ServicesPage() {
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
+  const [businessId, setBusinessId] = useState<string | null>(null)
+  const [businessError, setBusinessError] = useState<string | null>(null)
   const [showInactive, setShowInactive] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingData, setEditingData] = useState<EditingService | null>(null)
@@ -49,6 +53,34 @@ export default function ServicesPage() {
   const [deleteService, setDeleteService] = useState<Service | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [savingId, setSavingId] = useState<string | null>(null)
+
+  // Search and selection state
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false)
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false)
+
+  // Fetch business ID
+  useEffect(() => {
+    async function fetchBusiness() {
+      try {
+        const res = await fetch('/api/businesses/my')
+        const data = await res.json()
+        console.log('[Services] Business API response:', data)
+        if (data.businesses?.[0]?.businessId) {
+          setBusinessId(data.businesses[0].businessId)
+        } else if (data.businesses?.length === 0) {
+          setBusinessError('Kein Unternehmen gefunden. Bitte erstellen Sie zuerst ein Unternehmen.')
+        } else if (data.error) {
+          setBusinessError(data.error)
+        }
+      } catch (error) {
+        console.error('Failed to fetch business:', error)
+        setBusinessError('Fehler beim Laden des Unternehmens')
+      }
+    }
+    fetchBusiness()
+  }, [])
 
   const fetchServices = useCallback(async () => {
     try {
@@ -167,11 +199,25 @@ export default function ServicesPage() {
     fetchServices()
   }
 
-  // Filter services based on active/inactive toggle
+  // Filter services based on active/inactive toggle and search query
   // Note: isActive can be true, false, or null (treat null as true for backwards compatibility)
-  const filteredServices = showInactive
-    ? services
-    : services.filter(s => s.isActive !== false)
+  const filteredServices = useMemo(() => {
+    return services.filter(s => {
+      // Active/inactive filter
+      if (!showInactive && s.isActive === false) return false
+
+      // Search filter
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase()
+        const matchesName = s.name.toLowerCase().includes(query)
+        const matchesDescription = s.description?.toLowerCase().includes(query)
+        const matchesCategory = s.category?.toLowerCase().includes(query)
+        if (!matchesName && !matchesDescription && !matchesCategory) return false
+      }
+
+      return true
+    })
+  }, [services, showInactive, searchQuery])
 
   // Group by category
   const grouped = filteredServices.reduce((acc, service) => {
@@ -184,9 +230,59 @@ export default function ServicesPage() {
   const activeCount = services.filter(s => s.isActive !== false).length
   const inactiveCount = services.filter(s => s.isActive === false).length
 
+  // Selection helpers
+  const allFilteredIds = filteredServices.map(s => s.id)
+  const allSelected = allFilteredIds.length > 0 && allFilteredIds.every(id => selectedIds.has(id))
+  const someSelected = selectedIds.size > 0
+
+  const handleSelectAll = () => {
+    if (allSelected) {
+      // Unselect all
+      setSelectedIds(new Set())
+    } else {
+      // Select all filtered services
+      setSelectedIds(new Set(allFilteredIds))
+    }
+  }
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(id)) {
+        newSet.delete(id)
+      } else {
+        newSet.add(id)
+      }
+      return newSet
+    })
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return
+
+    setIsBulkDeleting(true)
+    try {
+      // Delete each selected service
+      const deletePromises = Array.from(selectedIds).map(id =>
+        fetch(`/api/admin/services/${id}`, { method: 'DELETE' })
+      )
+
+      await Promise.all(deletePromises)
+
+      setSelectedIds(new Set())
+      setShowBulkDeleteDialog(false)
+      await fetchServices()
+    } catch (error) {
+      console.error('Bulk delete error:', error)
+      alert('Fehler beim Löschen der Services. Bitte erneut versuchen.')
+    } finally {
+      setIsBulkDeleting(false)
+    }
+  }
+
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Services</h1>
           <p className="text-gray-600 mt-1">
@@ -224,6 +320,90 @@ export default function ServicesPage() {
         </div>
       </div>
 
+      {/* Search and Selection Controls */}
+      {!loading && services.length > 0 && (
+        <div className="mb-6 space-y-3">
+          {/* Search Bar */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Input
+              type="text"
+              placeholder="Services durchsuchen (Name, Beschreibung, Kategorie)..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 pr-10"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Selection Controls */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSelectAll}
+                className="gap-2"
+              >
+                {allSelected ? (
+                  <>
+                    <Square className="h-4 w-4" />
+                    Alle abwählen
+                  </>
+                ) : (
+                  <>
+                    <CheckSquare className="h-4 w-4" />
+                    Alle auswählen ({filteredServices.length})
+                  </>
+                )}
+              </Button>
+
+              {someSelected && (
+                <span className="text-sm text-gray-600">
+                  {selectedIds.size} ausgewählt
+                </span>
+              )}
+            </div>
+
+            {someSelected && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowBulkDeleteDialog(true)}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2"
+              >
+                <Trash2 className="h-4 w-4" />
+                Ausgewählte löschen ({selectedIds.size})
+              </Button>
+            )}
+          </div>
+
+          {/* Search Results Info */}
+          {searchQuery && (
+            <div className="text-sm text-gray-600">
+              {filteredServices.length} {filteredServices.length === 1 ? 'Service' : 'Services'} gefunden
+              {filteredServices.length < services.length && (
+                <span className="text-gray-400"> von {services.length} gesamt</span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Service Detector - Always visible */}
+      <ServiceDetector
+        businessId={businessId}
+        businessError={businessError}
+        onServicesAdded={fetchServices}
+      />
+
       {loading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
@@ -232,23 +412,18 @@ export default function ServicesPage() {
         <>
           <Alert className="mb-6">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Add Your First Service</AlertTitle>
+            <AlertTitle>Ersten Service hinzufügen</AlertTitle>
             <AlertDescription>
-              Set up your services to start accepting bookings. We can detect them from your website automatically.
+              Nutzen Sie die automatische Erkennung oben, um Services von Ihrer Website zu importieren, oder fügen Sie sie manuell hinzu.
             </AlertDescription>
-            <Button asChild className="mt-4" variant="outline">
-              <Link href="/onboarding/wizard?step=3&mode=booking">
-                Set Up Services
-              </Link>
-            </Button>
           </Alert>
 
           <Card>
             <CardContent className="py-12 text-center">
-              <p className="text-gray-500 mb-4">No services configured yet.</p>
+              <p className="text-gray-500 mb-4">Noch keine Services konfiguriert.</p>
               <Button onClick={() => setCreatingNew(true)}>
                 <Plus className="mr-2 h-4 w-4" />
-                Add Your First Service
+                Ersten Service hinzufügen
               </Button>
             </CardContent>
           </Card>
@@ -548,15 +723,22 @@ export default function ServicesPage() {
                         ) : (
                           /* View Mode */
                           <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-semibold text-gray-900 text-lg">{service.name}</h3>
-                                {!service.isActive && (
-                                  <Badge variant="outline" className="text-xs">
-                                    Inactive
-                                  </Badge>
-                                )}
-                              </div>
+                            <div className="flex items-start gap-3 flex-1 min-w-0">
+                              {/* Selection Checkbox */}
+                              <Checkbox
+                                checked={selectedIds.has(service.id)}
+                                onCheckedChange={() => handleToggleSelect(service.id)}
+                                className="mt-1"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h3 className="font-semibold text-gray-900 text-lg">{service.name}</h3>
+                                  {!service.isActive && (
+                                    <Badge variant="outline" className="text-xs">
+                                      Inactive
+                                    </Badge>
+                                  )}
+                                </div>
                               {service.description && (
                                 <p className="text-sm text-gray-600 mb-2">{service.description}</p>
                               )}
@@ -578,6 +760,7 @@ export default function ServicesPage() {
                                     Group: {service.capacity} spots
                                   </Badge>
                                 )}
+                              </div>
                               </div>
                             </div>
 
@@ -637,6 +820,17 @@ export default function ServicesPage() {
         onConfirm={handleDelete}
         isConfirming={isDeleting}
         confirmLabel="Delete"
+      />
+
+      {/* Bulk Delete Confirmation */}
+      <ConfirmDialog
+        open={showBulkDeleteDialog}
+        onOpenChange={setShowBulkDeleteDialog}
+        title="Mehrere Services löschen"
+        description={`Sind Sie sicher, dass Sie ${selectedIds.size} Service${selectedIds.size !== 1 ? 's' : ''} löschen möchten? Dies kann nicht rückgängig gemacht werden.`}
+        onConfirm={handleBulkDelete}
+        isConfirming={isBulkDeleting}
+        confirmLabel={`${selectedIds.size} löschen`}
       />
     </div>
   )
