@@ -265,8 +265,6 @@ function deduplicateResults<T extends { id: string; rank: number }>(
  * Build access control conditions for knowledge base queries
  */
 function buildKnowledgeAccessConditions(context: AccessContext) {
-  const conditions = []
-
   if (context.actorType === 'customer') {
     // Customer mode: only public + global, OR customer-scoped to this customer
     const customerConditions = [
@@ -287,7 +285,7 @@ function buildKnowledgeAccessConditions(context: AccessContext) {
       )
     }
 
-    conditions.push(or(...customerConditions))
+    return or(...customerConditions)
   } else {
     // Staff/Owner mode: can access public + internal
     // AND global + staff-scoped to themselves + customer-scoped if specified
@@ -320,10 +318,8 @@ function buildKnowledgeAccessConditions(context: AccessContext) {
       )
     }
 
-    conditions.push(and(audienceCondition, or(...scopeConditions)))
+    return and(audienceCondition, or(...scopeConditions))
   }
-
-  return conditions
 }
 
 /**
@@ -340,8 +336,8 @@ async function performVectorSearch(
     // Generate embedding for query
     const queryEmbedding = await generateEmbedding(query)
 
-    // Build access control conditions
-    const accessConditions = buildKnowledgeAccessConditions(context)
+    // Build access control condition
+    const accessCondition = buildKnowledgeAccessConditions(context)
 
     // Search using cosine similarity (pgvector operator <=>)
     const results = await db
@@ -360,7 +356,7 @@ async function performVectorSearch(
           eq(chatbotKnowledge.isActive, true),
           isNotNull(chatbotKnowledge.embedding), // Skip entries without embeddings
           category ? eq(chatbotKnowledge.category, category) : undefined,
-          ...accessConditions
+          accessCondition
         )
       )
       .orderBy(sql`${chatbotKnowledge.embedding} <=> ${JSON.stringify(queryEmbedding)}::vector`)
@@ -396,8 +392,8 @@ async function performKeywordSearch(
     // Use ILIKE for simple pattern matching (works with German text)
     const searchPattern = `%${query}%`
 
-    // Build access control conditions
-    const accessConditions = buildKnowledgeAccessConditions(context)
+    // Build access control condition
+    const accessCondition = buildKnowledgeAccessConditions(context)
 
     const results = await db
       .select({
@@ -417,7 +413,7 @@ async function performKeywordSearch(
             ilike(chatbotKnowledge.content, searchPattern)
           ),
           category ? eq(chatbotKnowledge.category, category) : undefined,
-          ...accessConditions
+          accessCondition
         )
       )
       .limit(limit)
@@ -546,11 +542,7 @@ export async function searchWithCategoryThreshold(
  * 2. Match audience/scope based on actor type
  */
 function buildDocumentAccessConditions(context: AccessContext) {
-  const conditions = []
-
-  // Always filter by active status
-  conditions.push(eq(documents.status, 'active'))
-
+  // Always filter by active status + access control
   if (context.actorType === 'customer') {
     // Customer mode: only public + global, OR customer-scoped to this customer
     const customerConditions = [
@@ -571,7 +563,7 @@ function buildDocumentAccessConditions(context: AccessContext) {
       )
     }
 
-    conditions.push(or(...customerConditions))
+    return and(eq(documents.status, 'active'), or(...customerConditions))
   } else {
     // Staff/Owner mode: can access public + internal
     const audienceCondition = or(
@@ -603,10 +595,8 @@ function buildDocumentAccessConditions(context: AccessContext) {
       )
     }
 
-    conditions.push(and(audienceCondition, or(...scopeConditions)))
+    return and(eq(documents.status, 'active'), audienceCondition, or(...scopeConditions))
   }
-
-  return conditions
 }
 
 /**
@@ -625,7 +615,7 @@ async function performDocumentVectorSearch(
     const queryEmbedding = await generateEmbedding(query)
 
     // First, get accessible document IDs based on access context
-    const accessConditions = buildDocumentAccessConditions(context)
+    const accessCondition = buildDocumentAccessConditions(context)
 
     console.log(`[Doc Vector Search] Query: "${query}", Business: ${businessId}, Actor: ${context.actorType}`)
 
@@ -634,7 +624,7 @@ async function performDocumentVectorSearch(
       .from(documents)
       .where(and(
         eq(documents.businessId, businessId),
-        ...accessConditions
+        accessCondition
       ))
 
     const accessibleDocIds = accessibleDocs.map(d => d.id)
@@ -757,7 +747,7 @@ async function performDocumentKeywordSearch(
     const searchPattern = `%${query}%`
 
     // First, get accessible document IDs based on access context
-    const accessConditions = buildDocumentAccessConditions(context)
+    const accessCondition = buildDocumentAccessConditions(context)
 
     console.log(`[Doc Keyword Search] Query: "${query}", Business: ${businessId}, Actor: ${context.actorType}`)
 
@@ -766,7 +756,7 @@ async function performDocumentKeywordSearch(
       .from(documents)
       .where(and(
         eq(documents.businessId, businessId),
-        ...accessConditions
+        accessCondition
       ))
 
     const accessibleDocIds = accessibleDocs.map(d => d.id)
