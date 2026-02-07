@@ -52,7 +52,7 @@ export function BookingActions({ bookingId, status, onStatusChange }: BookingAct
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           status: 'cancelled',
-          cancellationReason: rejectReason || 'Rejected by staff',
+          cancellationReason: rejectReason || 'Vom Personal abgelehnt',
           cancelledBy: 'staff',
         }),
       })
@@ -115,7 +115,7 @@ export function BookingActions({ bookingId, status, onStatusChange }: BookingAct
           ) : (
             <Check className="h-4 w-4" />
           )}
-          <span className="ml-1 hidden sm:inline">Approve</span>
+          <span className="ml-1 hidden sm:inline">Bestätigen</span>
         </Button>
         <Button
           size="sm"
@@ -124,7 +124,7 @@ export function BookingActions({ bookingId, status, onStatusChange }: BookingAct
           onClick={() => setShowRejectDialog(true)}
         >
           <X className="h-4 w-4" />
-          <span className="ml-1 hidden sm:inline">Reject</span>
+          <span className="ml-1 hidden sm:inline">Ablehnen</span>
         </Button>
         <Button
           size="sm"
@@ -137,17 +137,17 @@ export function BookingActions({ bookingId, status, onStatusChange }: BookingAct
         <FormDialog
           open={showRejectDialog}
           onOpenChange={setShowRejectDialog}
-          title="Reject Booking"
-          description="Please provide a reason for rejecting this booking."
+          title="Buchung ablehnen"
+          description="Bitte geben Sie einen Grund für die Ablehnung dieser Buchung an."
           onSubmit={handleReject}
           isSubmitting={isRejecting}
-          submitLabel="Reject"
+          submitLabel="Ablehnen"
           variant="destructive"
         >
           <FormTextarea
-            label="Reason"
+            label="Grund"
             name="reason"
-            placeholder="Enter reason for rejection..."
+            placeholder="Grund für Ablehnung eingeben..."
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
           />
@@ -166,27 +166,27 @@ export function BookingActions({ bookingId, status, onStatusChange }: BookingAct
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => router.push(`/bookings/${bookingId}`)}>
           <Eye className="mr-2 h-4 w-4" />
-          View Details
+          Details anzeigen
         </DropdownMenuItem>
         {status === 'confirmed' && (
           <>
             <DropdownMenuItem onClick={() => setShowCompleteDialog(true)}>
               <Check className="mr-2 h-4 w-4" />
-              Mark Completed
+              Als abgeschlossen markieren
             </DropdownMenuItem>
             <DropdownMenuItem
               className="text-orange-600"
               onClick={handleNoShow}
             >
               <X className="mr-2 h-4 w-4" />
-              Mark No Show
+              Als nicht erschienen markieren
             </DropdownMenuItem>
             <DropdownMenuItem
               className="text-red-600"
               onClick={() => setShowRejectDialog(true)}
             >
               <X className="mr-2 h-4 w-4" />
-              Cancel Booking
+              Buchung stornieren
             </DropdownMenuItem>
           </>
         )}
@@ -195,27 +195,27 @@ export function BookingActions({ bookingId, status, onStatusChange }: BookingAct
       <ConfirmDialog
         open={showCompleteDialog}
         onOpenChange={setShowCompleteDialog}
-        title="Mark as Completed"
-        description="Are you sure you want to mark this booking as completed?"
+        title="Als abgeschlossen markieren"
+        description="Möchten Sie diese Buchung wirklich als abgeschlossen markieren?"
         onConfirm={handleComplete}
-        confirmLabel="Complete"
+        confirmLabel="Abschließen"
         variant="default"
       />
 
       <FormDialog
         open={showRejectDialog}
         onOpenChange={setShowRejectDialog}
-        title="Cancel Booking"
-        description="Please provide a reason for cancelling this booking."
+        title="Buchung stornieren"
+        description="Bitte geben Sie einen Grund für die Stornierung dieser Buchung an."
         onSubmit={handleReject}
         isSubmitting={isRejecting}
-        submitLabel="Cancel Booking"
+        submitLabel="Buchung stornieren"
         variant="destructive"
       >
         <FormTextarea
-          label="Reason"
+          label="Grund"
           name="reason"
-          placeholder="Enter reason for cancellation..."
+          placeholder="Grund für Stornierung eingeben..."
           value={rejectReason}
           onChange={(e) => setRejectReason(e.target.value)}
         />

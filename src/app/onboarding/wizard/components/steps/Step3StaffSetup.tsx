@@ -69,31 +69,31 @@ function StaffEditForm({ staff, onSave, onCancel, isNew }: StaffEditFormProps) {
           <Input
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="John Doe"
+            placeholder="Max Mustermann"
             className="mt-1"
           />
         </div>
         <div>
-          <label className="text-sm font-medium text-gray-700">Title</label>
+          <label className="text-sm font-medium text-gray-700">Titel</label>
           <Input
             value={formData.title || ''}
             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            placeholder="Physical Therapist"
+            placeholder="Physiotherapeut"
             className="mt-1"
           />
         </div>
         <div>
-          <label className="text-sm font-medium text-gray-700">Email</label>
+          <label className="text-sm font-medium text-gray-700">E-Mail</label>
           <Input
             type="email"
             value={formData.email || ''}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            placeholder="john@example.com"
+            placeholder="max@beispiel.de"
             className="mt-1"
           />
         </div>
         <div>
-          <label className="text-sm font-medium text-gray-700">Phone</label>
+          <label className="text-sm font-medium text-gray-700">Telefon</label>
           <Input
             value={formData.phone || ''}
             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
@@ -111,9 +111,9 @@ function StaffEditForm({ staff, onSave, onCancel, isNew }: StaffEditFormProps) {
           className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
         >
           <Clock className="h-4 w-4" />
-          {showAvailability ? 'Hide' : 'Set'} Availability
+          Verfügbarkeit {showAvailability ? 'ausblenden' : 'festlegen'}
           {hasAvailability && !showAvailability && (
-            <span className="text-xs text-gray-500">(configured)</span>
+            <span className="text-xs text-gray-500">(konfiguriert)</span>
           )}
           <ChevronDown
             className={`h-4 w-4 transition-transform ${
@@ -131,8 +131,8 @@ function StaffEditForm({ staff, onSave, onCancel, isNew }: StaffEditFormProps) {
               }
             />
             <p className="text-xs text-gray-500 mt-2">
-              Leave days closed if this staff member is not available. You can
-              customize this later in the dashboard.
+              Lassen Sie Tage geschlossen, wenn dieser Mitarbeiter nicht verfügbar ist.
+              Sie können dies später im Dashboard anpassen.
             </p>
           </div>
         )}
@@ -146,11 +146,11 @@ function StaffEditForm({ staff, onSave, onCancel, isNew }: StaffEditFormProps) {
           className="bg-blue-600 hover:bg-blue-700"
         >
           <Check className="h-4 w-4 mr-2" />
-          {isNew ? 'Add Staff' : 'Save Changes'}
+          {isNew ? 'Hinzufügen' : 'Änderungen speichern'}
         </Button>
         <Button variant="outline" onClick={onCancel}>
           <X className="h-4 w-4 mr-2" />
-          Cancel
+          Abbrechen
         </Button>
       </div>
     </div>
@@ -159,16 +159,14 @@ function StaffEditForm({ staff, onSave, onCancel, isNew }: StaffEditFormProps) {
 
 function getAvailabilitySummary(availability: WeeklySchedule): string {
   const days = Object.keys(availability).length
-  if (days === 0) return 'No availability set'
+  if (days === 0) return 'Keine Verfügbarkeit festgelegt'
 
   const totalSlots = Object.values(availability).reduce(
     (sum, slots) => sum + slots.length,
     0
   )
 
-  return `${days} day${days !== 1 ? 's' : ''}, ${totalSlots} time slot${
-    totalSlots !== 1 ? 's' : ''
-  }`
+  return `${days} Tag${days !== 1 ? 'e' : ''}, ${totalSlots} Zeitfenster`
 }
 
 export function Step3StaffSetup({ onNext, onBack, onSkip }: StepProps) {
@@ -209,7 +207,7 @@ export function Step3StaffSetup({ onNext, onBack, onSkip }: StepProps) {
   }
 
   const handleRemoveStaff = (tempId: string) => {
-    if (confirm('Are you sure you want to remove this staff member?')) {
+    if (confirm('Möchten Sie diesen Mitarbeiter wirklich entfernen?')) {
       setStaffMembers((prev) => prev.filter((s) => s.tempId !== tempId))
     }
   }
@@ -268,9 +266,9 @@ export function Step3StaffSetup({ onNext, onBack, onSkip }: StepProps) {
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100">
           <Users className="w-8 h-8 text-blue-600" />
         </div>
-        <h2 className="text-3xl font-bold">Add Your Staff</h2>
+        <h2 className="text-3xl font-bold">Mitarbeiter hinzufügen</h2>
         <p className="text-lg text-gray-600">
-          Set up your team members and their availability
+          Richten Sie Ihre Teammitglieder und deren Verfügbarkeit ein
         </p>
       </div>
 
@@ -278,8 +276,8 @@ export function Step3StaffSetup({ onNext, onBack, onSkip }: StepProps) {
       <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription>
-          You can skip this step and add staff later in the dashboard if you&apos;re
-          a solo practitioner.
+          Sie können diesen Schritt überspringen und Mitarbeiter später im Dashboard
+          hinzufügen, wenn Sie Einzelunternehmer sind.
         </AlertDescription>
       </Alert>
 
@@ -328,7 +326,7 @@ export function Step3StaffSetup({ onNext, onBack, onSkip }: StepProps) {
                         onClick={() => setEditingId(staff.tempId)}
                       >
                         <Edit className="h-4 w-4 mr-1" />
-                        Edit
+                        Bearbeiten
                       </Button>
                       <Button
                         size="sm"
@@ -351,7 +349,7 @@ export function Step3StaffSetup({ onNext, onBack, onSkip }: StepProps) {
       {addingNew && (
         <Card className="border-2 border-blue-200">
           <CardHeader>
-            <CardTitle>New Staff Member</CardTitle>
+            <CardTitle>Neuer Mitarbeiter</CardTitle>
           </CardHeader>
           <CardContent>
             <StaffEditForm
@@ -380,7 +378,7 @@ export function Step3StaffSetup({ onNext, onBack, onSkip }: StepProps) {
           className="w-full"
         >
           <Plus className="h-5 w-5 mr-2" />
-          Add Staff Member
+          Mitarbeiter hinzufügen
         </Button>
       )}
 
@@ -388,8 +386,7 @@ export function Step3StaffSetup({ onNext, onBack, onSkip }: StepProps) {
       {staffMembers.length > 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <p className="text-sm font-medium text-blue-900">
-            {staffMembers.length} staff member
-            {staffMembers.length !== 1 ? 's' : ''} added
+            {staffMembers.length} Mitarbeiter hinzugefügt
           </p>
         </div>
       )}
@@ -402,7 +399,7 @@ export function Step3StaffSetup({ onNext, onBack, onSkip }: StepProps) {
           disabled={isSaving}
           size="lg"
         >
-          Back
+          Zurück
         </Button>
         <div className="flex gap-3">
           <Button
@@ -411,7 +408,7 @@ export function Step3StaffSetup({ onNext, onBack, onSkip }: StepProps) {
             disabled={isSaving}
             size="lg"
           >
-            Skip for Now
+            Überspringen
           </Button>
           <Button
             onClick={handleSave}
@@ -422,15 +419,14 @@ export function Step3StaffSetup({ onNext, onBack, onSkip }: StepProps) {
             {isSaving ? (
               <>
                 <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                Saving...
+                Wird gespeichert...
               </>
             ) : (
               <>
-                Save{' '}
                 {staffMembers.length > 0
-                  ? `${staffMembers.length} Staff`
-                  : ''}{' '}
-                & Continue
+                  ? `${staffMembers.length} Mitarbeiter speichern`
+                  : 'Speichern'}{' '}
+                & weiter
               </>
             )}
           </Button>

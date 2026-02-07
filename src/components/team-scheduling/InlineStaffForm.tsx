@@ -81,8 +81,9 @@ export function InlineStaffForm({
   // Load staff schedule if editing existing staff
   useEffect(() => {
     if (staff) {
+      const staffId = staff.id
       async function loadStaffSchedule() {
-        const res = await fetch(`/api/admin/availability/templates?staffId=${staff.id}`)
+        const res = await fetch(`/api/admin/availability/templates?staffId=${staffId}`)
         const data = await res.json()
         const staffTpl = data.templates?.find((t: any) => t.isDefault)
 

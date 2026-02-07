@@ -69,41 +69,43 @@ export async function GET(
       )
     }
 
-    // Get document info
-    const version = await db
-      .select({
-        id: documentVersions.id,
-        version: documentVersions.version,
-        r2Key: documentVersions.r2Key,
-        fileSize: documentVersions.fileSize,
-        documentId: documentVersions.documentId,
-      })
-      .from(documentVersions)
-      .where(eq(documentVersions.id, job.documentVersionId))
-      .limit(1)
-      .then(rows => rows[0])
-
+    // Get document info (only for PDF jobs, not URL jobs)
     let documentInfo = null
-    if (version) {
-      const doc = await db
+    if (job.documentVersionId) {
+      const version = await db
         .select({
-          id: documents.id,
-          title: documents.title,
-          originalFilename: documents.originalFilename,
-          status: documents.status,
+          id: documentVersions.id,
+          version: documentVersions.version,
+          r2Key: documentVersions.r2Key,
+          fileSize: documentVersions.fileSize,
+          documentId: documentVersions.documentId,
         })
-        .from(documents)
-        .where(eq(documents.id, version.documentId))
+        .from(documentVersions)
+        .where(eq(documentVersions.id, job.documentVersionId))
         .limit(1)
         .then(rows => rows[0])
 
-      documentInfo = {
-        id: doc?.id,
-        title: doc?.title,
-        filename: doc?.originalFilename,
-        status: doc?.status,
-        version: version.version,
-        fileSize: version.fileSize,
+      if (version) {
+        const doc = await db
+          .select({
+            id: documents.id,
+            title: documents.title,
+            originalFilename: documents.originalFilename,
+            status: documents.status,
+          })
+          .from(documents)
+          .where(eq(documents.id, version.documentId))
+          .limit(1)
+          .then(rows => rows[0])
+
+        documentInfo = {
+          id: doc?.id,
+          title: doc?.title,
+          filename: doc?.originalFilename,
+          status: doc?.status,
+          version: version.version,
+          fileSize: version.fileSize,
+        }
       }
     }
 

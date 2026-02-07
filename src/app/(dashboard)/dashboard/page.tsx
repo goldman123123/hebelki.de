@@ -40,7 +40,7 @@ export default async function DashboardPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">{business.name}</h1>
         <p className="text-gray-600">
-          Booking URL:{' '}
+          Buchungs-URL:{' '}
           <a
             href={`/book/${business.slug}`}
             className="text-primary hover:underline"
@@ -56,7 +56,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-gray-500">
-              Today's Bookings
+              Heutige Buchungen
             </CardTitle>
             <Calendar className="h-4 w-4 text-gray-400" />
           </CardHeader>
@@ -68,7 +68,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-gray-500">
-              This Week
+              Diese Woche
             </CardTitle>
             <TrendingUp className="h-4 w-4 text-gray-400" />
           </CardHeader>
@@ -80,7 +80,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-gray-500">
-              Pending Approval
+              Ausstehende Genehmigung
             </CardTitle>
             <Clock className="h-4 w-4 text-gray-400" />
           </CardHeader>
@@ -92,7 +92,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-gray-500">
-              Total Bookings
+              Buchungen gesamt
             </CardTitle>
             <Users className="h-4 w-4 text-gray-400" />
           </CardHeader>
@@ -105,7 +105,7 @@ export default async function DashboardPage() {
       {/* Today's Schedule */}
       <Card>
         <CardHeader>
-          <CardTitle>Today's Schedule</CardTitle>
+          <CardTitle>Heutiger Terminplan</CardTitle>
           <CardDescription>
             {formatDate(new Date(), timezone)}
           </CardDescription>
@@ -113,7 +113,7 @@ export default async function DashboardPage() {
         <CardContent>
           {todaysBookings.length === 0 ? (
             <p className="py-8 text-center text-gray-500">
-              No bookings scheduled for today
+              Keine Termine für heute geplant
             </p>
           ) : (
             <div className="space-y-4">
@@ -133,11 +133,11 @@ export default async function DashboardPage() {
                     </div>
                     <div>
                       <div className="font-medium">
-                        {customer?.name || 'Unknown Customer'}
+                        {customer?.name || 'Unbekannter Kunde'}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {service?.name || 'Unknown Service'}
-                        {staffMember && ` with ${staffMember.name}`}
+                        {service?.name || 'Unbekannte Dienstleistung'}
+                        {staffMember && ` mit ${staffMember.name}`}
                       </div>
                     </div>
                   </div>

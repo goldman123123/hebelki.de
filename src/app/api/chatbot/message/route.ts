@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
 
     // PHASE 3 FIX: Verify business exists
     const business = await db
-      .select({ id: businesses.id, name: businesses.name })
+      .select({ id: businesses.id, name: businesses.name, settings: businesses.settings })
       .from(businesses)
       .where(eq(businesses.id, businessId))
       .limit(1)
@@ -115,6 +115,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Business nicht gefunden' },
         { status: 404 }
+      )
+    }
+
+    // EU AI Act Compliance: Check if business has acknowledged AI literacy
+    const AI_LITERACY_VERSION = '1.0'
+    const businessSettings = business.settings as Record<string, unknown> | null
+    const aiLiteracyAcknowledged = businessSettings?.aiLiteracyAcknowledgedAt &&
+      businessSettings?.aiLiteracyVersion === AI_LITERACY_VERSION
+
+    if (!aiLiteracyAcknowledged) {
+      console.warn('[Chatbot API] AI literacy not acknowledged for business:', businessId)
+      return NextResponse.json(
+        {
+          error: 'KI-Funktionen deaktiviert',
+          message: 'Der Chatbot ist nicht verfügbar, da die KI-Nutzungsbestätigung gemäß EU AI Act noch aussteht. Bitte kontaktieren Sie das Unternehmen direkt.',
+          code: 'AI_LITERACY_NOT_ACKNOWLEDGED',
+        },
+        { status: 403 }
       )
     }
 
@@ -279,6 +297,19 @@ export async function POST(request: NextRequest) {
     // Continue with normal AI processing
     // ============================================
 
+    // Derive access context (Phase 1: Business Logic Separation)
+    // - If admin context present: use their role (staff/owner)
+    // - Otherwise: treat as customer (safest default)
+    const accessContext = adminContext
+      ? {
+          actorType: adminContext.role === 'owner' ? 'owner' as const : 'staff' as const,
+          actorId: adminContext.userId,
+        }
+      : {
+          actorType: 'customer' as const,
+          actorId: customerId,
+        }
+
     // Process the message
     const result = await handleChatMessage({
       businessId,
@@ -287,6 +318,7 @@ export async function POST(request: NextRequest) {
       channel,
       customerId,
       adminContext,
+      accessContext,
     })
 
     return NextResponse.json({

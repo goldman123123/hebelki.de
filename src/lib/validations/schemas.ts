@@ -5,13 +5,13 @@ import { z } from 'zod'
 // ============================================
 
 export const serviceSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters').max(100),
+  name: z.string().min(2, 'Name muss mindestens 2 Zeichen haben').max(100),
   description: z.string().max(500).optional().nullable(),
   category: z.string().max(50).optional().nullable(),
-  durationMinutes: z.number().min(5, 'Duration must be at least 5 minutes').max(480, 'Duration cannot exceed 8 hours'),
+  durationMinutes: z.number().min(5, 'Dauer muss mindestens 5 Minuten betragen').max(480, 'Dauer darf 8 Stunden nicht überschreiten'),
   bufferMinutes: z.number().min(0).max(60).default(0),
-  price: z.string().regex(/^(\d+(\.\d{1,2})?)?$/, 'Invalid price format').optional().nullable(),
-  capacity: z.number().min(1, 'Capacity must be at least 1').max(100, 'Capacity cannot exceed 100').default(1),
+  price: z.string().regex(/^(\d+(\.\d{1,2})?)?$/, 'Ungültiges Preisformat').optional().nullable(),
+  capacity: z.number().min(1, 'Kapazität muss mindestens 1 sein').max(100, 'Kapazität darf 100 nicht überschreiten').default(1),
   isActive: z.boolean().default(true),
 })
 
@@ -22,12 +22,12 @@ export type ServiceFormData = z.infer<typeof serviceSchema>
 // ============================================
 
 export const staffSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters').max(100),
-  email: z.string().email('Invalid email').optional().nullable().or(z.literal('')),
+  name: z.string().min(2, 'Name muss mindestens 2 Zeichen haben').max(100),
+  email: z.string().email('Ungültige E-Mail-Adresse').optional().nullable().or(z.literal('')),
   phone: z.string().max(20).optional().nullable(),
   title: z.string().max(100).optional().nullable(),
   bio: z.string().max(500).optional().nullable(),
-  avatarUrl: z.string().url('Invalid URL').optional().nullable().or(z.literal('')),
+  avatarUrl: z.string().url('Ungültige URL').optional().nullable().or(z.literal('')),
   isActive: z.boolean().default(true),
   serviceIds: z.array(z.string().uuid()).optional().default([]),
 })
@@ -52,10 +52,10 @@ export type BookingStatusFormData = z.infer<typeof bookingStatusSchema>
 // ============================================
 
 export const timeSlotSchema = z.object({
-  startTime: z.string().regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format'),
-  endTime: z.string().regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format'),
+  startTime: z.string().regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Ungültiges Zeitformat'),
+  endTime: z.string().regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Ungültiges Zeitformat'),
 }).refine(data => data.startTime < data.endTime, {
-  message: 'End time must be after start time',
+  message: 'Endzeit muss nach der Startzeit liegen',
   path: ['endTime'],
 })
 
@@ -76,7 +76,7 @@ export type WeeklySchedule = z.infer<typeof weeklyScheduleSchema>
 // ============================================
 
 export const availabilityOverrideSchema = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format'),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Ungültiges Datumsformat'),
   isAvailable: z.boolean(),
   startTime: z.string().regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).optional().nullable(),
   endTime: z.string().regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).optional().nullable(),
@@ -89,7 +89,7 @@ export const availabilityOverrideSchema = z.object({
   }
   return true
 }, {
-  message: 'Both start and end times required when setting custom hours',
+  message: 'Start- und Endzeit sind erforderlich bei benutzerdefinierten Zeiten',
   path: ['endTime'],
 })
 

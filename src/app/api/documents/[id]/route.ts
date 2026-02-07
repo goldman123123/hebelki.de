@@ -1,7 +1,7 @@
 /**
- * GET/DELETE /api/documents/[id]
+ * GET/DELETE/PATCH /api/documents/[id]
  *
- * Get document details or mark for deletion
+ * Get document details, mark for deletion, or update metadata/classification
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -16,7 +16,7 @@ import {
 } from '@/lib/db/schema'
 import { requireBusinessAccess } from '@/lib/auth-helpers'
 import { getDownloadUrl } from '@/lib/r2/client'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, inArray } from 'drizzle-orm'
 
 type Params = Promise<{ id: string }>
 
@@ -294,7 +294,19 @@ export async function DELETE(
 
 /**
  * PATCH /api/documents/[id]
- * Update document metadata (title, labels)
+ * Update document metadata and classification
+ *
+ * Supported fields:
+ * - title: Document title
+ * - labels: Array of labels
+ * - audience: 'public' | 'internal'
+ * - scopeType: 'global' | 'customer' | 'staff'
+ * - scopeId: UUID (required when scopeType != 'global')
+ * - dataClass: 'knowledge' | 'stored_only'
+ *
+ * Side effects:
+ * - dataClass change to 'knowledge': Creates new ingestion job
+ * - dataClass change to 'stored_only': Cancels pending jobs, deletes embeddings
  */
 export async function PATCH(
   request: NextRequest,
@@ -303,11 +315,43 @@ export async function PATCH(
   try {
     const { id: documentId } = await params
     const body = await request.json()
-    const { businessId, title, labels } = body
+    const { businessId, title, labels, audience, scopeType, scopeId, dataClass } = body
 
     if (!businessId) {
       return NextResponse.json(
         { error: 'businessId is required' },
+        { status: 400 }
+      )
+    }
+
+    // Validate audience if provided
+    if (audience !== undefined && !['public', 'internal'].includes(audience)) {
+      return NextResponse.json(
+        { error: 'audience must be "public" or "internal"' },
+        { status: 400 }
+      )
+    }
+
+    // Validate scopeType if provided
+    if (scopeType !== undefined && !['global', 'customer', 'staff'].includes(scopeType)) {
+      return NextResponse.json(
+        { error: 'scopeType must be "global", "customer", or "staff"' },
+        { status: 400 }
+      )
+    }
+
+    // Validate dataClass if provided
+    if (dataClass !== undefined && !['knowledge', 'stored_only'].includes(dataClass)) {
+      return NextResponse.json(
+        { error: 'dataClass must be "knowledge" or "stored_only"' },
+        { status: 400 }
+      )
+    }
+
+    // Validate scopeId requirement
+    if (scopeType !== undefined && scopeType !== 'global' && !scopeId) {
+      return NextResponse.json(
+        { error: 'scopeId is required when scopeType is not "global"' },
         { status: 400 }
       )
     }
@@ -348,6 +392,32 @@ export async function PATCH(
       updates.labels = labels
     }
 
+    if (audience !== undefined) {
+      updates.audience = audience
+    }
+
+    if (scopeType !== undefined) {
+      updates.scopeType = scopeType
+      // Set scopeId to null if scopeType is global
+      if (scopeType === 'global') {
+        updates.scopeId = null
+      } else if (scopeId !== undefined) {
+        updates.scopeId = scopeId
+      }
+    } else if (scopeId !== undefined) {
+      updates.scopeId = scopeId
+    }
+
+    if (dataClass !== undefined) {
+      updates.dataClass = dataClass
+    }
+
+    // Track if we need to handle dataClass change side effects
+    const dataClassChanged = dataClass !== undefined && dataClass !== doc.dataClass
+    const changingToKnowledge = dataClassChanged && dataClass === 'knowledge'
+    const changingToStoredOnly = dataClassChanged && dataClass === 'stored_only'
+    let reindexing = false
+
     // Update document
     const [updated] = await db
       .update(documents)
@@ -355,11 +425,90 @@ export async function PATCH(
       .where(eq(documents.id, documentId))
       .returning()
 
+    // Handle dataClass change side effects
+    if (dataClassChanged) {
+      // Get latest version
+      const latestVersion = await db
+        .select()
+        .from(documentVersions)
+        .where(eq(documentVersions.documentId, documentId))
+        .orderBy(desc(documentVersions.version))
+        .limit(1)
+        .then(rows => rows[0])
+
+      if (latestVersion) {
+        if (changingToKnowledge) {
+          // Create new ingestion job
+          // Get source type from file extension
+          const ext = doc.originalFilename.toLowerCase().split('.').pop() || 'unknown'
+          const sourceTypeMap: Record<string, string> = {
+            pdf: 'pdf',
+            docx: 'docx',
+            doc: 'doc',
+            txt: 'txt',
+            html: 'html',
+            htm: 'html',
+            csv: 'csv',
+            xlsx: 'xlsx',
+            xls: 'xls',
+          }
+
+          await db.insert(ingestionJobs).values({
+            documentVersionId: latestVersion.id,
+            businessId: businessId,
+            sourceType: sourceTypeMap[ext] || 'unknown',
+            status: 'queued',
+            attempts: 0,
+          })
+
+          reindexing = true
+        } else if (changingToStoredOnly) {
+          // Cancel any pending/processing jobs
+          await db
+            .update(ingestionJobs)
+            .set({
+              status: 'cancelled',
+              errorCode: 'dataclass_changed',
+              lastError: 'Data class changed to stored_only',
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(ingestionJobs.documentVersionId, latestVersion.id),
+                inArray(ingestionJobs.status, ['queued', 'processing'])
+              )
+            )
+
+          // Delete embeddings for this version
+          // First get chunk IDs, then delete embeddings
+          const chunks = await db
+            .select({ id: documentChunks.id })
+            .from(documentChunks)
+            .where(eq(documentChunks.documentVersionId, latestVersion.id))
+
+          if (chunks.length > 0) {
+            const chunkIds = chunks.map(c => c.id)
+            await db
+              .delete(chunkEmbeddings)
+              .where(inArray(chunkEmbeddings.chunkId, chunkIds))
+          }
+        }
+      }
+    }
+
     return NextResponse.json({
-      id: updated.id,
-      title: updated.title,
-      labels: updated.labels,
-      updatedAt: updated.updatedAt,
+      success: true,
+      document: {
+        id: updated.id,
+        title: updated.title,
+        labels: updated.labels,
+        audience: updated.audience,
+        scopeType: updated.scopeType,
+        scopeId: updated.scopeId,
+        dataClass: updated.dataClass,
+        updatedAt: updated.updatedAt,
+      },
+      reindexing,
     })
   } catch (error) {
     console.error('[PATCH /api/documents/[id]] Error:', error)

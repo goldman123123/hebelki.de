@@ -15,7 +15,7 @@ import { convert } from 'html-to-text'
 export function htmlToCleanText(html: string): string {
   const options = {
     // Preserve paragraph structure
-    wordwrap: false,
+    wordwrap: false as const,
 
     // Selectors to ignore (navigation, footer, etc.)
     selectors: [

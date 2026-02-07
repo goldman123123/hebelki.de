@@ -207,7 +207,7 @@ export async function confirmHold(params: {
       staffName,
       startsAt: booking.startsAt.toISOString(),
       endsAt: booking.endsAt.toISOString(),
-      confirmationToken: booking.confirmationToken,
+      confirmationToken: booking.confirmationToken ?? undefined,
       notes,
       price: service?.price ? parseFloat(service.price) : undefined,
       currency: business?.currency || 'EUR',

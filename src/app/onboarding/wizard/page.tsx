@@ -47,9 +47,9 @@ function WizardContent() {
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="mx-auto max-w-6xl px-4">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-gray-900">Setup Wizard</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Einrichtungsassistent</h1>
           <p className="text-gray-600 mt-2">
-            Let&apos;s get your business ready for bookings
+            Machen Sie Ihr Unternehmen bereit für Buchungen
           </p>
         </div>
 
@@ -70,7 +70,7 @@ export default function OnboardingWizard() {
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
-            <p className="mt-4 text-gray-600">Loading wizard...</p>
+            <p className="mt-4 text-gray-600">Assistent wird geladen...</p>
           </div>
         </div>
       }>

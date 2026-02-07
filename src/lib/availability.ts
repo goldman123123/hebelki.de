@@ -152,6 +152,9 @@ export async function getAvailableSlots(
         available = false
       }
 
+      // Track conflicting bookings count for capacity info (declared here for scope)
+      let conflictingBookingsCount = 0
+
       // Check for conflicts with existing bookings and holds (capacity-aware)
       if (available) {
         // Slot end time with buffer for cleanup/transition time
@@ -195,6 +198,8 @@ export async function getAvailableSlots(
           const serviceCapacity = config.capacity || 1
           const totalOccupied = conflictingBookings.length + conflictingHolds.length
           available = totalOccupied < serviceCapacity
+          // Track for capacity display
+          conflictingBookingsCount = conflictingBookings.length
         }
       }
 
@@ -207,7 +212,7 @@ export async function getAvailableSlots(
 
       // Add capacity info for group bookings (capacity > 1, no staff assigned)
       if (!staffId && config.capacity && config.capacity > 1) {
-        slot.currentBookings = conflictingBookings.length
+        slot.currentBookings = conflictingBookingsCount
         slot.capacity = config.capacity
       }
 

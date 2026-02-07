@@ -119,11 +119,11 @@ export function CustomerForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="email">Email *</Label>
+          <Label htmlFor="email">E-Mail *</Label>
           <Input
             id="email"
             type="email"
-            placeholder="your@email.com"
+            placeholder="ihre@email.de"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className={errors.email ? 'border-red-500' : ''}

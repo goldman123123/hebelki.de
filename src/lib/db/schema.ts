@@ -46,9 +46,17 @@ export const businesses = pgTable('businesses', {
   slug: text('slug').notNull().unique(), // URL: hebelki.de/book/[slug]
   type: text('type').notNull(), // 'clinic', 'salon', 'consultant', 'gym'
 
-  // Branding
+  // Legal/Registration (German business requirements)
+  legalName: text('legal_name'), // Official registered name (Firmenname)
+  legalForm: text('legal_form'), // GmbH, UG, GbR, Einzelunternehmer, etc.
+  registrationNumber: text('registration_number'), // Handelsregisternummer (e.g., HRB 12345)
+  registrationCourt: text('registration_court'), // Amtsgericht (e.g., "Amtsgericht Berlin-Charlottenburg")
+
+  // Branding & Description
   logoUrl: text('logo_url'),
   primaryColor: text('primary_color').default('#3B82F6'),
+  tagline: text('tagline'), // Short slogan (max ~100 chars)
+  description: text('description'), // About text / longer description
 
   // Location
   timezone: text('timezone').notNull().default('Europe/Berlin'),
@@ -59,6 +67,15 @@ export const businesses = pgTable('businesses', {
   phone: text('phone'),
   address: text('address'),
   website: text('website'),
+
+  // Social Media
+  socialInstagram: text('social_instagram'),
+  socialFacebook: text('social_facebook'),
+  socialLinkedin: text('social_linkedin'),
+  socialTwitter: text('social_twitter'),
+
+  // Additional Info
+  foundedYear: integer('founded_year'),
 
   // Booking policies
   minBookingNoticeHours: integer('min_booking_notice_hours').default(24),
@@ -264,6 +281,12 @@ export const customers = pgTable('customers', {
   phone: text('phone'),
   notes: text('notes'), // internal notes
   source: text('source'), // Track origin: 'booking', 'chatbot_escalation', 'manual', 'whatsapp'
+
+  // Address fields (for invoicing)
+  street: text('street'),
+  city: text('city'),
+  postalCode: text('postal_code'),
+  country: text('country').default('Deutschland'),
 
   customFields: jsonb('custom_fields').default({}),
 
@@ -524,6 +547,28 @@ export const bookingActionsRelations = relations(bookingActions, ({ one }) => ({
 // CHATBOT MODULE
 // ============================================
 
+// Type definition for conversation intent state (booking flow state machine)
+export interface ConversationIntent {
+  state: 'idle' | 'browsing_services' | 'checking_availability' |
+         'hold_active' | 'collecting_details' | 'awaiting_confirmation'
+  serviceId?: string
+  serviceName?: string
+  holdId?: string
+  holdExpiresAt?: string
+  selectedDate?: string
+  selectedSlot?: {
+    start: string
+    staffId?: string
+    staffName?: string
+  }
+  customerData?: {
+    name?: string
+    email?: string
+    phone?: string
+  }
+  lastUpdated: string
+}
+
 export const chatbotConversations = pgTable('chatbot_conversations', {
   id: uuid('id').defaultRandom().primaryKey(),
   businessId: uuid('business_id').notNull().references(() => businesses.id, { onDelete: 'cascade' }),
@@ -540,6 +585,21 @@ export const chatbotConversations = pgTable('chatbot_conversations', {
 
   // Metadata (AI model used, tokens, etc.)
   metadata: jsonb('metadata').default({}),
+
+  // ============================================
+  // CONVERSATION MEMORY (Token Optimization)
+  // ============================================
+
+  // Rolling summary of conversation (generated after every N messages)
+  summary: text('summary'),
+  summaryUpdatedAt: timestamp('summary_updated_at', { withTimezone: true }),
+  messagesSinceSummary: integer('messages_since_summary').default(0),
+
+  // Intent state machine (persists booking flow state for WhatsApp reconnects)
+  currentIntent: jsonb('current_intent').$type<ConversationIntent>().default({
+    state: 'idle',
+    lastUpdated: new Date().toISOString(),
+  }),
 
   // Data Retention (GDPR Compliance)
   retentionDays: integer('retention_days').default(90), // Auto-delete after X days
@@ -731,8 +791,24 @@ export const ticketComments = pgTable('ticket_comments', {
 }));
 
 // ============================================
-// INVOICING MODULE (Future)
+// INVOICING MODULE (German § 14 UStG Compliant)
 // ============================================
+
+// Type definition for invoice line items
+export interface InvoiceLineItem {
+  description: string
+  quantity: number
+  unitPrice: string  // Decimal as string
+  total: string      // Decimal as string
+}
+
+// Type definition for business tax settings
+export interface BusinessTaxSettings {
+  taxId?: string           // Steuernummer or USt-IdNr
+  taxRate?: number         // Default: 19 (can be 19, 7, or 0)
+  isKleinunternehmer?: boolean  // If true, no MwSt charged (§ 19 UStG)
+  showLogoOnInvoice?: boolean   // If true, display logo on invoices (default: true)
+}
 
 export const invoices = pgTable('invoices', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -741,15 +817,16 @@ export const invoices = pgTable('invoices', {
   customerId: uuid('customer_id').references(() => customers.id),
 
   // Invoice details
-  invoiceNumber: text('invoice_number').notNull().unique(),
+  invoiceNumber: text('invoice_number').notNull().unique(), // Format: RE-2026-00001
 
   // Line items
-  items: jsonb('items').notNull(), // [{ description, quantity, price, total }]
+  items: jsonb('items').notNull().$type<InvoiceLineItem[]>(), // [{ description, quantity, unitPrice, total }]
 
-  // Amounts
-  subtotal: decimal('subtotal', { precision: 10, scale: 2 }).notNull(),
-  tax: decimal('tax', { precision: 10, scale: 2 }).default('0'),
-  total: decimal('total', { precision: 10, scale: 2 }).notNull(),
+  // Amounts (German invoice requirements)
+  subtotal: decimal('subtotal', { precision: 10, scale: 2 }).notNull(),  // Nettobetrag
+  taxRate: decimal('tax_rate', { precision: 5, scale: 2 }).default('19.00'),  // MwSt rate (19%, 7%, or 0%)
+  taxAmount: decimal('tax_amount', { precision: 10, scale: 2 }).default('0'), // MwSt amount
+  total: decimal('total', { precision: 10, scale: 2 }).notNull(),  // Bruttobetrag
 
   // Currency
   currency: text('currency').default('EUR'),
@@ -757,8 +834,9 @@ export const invoices = pgTable('invoices', {
   // Status: draft, sent, paid, overdue, cancelled
   status: text('status').notNull().default('draft'),
 
-  // Dates
-  issueDate: date('issue_date').notNull(),
+  // Dates (German invoice requirements)
+  issueDate: date('issue_date').notNull(),  // Ausstellungsdatum
+  serviceDate: date('service_date'),         // Leistungsdatum (from booking.startsAt)
   dueDate: date('due_date').notNull(),
   sentAt: timestamp('sent_at', { withTimezone: true }),
   paidAt: timestamp('paid_at', { withTimezone: true }),
@@ -766,6 +844,9 @@ export const invoices = pgTable('invoices', {
   // Payment tracking
   paymentMethod: text('payment_method'), // cash, card, transfer, etc.
   paymentReference: text('payment_reference'),
+
+  // PDF storage (R2)
+  pdfR2Key: text('pdf_r2_key'),  // R2 storage key for generated PDF
 
   // Notes
   notes: text('notes'),
@@ -776,8 +857,21 @@ export const invoices = pgTable('invoices', {
 }, (table) => ({
   businessIdx: index('invoices_business_idx').on(table.businessId),
   customerIdx: index('invoices_customer_idx').on(table.customerId),
+  bookingIdx: index('invoices_booking_idx').on(table.bookingId),
   statusIdx: index('invoices_status_idx').on(table.status),
   invoiceNumberIdx: uniqueIndex('invoices_invoice_number_idx').on(table.invoiceNumber),
+}));
+
+// Invoice number sequence tracking (per business, per year)
+export const invoiceSequences = pgTable('invoice_sequences', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  businessId: uuid('business_id').notNull().references(() => businesses.id, { onDelete: 'cascade' }),
+  year: integer('year').notNull(),
+  lastNumber: integer('last_number').default(0).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+}, (table) => ({
+  businessYearIdx: uniqueIndex('invoice_sequences_business_year_idx').on(table.businessId, table.year),
 }));
 
 // ============================================

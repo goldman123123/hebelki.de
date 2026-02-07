@@ -21,9 +21,9 @@ export default async function OnboardingPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-4xl">
         <div className="mb-12 text-center">
-          <h1 className="text-4xl font-bold text-gray-900">Welcome to Hebelki</h1>
+          <h1 className="text-4xl font-bold text-gray-900">Willkommen bei Hebelki</h1>
           <p className="mt-3 text-lg text-gray-600">
-            Choose how you&apos;d like to set up your business
+            Wählen Sie, wie Sie Ihr Unternehmen einrichten möchten
           </p>
         </div>
 
@@ -35,7 +35,7 @@ export default async function OnboardingPage() {
           >
             <div className="absolute top-4 right-4">
               <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800">
-                Recommended
+                Empfohlen
               </span>
             </div>
 
@@ -46,38 +46,38 @@ export default async function OnboardingPage() {
             </div>
 
             <h2 className="text-2xl font-bold text-gray-900 mb-3">
-              Guided Setup Wizard
+              Geführter Einrichtungsassistent
             </h2>
 
             <p className="text-gray-600 mb-6">
-              Step-by-step wizard that automatically sets up your business with AI-powered website scraping.
+              Schritt-für-Schritt-Assistent, der Ihr Unternehmen automatisch mit KI-gestütztem Website-Scanning einrichtet.
             </p>
 
             <ul className="space-y-3 text-sm text-gray-600">
               <li className="flex items-start">
                 <span className="mr-2 text-green-600">✓</span>
-                <span>Automatically scrape your website for knowledge and services</span>
+                <span>Automatisches Scannen Ihrer Website nach Wissen und Dienstleistungen</span>
               </li>
               <li className="flex items-start">
                 <span className="mr-2 text-green-600">✓</span>
-                <span>AI-powered content extraction with DeepSeek</span>
+                <span>KI-gestützte Inhaltsextraktion mit DeepSeek</span>
               </li>
               <li className="flex items-start">
                 <span className="mr-2 text-green-600">✓</span>
-                <span>Chatbot knowledge base auto-populated</span>
+                <span>Chatbot-Wissensdatenbank wird automatisch befüllt</span>
               </li>
               <li className="flex items-start">
                 <span className="mr-2 text-green-600">✓</span>
-                <span>Service detection and setup assistance</span>
+                <span>Automatische Dienstleistungserkennung und Einrichtungshilfe</span>
               </li>
               <li className="flex items-start">
                 <span className="mr-2 text-green-600">✓</span>
-                <span>Calendar and availability quick setup</span>
+                <span>Schnelle Kalender- und Verfügbarkeitseinrichtung</span>
               </li>
             </ul>
 
             <div className="mt-6 flex items-center text-blue-600 font-semibold group-hover:translate-x-2 transition-transform">
-              Start Guided Setup →
+              Geführte Einrichtung starten →
             </div>
           </Link>
 
@@ -93,40 +93,40 @@ export default async function OnboardingPage() {
             </div>
 
             <h2 className="text-2xl font-bold text-gray-900 mb-3">
-              Quick Setup
+              Schnelleinrichtung
             </h2>
 
             <p className="text-gray-600 mb-6">
-              Simple one-page form to get started quickly. You can configure everything later from the dashboard.
+              Einfaches Formular für einen schnellen Start. Sie können alles später im Dashboard konfigurieren.
             </p>
 
             <ul className="space-y-3 text-sm text-gray-600">
               <li className="flex items-start">
                 <span className="mr-2 text-gray-400">•</span>
-                <span>Basic business information only</span>
+                <span>Nur grundlegende Unternehmensinformationen</span>
               </li>
               <li className="flex items-start">
                 <span className="mr-2 text-gray-400">•</span>
-                <span>Manual setup required for services and chatbot</span>
+                <span>Manuelle Einrichtung für Dienstleistungen und Chatbot erforderlich</span>
               </li>
               <li className="flex items-start">
                 <span className="mr-2 text-gray-400">•</span>
-                <span>Takes 1-2 minutes</span>
+                <span>Dauert 1-2 Minuten</span>
               </li>
               <li className="flex items-start">
                 <span className="mr-2 text-gray-400">•</span>
-                <span>Best if you prefer to configure everything yourself</span>
+                <span>Ideal, wenn Sie alles selbst konfigurieren möchten</span>
               </li>
             </ul>
 
             <div className="mt-6 flex items-center text-gray-600 font-semibold group-hover:translate-x-2 transition-transform">
-              Quick Setup →
+              Schnelleinrichtung →
             </div>
           </Link>
         </div>
 
         <p className="mt-8 text-center text-sm text-gray-500">
-          You can always change or complete your setup later from the dashboard
+          Sie können Ihre Einrichtung jederzeit später im Dashboard ändern oder vervollständigen
         </p>
       </div>
     </div>

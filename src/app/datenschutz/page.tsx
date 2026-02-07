@@ -6,6 +6,7 @@
  */
 
 import { Metadata } from 'next'
+import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'Datenschutzerklärung - Hebelki',
@@ -357,7 +358,47 @@ export default function PrivacyPage() {
 
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold text-gray-800">
-              10. Änderungen dieser Datenschutzerklärung
+              10. Auftragsverarbeitung (für Geschäftskunden)
+            </h2>
+            <p className="text-gray-700 leading-relaxed">
+              Wenn Sie Hebelki als Unternehmen nutzen, verarbeiten wir personenbezogene
+              Daten Ihrer Kunden in Ihrem Auftrag. Hierfür stellen wir folgende Dokumente
+              gemäß DSGVO Art. 28 bereit:
+            </p>
+            <div className="grid gap-3 md:grid-cols-3 mt-4">
+              <Link
+                href="/legal/avv"
+                className="block rounded-lg border p-4 hover:border-blue-500 hover:bg-blue-50 transition-colors"
+              >
+                <h3 className="font-semibold text-gray-800">Auftragsverarbeitungsvertrag</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  AVV gemäß Art. 28 DSGVO
+                </p>
+              </Link>
+              <Link
+                href="/legal/unterauftragsverarbeiter"
+                className="block rounded-lg border p-4 hover:border-blue-500 hover:bg-blue-50 transition-colors"
+              >
+                <h3 className="font-semibold text-gray-800">Unterauftragsverarbeiter</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Liste aller eingesetzten Dienstleister
+                </p>
+              </Link>
+              <Link
+                href="/legal/toms"
+                className="block rounded-lg border p-4 hover:border-blue-500 hover:bg-blue-50 transition-colors"
+              >
+                <h3 className="font-semibold text-gray-800">TOMs</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Technische und organisatorische Maßnahmen
+                </p>
+              </Link>
+            </div>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-2xl font-semibold text-gray-800">
+              11. Änderungen dieser Datenschutzerklärung
             </h2>
             <p className="text-gray-700 leading-relaxed">
               Wir können diese Datenschutzerklärung aktualisieren, um Änderungen unserer
@@ -368,7 +409,7 @@ export default function PrivacyPage() {
 
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold text-gray-800">
-              11. Kontakt & Beschwerden
+              12. Kontakt & Beschwerden
             </h2>
             <p className="text-gray-700 leading-relaxed">
               Für Datenschutzanfragen kontaktieren Sie uns:

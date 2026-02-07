@@ -284,12 +284,12 @@ export default function ServicesPage() {
     <div className="max-w-7xl mx-auto">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Services</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Dienstleistungen</h1>
           <p className="text-gray-600 mt-1">
-            Manage your service offerings
+            Verwalten Sie Ihre Dienstleistungen
             {!loading && (
               <span className="ml-2">
-                ({activeCount} active{inactiveCount > 0 && `, ${inactiveCount} inactive`})
+                ({activeCount} aktiv{inactiveCount > 0 && `, ${inactiveCount} inaktiv`})
               </span>
             )}
           </p>
@@ -303,19 +303,19 @@ export default function ServicesPage() {
               {showInactive ? (
                 <>
                   <Eye className="mr-2 h-4 w-4" />
-                  Hide Inactive
+                  Inaktive ausblenden
                 </>
               ) : (
                 <>
                   <EyeOff className="mr-2 h-4 w-4" />
-                  Show Inactive ({inactiveCount})
+                  Inaktive anzeigen ({inactiveCount})
                 </>
               )}
             </Button>
           )}
           <Button onClick={() => setCreatingNew(true)} disabled={creatingNew}>
             <Plus className="mr-2 h-4 w-4" />
-            Add Service
+            Dienstleistung hinzufügen
           </Button>
         </div>
       </div>
@@ -434,48 +434,48 @@ export default function ServicesPage() {
           {creatingNew && (
             <Card className="border-2 border-blue-200 bg-blue-50/30">
               <CardHeader>
-                <CardTitle className="text-lg">New Service</CardTitle>
-                <CardDescription>Fill in the details for your new service</CardDescription>
+                <CardTitle className="text-lg">Neue Dienstleistung</CardTitle>
+                <CardDescription>Geben Sie die Details für Ihre neue Dienstleistung ein</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="col-span-2">
                       <label className="text-sm font-medium text-gray-700 mb-1 block">
-                        Service Name *
+                        Dienstleistungsname *
                       </label>
                       <Input
                         value={newService.name}
                         onChange={(e) => setNewService({ ...newService, name: e.target.value })}
-                        placeholder="e.g., Haircut, Massage, Consultation"
+                        placeholder="z.B. Haarschnitt, Massage, Beratung"
                         className="font-medium"
                       />
                     </div>
                     <div className="col-span-2">
                       <label className="text-sm font-medium text-gray-700 mb-1 block">
-                        Description
+                        Beschreibung
                       </label>
                       <Textarea
                         value={newService.description || ''}
                         onChange={(e) => setNewService({ ...newService, description: e.target.value })}
-                        placeholder="Describe your service..."
+                        placeholder="Beschreiben Sie Ihre Dienstleistung..."
                         rows={2}
                         className="resize-none"
                       />
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-700 mb-1 block">
-                        Category
+                        Kategorie
                       </label>
                       <Input
                         value={newService.category || ''}
                         onChange={(e) => setNewService({ ...newService, category: e.target.value })}
-                        placeholder="e.g., Hair, Wellness"
+                        placeholder="z.B. Haare, Wellness"
                       />
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-700 mb-1 block">
-                        Duration (minutes) *
+                        Dauer (Minuten) *
                       </label>
                       <Input
                         type="number"
@@ -486,7 +486,7 @@ export default function ServicesPage() {
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-700 mb-1 block">
-                        Buffer Time (minutes)
+                        Pufferzeit (Minuten)
                       </label>
                       <Input
                         type="number"
@@ -497,19 +497,19 @@ export default function ServicesPage() {
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-700 mb-1 block">
-                        Price (€)
+                        Preis (€)
                       </label>
                       <Input
                         type="number"
                         step="0.01"
                         value={newService.price || ''}
                         onChange={(e) => setNewService({ ...newService, price: e.target.value })}
-                        placeholder="0.00"
+                        placeholder="0,00"
                       />
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-700 mb-1 block">
-                        Capacity (Participants)
+                        Kapazität (Teilnehmer)
                       </label>
                       <Input
                         type="number"
@@ -520,8 +520,8 @@ export default function ServicesPage() {
                         placeholder="1"
                       />
                       <p className="text-xs text-gray-500 mt-1">
-                        How many people can book this service at the same time?
-                        Set to 1 for private sessions, higher for group classes.
+                        Wie viele Personen können diesen Service gleichzeitig buchen?
+                        Auf 1 setzen für Einzeltermine, höher für Gruppenkurse.
                       </p>
                     </div>
                   </div>
@@ -535,12 +535,12 @@ export default function ServicesPage() {
                       {savingId === 'new' ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Saving...
+                          Wird gespeichert...
                         </>
                       ) : (
                         <>
                           <Check className="w-4 h-4 mr-2" />
-                          Save Service
+                          Dienstleistung speichern
                         </>
                       )}
                     </Button>
@@ -562,7 +562,7 @@ export default function ServicesPage() {
                       disabled={savingId === 'new'}
                     >
                       <X className="w-4 h-4 mr-2" />
-                      Cancel
+                      Abbrechen
                     </Button>
                   </div>
                 </div>
@@ -576,9 +576,9 @@ export default function ServicesPage() {
               <CardHeader className="bg-gray-50 border-b">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>{category}</CardTitle>
+                    <CardTitle>{category === 'Uncategorized' ? 'Ohne Kategorie' : category}</CardTitle>
                     <CardDescription>
-                      {categoryServices.length} service{categoryServices.length !== 1 ? 's' : ''}
+                      {categoryServices.length} Dienstleistung{categoryServices.length !== 1 ? 'en' : ''}
                     </CardDescription>
                   </div>
                 </div>
@@ -600,7 +600,7 @@ export default function ServicesPage() {
                             <div className="grid grid-cols-2 gap-4">
                               <div className="col-span-2">
                                 <label className="text-sm font-medium text-gray-700 mb-1 block">
-                                  Service Name
+                                  Dienstleistungsname
                                 </label>
                                 <Input
                                   value={editingData.name}
@@ -610,7 +610,7 @@ export default function ServicesPage() {
                               </div>
                               <div className="col-span-2">
                                 <label className="text-sm font-medium text-gray-700 mb-1 block">
-                                  Description
+                                  Beschreibung
                                 </label>
                                 <Textarea
                                   value={editingData.description || ''}
@@ -621,7 +621,7 @@ export default function ServicesPage() {
                               </div>
                               <div>
                                 <label className="text-sm font-medium text-gray-700 mb-1 block">
-                                  Category
+                                  Kategorie
                                 </label>
                                 <Input
                                   value={editingData.category || ''}
@@ -630,7 +630,7 @@ export default function ServicesPage() {
                               </div>
                               <div>
                                 <label className="text-sm font-medium text-gray-700 mb-1 block">
-                                  Duration (minutes)
+                                  Dauer (Minuten)
                                 </label>
                                 <Input
                                   type="number"
@@ -641,7 +641,7 @@ export default function ServicesPage() {
                               </div>
                               <div>
                                 <label className="text-sm font-medium text-gray-700 mb-1 block">
-                                  Buffer Time (minutes)
+                                  Pufferzeit (Minuten)
                                 </label>
                                 <Input
                                   type="number"
@@ -652,19 +652,19 @@ export default function ServicesPage() {
                               </div>
                               <div>
                                 <label className="text-sm font-medium text-gray-700 mb-1 block">
-                                  Price (€)
+                                  Preis (€)
                                 </label>
                                 <Input
                                   type="number"
                                   step="0.01"
                                   value={editingData.price || ''}
                                   onChange={(e) => setEditingData({ ...editingData, price: e.target.value })}
-                                  placeholder="0.00"
+                                  placeholder="0,00"
                                 />
                               </div>
                               <div>
                                 <label className="text-sm font-medium text-gray-700 mb-1 block">
-                                  Capacity (Participants)
+                                  Kapazität (Teilnehmer)
                                 </label>
                                 <Input
                                   type="number"
@@ -675,17 +675,17 @@ export default function ServicesPage() {
                                   placeholder="1"
                                 />
                                 <p className="text-xs text-gray-500 mt-1">
-                                  How many people can book this service at the same time?
-                                  Set to 1 for private sessions, higher for group classes.
+                                  Wie viele Personen können diesen Service gleichzeitig buchen?
+                                  Auf 1 setzen für Einzeltermine, höher für Gruppenkurse.
                                 </p>
                               </div>
                             </div>
 
                             {/* Staff Priority Section */}
                             <div className="border-t pt-4 mt-4">
-                              <h4 className="text-sm font-semibold text-gray-900 mb-3">Staff Priority</h4>
+                              <h4 className="text-sm font-semibold text-gray-900 mb-3">Mitarbeiter-Priorität</h4>
                               <p className="text-xs text-gray-500 mb-3">
-                                Drag to reorder. Top staff are tried first for automatic assignment.
+                                Ziehen zum Sortieren. Obere Mitarbeiter werden bei automatischer Zuweisung zuerst versucht.
                               </p>
                               <StaffPriorityInline serviceId={service.id} />
                             </div>
@@ -700,12 +700,12 @@ export default function ServicesPage() {
                                 {isSaving ? (
                                   <>
                                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                    Saving...
+                                    Wird gespeichert...
                                   </>
                                 ) : (
                                   <>
                                     <Check className="w-4 h-4 mr-2" />
-                                    Save Changes
+                                    Änderungen speichern
                                   </>
                                 )}
                               </Button>
@@ -716,7 +716,7 @@ export default function ServicesPage() {
                                 disabled={isSaving}
                               >
                                 <X className="w-4 h-4 mr-2" />
-                                Cancel
+                                Abbrechen
                               </Button>
                             </div>
                           </div>
@@ -735,7 +735,7 @@ export default function ServicesPage() {
                                   <h3 className="font-semibold text-gray-900 text-lg">{service.name}</h3>
                                   {!service.isActive && (
                                     <Badge variant="outline" className="text-xs">
-                                      Inactive
+                                      Inaktiv
                                     </Badge>
                                   )}
                                 </div>
@@ -748,16 +748,16 @@ export default function ServicesPage() {
                                   {service.durationMinutes} min
                                 </span>
                                 {service.bufferMinutes && service.bufferMinutes > 0 && (
-                                  <span>+ {service.bufferMinutes} min buffer</span>
+                                  <span>+ {service.bufferMinutes} min Puffer</span>
                                 )}
                                 {service.price ? (
-                                  <span className="font-semibold text-gray-900">€{service.price}</span>
+                                  <span className="font-semibold text-gray-900">{service.price} €</span>
                                 ) : (
-                                  <span className="text-gray-400">Free</span>
+                                  <span className="text-gray-400">Kostenlos</span>
                                 )}
                                 {service.capacity && service.capacity > 1 && (
                                   <Badge variant="secondary" className="ml-1">
-                                    Group: {service.capacity} spots
+                                    Gruppe: {service.capacity} Plätze
                                   </Badge>
                                 )}
                               </div>
@@ -774,12 +774,12 @@ export default function ServicesPage() {
                                 {service.isActive ? (
                                   <>
                                     <EyeOff className="h-4 w-4" />
-                                    Hide
+                                    Ausblenden
                                   </>
                                 ) : (
                                   <>
                                     <Eye className="h-4 w-4" />
-                                    Show
+                                    Anzeigen
                                   </>
                                 )}
                               </Button>
@@ -789,7 +789,7 @@ export default function ServicesPage() {
                                 onClick={() => startEditing(service)}
                               >
                                 <Edit className="h-4 w-4 mr-1" />
-                                Edit
+                                Bearbeiten
                               </Button>
                               <Button
                                 size="sm"
@@ -815,11 +815,11 @@ export default function ServicesPage() {
       <ConfirmDialog
         open={!!deleteService}
         onOpenChange={(open) => !open && setDeleteService(null)}
-        title="Delete Service"
-        description={`Are you sure you want to delete "${deleteService?.name}"? This will hide it from your services list and prevent new bookings, but historical booking data will be preserved.`}
+        title="Dienstleistung löschen"
+        description={`Sind Sie sicher, dass Sie "${deleteService?.name}" löschen möchten? Die Dienstleistung wird aus Ihrer Liste entfernt und neue Buchungen werden verhindert, aber bestehende Buchungsdaten bleiben erhalten.`}
         onConfirm={handleDelete}
         isConfirming={isDeleting}
-        confirmLabel="Delete"
+        confirmLabel="Löschen"
       />
 
       {/* Bulk Delete Confirmation */}

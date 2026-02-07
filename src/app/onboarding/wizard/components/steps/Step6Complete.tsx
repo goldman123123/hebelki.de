@@ -75,31 +75,31 @@ export function Step6Complete() {
       <CheckCircle className="w-24 h-24 text-green-600 mx-auto" />
 
       <div>
-        <h2 className="text-3xl font-bold mb-4">Setup Complete! 🎉</h2>
+        <h2 className="text-3xl font-bold mb-4">Einrichtung abgeschlossen! 🎉</h2>
         <p className="text-gray-600 text-lg">
-          Your business is now ready to accept bookings and answer customer questions.
+          Ihr Unternehmen ist jetzt bereit, Buchungen anzunehmen und Kundenfragen zu beantworten.
         </p>
       </div>
 
       {isLoading && (
         <div className="text-center py-4">
           <Loader2 className="w-6 h-6 animate-spin mx-auto text-gray-400" />
-          <p className="text-sm text-gray-600 mt-2">Checking completion status...</p>
+          <p className="text-sm text-gray-600 mt-2">Status wird überprüft...</p>
         </div>
       )}
 
       {!isLoading && (
         <div className="bg-gray-50 rounded-lg p-6 space-y-4 text-left max-w-2xl mx-auto">
-          <h3 className="font-semibold text-lg">What&apos;s Next?</h3>
+          <h3 className="font-semibold text-lg">Wie geht es weiter?</h3>
 
           <div className="space-y-3">
             {(state.scrapeJobId || hasChatbotData) && (
               <div className="flex items-start gap-3">
                 <CheckCircle className="w-5 h-5 text-green-600 mt-1 flex-shrink-0" />
                 <div>
-                  <p className="font-medium">Chatbot is ready</p>
+                  <p className="font-medium">Chatbot ist bereit</p>
                   <p className="text-sm text-gray-600">
-                    Share your chat link:{' '}
+                    Teilen Sie Ihren Chat-Link:{' '}
                     <a
                       href={`/${state.businessData?.slug}/chat`}
                       target="_blank"
@@ -117,9 +117,9 @@ export function Step6Complete() {
               <div className="flex items-start gap-3">
                 <CheckCircle className="w-5 h-5 text-green-600 mt-1 flex-shrink-0" />
                 <div>
-                  <p className="font-medium">Services configured</p>
+                  <p className="font-medium">Dienstleistungen konfiguriert</p>
                   <p className="text-sm text-gray-600">
-                    Customers can now book appointments:{' '}
+                    Kunden können jetzt Termine buchen:{' '}
                     <a
                       href={`/book/${state.businessData?.slug}`}
                       target="_blank"
@@ -136,9 +136,9 @@ export function Step6Complete() {
             <div className="flex items-start gap-3">
               <span className="w-5 h-5 border-2 border-gray-300 rounded-full mt-1 flex-shrink-0" />
               <div>
-                <p className="font-medium">Explore your dashboard</p>
+                <p className="font-medium">Entdecken Sie Ihr Dashboard</p>
                 <p className="text-sm text-gray-600">
-                  Manage bookings, view analytics, and customize settings
+                  Verwalten Sie Buchungen, sehen Sie Analysen und passen Sie Einstellungen an
                 </p>
               </div>
             </div>
@@ -147,9 +147,9 @@ export function Step6Complete() {
               <div className="flex items-start gap-3">
                 <span className="w-5 h-5 border-2 border-gray-300 rounded-full mt-1 flex-shrink-0" />
                 <div>
-                  <p className="font-medium">Set up your chatbot</p>
+                  <p className="font-medium">Richten Sie Ihren Chatbot ein</p>
                   <p className="text-sm text-gray-600">
-                    Go to the Chatbot page to add knowledge and start answering customer questions
+                    Gehen Sie zur Chatbot-Seite, um Wissen hinzuzufügen und Kundenfragen zu beantworten
                   </p>
                 </div>
               </div>
@@ -159,9 +159,9 @@ export function Step6Complete() {
               <div className="flex items-start gap-3">
                 <span className="w-5 h-5 border-2 border-gray-300 rounded-full mt-1 flex-shrink-0" />
                 <div>
-                  <p className="font-medium">Add your services</p>
+                  <p className="font-medium">Fügen Sie Ihre Dienstleistungen hinzu</p>
                   <p className="text-sm text-gray-600">
-                    Go to the Services page to set up your offerings and pricing
+                    Gehen Sie zur Dienstleistungsseite, um Ihr Angebot und Ihre Preise einzurichten
                   </p>
                 </div>
               </div>
@@ -171,7 +171,7 @@ export function Step6Complete() {
       )}
 
       <Button size="lg" onClick={goToDashboard} className="mt-8">
-        Go to Dashboard
+        Zum Dashboard
       </Button>
     </div>
   )

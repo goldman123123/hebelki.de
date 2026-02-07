@@ -2,11 +2,14 @@
  * GET /api/documents
  *
  * List all documents for a business
+ * Supports filtering by dataClass (knowledge, stored_only)
+ * Includes audience, scopeType, scopeId, containsPii fields
+ * Joins customers table for customer names when scopeType=customer
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { documents, documentVersions, ingestionJobs } from '@/lib/db/schema'
+import { documents, documentVersions, ingestionJobs, customers } from '@/lib/db/schema'
 import { requireBusinessAccess } from '@/lib/auth-helpers'
 import { eq, and, desc, ne } from 'drizzle-orm'
 
@@ -15,6 +18,9 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const businessId = searchParams.get('businessId')
     const status = searchParams.get('status') || 'active'
+    const dataClass = searchParams.get('dataClass') // 'knowledge' or 'stored_only' or null for all
+    const audience = searchParams.get('audience') // 'public' or 'internal' or null for all
+    const scopeType = searchParams.get('scopeType') // 'global', 'customer', 'staff' or null for all
     const limit = parseInt(searchParams.get('limit') || '50', 10)
     const offset = parseInt(searchParams.get('offset') || '0', 10)
 
@@ -28,12 +34,32 @@ export async function GET(request: NextRequest) {
     // Verify user has access to this business
     await requireBusinessAccess(businessId)
 
-    // Build status filter
-    const statusFilter = status === 'all'
-      ? ne(documents.status, 'deleted')
-      : eq(documents.status, status)
+    // Build filters
+    const filters = [eq(documents.businessId, businessId)]
 
-    // Get documents with latest version info
+    // Status filter
+    if (status === 'all') {
+      filters.push(ne(documents.status, 'deleted'))
+    } else {
+      filters.push(eq(documents.status, status))
+    }
+
+    // DataClass filter
+    if (dataClass) {
+      filters.push(eq(documents.dataClass, dataClass))
+    }
+
+    // Audience filter (public or internal)
+    if (audience) {
+      filters.push(eq(documents.audience, audience))
+    }
+
+    // ScopeType filter (global, customer, staff)
+    if (scopeType) {
+      filters.push(eq(documents.scopeType, scopeType))
+    }
+
+    // Get documents with all fields including new access control fields
     const docs = await db
       .select({
         id: documents.id,
@@ -42,21 +68,21 @@ export async function GET(request: NextRequest) {
         status: documents.status,
         uploadedBy: documents.uploadedBy,
         labels: documents.labels,
+        audience: documents.audience,
+        scopeType: documents.scopeType,
+        scopeId: documents.scopeId,
+        dataClass: documents.dataClass,
+        containsPii: documents.containsPii,
         createdAt: documents.createdAt,
         updatedAt: documents.updatedAt,
       })
       .from(documents)
-      .where(
-        and(
-          eq(documents.businessId, businessId),
-          statusFilter
-        )
-      )
+      .where(and(...filters))
       .orderBy(desc(documents.createdAt))
       .limit(limit)
       .offset(offset)
 
-    // Get version and job info for each document
+    // Get version, job info, and customer names for each document
     const documentsWithDetails = await Promise.all(
       docs.map(async (doc) => {
         // Get latest version
@@ -80,6 +106,8 @@ export async function GET(request: NextRequest) {
             .select({
               id: ingestionJobs.id,
               status: ingestionJobs.status,
+              stage: ingestionJobs.stage,
+              errorCode: ingestionJobs.errorCode,
               attempts: ingestionJobs.attempts,
               lastError: ingestionJobs.lastError,
               completedAt: ingestionJobs.completedAt,
@@ -94,6 +122,8 @@ export async function GET(request: NextRequest) {
             jobStatus = {
               id: job.id,
               status: job.status,
+              stage: job.stage,
+              errorCode: job.errorCode,
               attempts: job.attempts,
               lastError: job.lastError,
               completedAt: job.completedAt,
@@ -101,8 +131,24 @@ export async function GET(request: NextRequest) {
           }
         }
 
+        // Get customer name if scopeType is 'customer'
+        let customerName: string | null = null
+        if (doc.scopeType === 'customer' && doc.scopeId) {
+          const customer = await db
+            .select({ name: customers.name })
+            .from(customers)
+            .where(eq(customers.id, doc.scopeId))
+            .limit(1)
+            .then(rows => rows[0])
+
+          if (customer) {
+            customerName = customer.name
+          }
+        }
+
         return {
           ...doc,
+          customerName,
           latestVersion: latestVersion ? {
             id: latestVersion.id,
             version: latestVersion.version,

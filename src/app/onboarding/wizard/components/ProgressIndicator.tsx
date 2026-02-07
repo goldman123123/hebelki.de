@@ -13,12 +13,12 @@ interface ProgressIndicatorProps {
 
 export function ProgressIndicator({ currentStep, totalSteps }: ProgressIndicatorProps) {
   const steps: Step[] = [
-    { id: 1, name: 'Business', icon: Building2 },
+    { id: 1, name: 'Unternehmen', icon: Building2 },
     { id: 2, name: 'Website', icon: Globe },
-    { id: 3, name: 'Staff', icon: Users },
-    { id: 4, name: 'Services', icon: Package },
-    { id: 5, name: 'Calendar', icon: Calendar },
-    { id: 6, name: 'Complete', icon: CheckCircle }
+    { id: 3, name: 'Mitarbeiter', icon: Users },
+    { id: 4, name: 'Leistungen', icon: Package },
+    { id: 5, name: 'Kalender', icon: Calendar },
+    { id: 6, name: 'Fertig', icon: CheckCircle }
   ]
 
   return (

@@ -7,6 +7,7 @@ import { getBookingById } from '@/lib/db/queries'
 import { formatDate, formatTime, formatCurrency } from '@/lib/utils'
 import { ArrowLeft, User, Briefcase, Clock, DollarSign, Mail, Phone, FileText } from 'lucide-react'
 import { BookingDetailActions } from './BookingDetailActions'
+import { InvoiceCard } from '@/components/invoices/InvoiceCard'
 import { auth } from '@clerk/nextjs/server'
 import { getUserFirstBusiness } from '@/lib/auth-helpers'
 
@@ -184,6 +185,23 @@ export default async function BookingDetailPage({ params }: PageProps) {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* Invoice */}
+        {booking.status !== 'cancelled' && (
+          <InvoiceCard
+            bookingId={booking.id}
+            customer={customer ? {
+              id: customer.id,
+              name: customer.name,
+              email: customer.email,
+              phone: customer.phone,
+              street: customer.street,
+              city: customer.city,
+              postalCode: customer.postalCode,
+              country: customer.country,
+            } : null}
+          />
         )}
 
         {/* Actions */}

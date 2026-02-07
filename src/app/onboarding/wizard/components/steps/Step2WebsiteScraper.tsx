@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useWizard } from '../../context/WizardContext'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -13,14 +13,6 @@ interface StepProps {
   onNext: () => void
   onBack: () => void
   onSkip: () => void
-}
-
-interface ScrapeLogEntry {
-  url: string
-  status: 'waiting' | 'scraping' | 'completed' | 'failed'
-  size?: string
-  error?: string
-  index: number
 }
 
 interface ScrapeResults {
@@ -39,6 +31,18 @@ const normalizeUrl = (url: string): string => {
   return url
 }
 
+// Stage messages for progress display
+const stageMessages: Record<string, string> = {
+  discovering: 'Seiten werden entdeckt...',
+  scraping: 'Inhalte werden geladen...',
+  chunking: 'Inhalte werden aufbereitet...',
+  embedding: 'Embeddings werden erstellt...',
+  extracting: 'Wissen wird extrahiert...',
+  saving: 'Daten werden gespeichert...',
+  processing: 'Verarbeitung läuft...',
+  detecting_services: 'Dienstleistungen werden erkannt...',
+}
+
 export function Step2WebsiteScraper({ onNext, onBack, onSkip }: StepProps) {
   const { state, setState } = useWizard()
 
@@ -54,17 +58,190 @@ export function Step2WebsiteScraper({ onNext, onBack, onSkip }: StepProps) {
   const [filterCategory, setFilterCategory] = useState<string>('all')
   const [discoverySource, setDiscoverySource] = useState<'sitemap' | 'homepage'>(savedState?.discoverySource || 'sitemap')
 
-  // Scraping phase
+  // Scraping phase (worker-based)
   const [scraping, setScraping] = useState(false)
-  const [extracting, setExtracting] = useState(false)
-  const [extractionStage, setExtractionStage] = useState<'knowledge' | 'services' | null>(null)
-  const [scrapeLog, setScrapeLog] = useState<ScrapeLogEntry[]>([])
-  const [progress, setProgress] = useState(0)
-  const [totalPages, setTotalPages] = useState(0)
+  const [jobId, setJobId] = useState<string | null>(null)
+  const [currentStage, setCurrentStage] = useState<string | null>(null)
+  const pollingRef = useRef<NodeJS.Timeout | null>(null)
 
   // Results
   const [results, setResults] = useState<ScrapeResults | null>(savedState?.scrapeResults || null)
   const [error, setError] = useState('')
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current)
+      }
+    }
+  }, [])
+
+  // Poll for job status when we have a jobId
+  useEffect(() => {
+    if (!jobId || !scraping) return
+
+    pollingRef.current = setInterval(async () => {
+      try {
+        const response = await fetch(
+          `/api/data/scrape-url/${jobId}?businessId=${state.businessData?.id}`
+        )
+        const data = await response.json()
+
+        if (data.status === 'done') {
+          // Job completed - stop polling
+          clearInterval(pollingRef.current!)
+          pollingRef.current = null
+
+          // Extract results from metrics
+          const metrics = data.metrics || {}
+          const scrapeResults: ScrapeResults = {
+            knowledgeCount: metrics.knowledgeEntriesCreated || 0,
+            servicesCount: metrics.detectedServices || 0,
+            pagesScraped: metrics.pagesScraped || selectedUrls.length,
+            pagesFailed: metrics.scrapeErrors || 0,
+          }
+
+          // NEW: Extract services from scraped knowledge if none detected
+          // The worker sets extractServices: true but may not return services
+          if (scrapeResults.servicesCount === 0 && state.businessData?.id) {
+            setCurrentStage('detecting_services')
+
+            try {
+              const detectResponse = await fetch('/api/onboarding/detect-services', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ businessId: state.businessData.id }),
+              })
+
+              if (detectResponse.ok) {
+                const { services } = await detectResponse.json()
+
+                if (services?.length > 0) {
+                  console.log(`[Step2] Detected ${services.length} services from knowledge`)
+                  scrapeResults.servicesCount = services.length
+
+                  // Save to database for Step4 to read
+                  try {
+                    const bizResponse = await fetch(`/api/businesses/${state.businessData.id}`)
+                    const business = await bizResponse.json()
+                    const currentState = business.onboardingState || {}
+
+                    await fetch(`/api/businesses/${state.businessData.id}`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        onboardingState: {
+                          ...currentState,
+                          servicesForReview: services
+                        }
+                      })
+                    })
+                    console.log('[Step2] Saved servicesForReview to database')
+                  } catch (err) {
+                    console.error('[Step2] Failed to save services to database:', err)
+                  }
+
+                  // Save detected services to wizard context for Step4
+                  setScraping(false)
+                  setResults(scrapeResults)
+                  setState({
+                    scrapedData: {
+                      status: 'done',
+                      progress: 100,
+                      pagesScraped: scrapeResults.pagesScraped,
+                      knowledgeEntriesCreated: scrapeResults.knowledgeCount,
+                      servicesDetected: services,
+                    },
+                    detectedServices: services,
+                    chatbotScraperState: {
+                      websiteUrl,
+                      discoveredPages,
+                      selectedUrls,
+                      discoverySource,
+                      scrapeResults,
+                    },
+                  })
+                  return // Early exit - state is set
+                } else {
+                  console.log('[Step2] No services detected from knowledge')
+                }
+              } else {
+                const errorData = await detectResponse.json().catch(() => ({}))
+                console.error('[Step2] Detect services API failed:', detectResponse.status, errorData)
+              }
+            } catch (err) {
+              console.error('[Step2] Service detection failed:', err)
+              // Continue with 0 services - not a fatal error
+            }
+          }
+
+          // Save to database for Step4 to read (if we have services from worker metrics)
+          const detectedServicesData = metrics.detectedServicesData || []
+          if (detectedServicesData.length > 0 && state.businessData?.id) {
+            try {
+              const bizResponse = await fetch(`/api/businesses/${state.businessData.id}`)
+              const business = await bizResponse.json()
+              const currentState = business.onboardingState || {}
+
+              await fetch(`/api/businesses/${state.businessData.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  onboardingState: {
+                    ...currentState,
+                    servicesForReview: detectedServicesData
+                  }
+                })
+              })
+              console.log('[Step2] Saved servicesForReview from worker metrics to database')
+            } catch (err) {
+              console.error('[Step2] Failed to save services to database:', err)
+            }
+          }
+
+          setScraping(false)
+          setResults(scrapeResults)
+
+          // Save to wizard context (using the expected scrapedData format)
+          setState({
+            scrapedData: {
+              status: 'done',
+              progress: 100,
+              pagesScraped: scrapeResults.pagesScraped,
+              knowledgeEntriesCreated: scrapeResults.knowledgeCount,
+              servicesDetected: detectedServicesData,
+            },
+            detectedServices: detectedServicesData,
+            chatbotScraperState: {
+              websiteUrl,
+              discoveredPages,
+              selectedUrls,
+              discoverySource,
+              scrapeResults,
+            },
+          })
+        } else if (data.status === 'failed') {
+          // Job failed
+          clearInterval(pollingRef.current!)
+          pollingRef.current = null
+          setScraping(false)
+          setError(data.error || 'Scraping fehlgeschlagen')
+        } else {
+          // Still processing - update stage
+          setCurrentStage(data.stage || 'processing')
+        }
+      } catch (err) {
+        console.error('Polling error:', err)
+      }
+    }, 2000)
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current)
+      }
+    }
+  }, [jobId, scraping, state.businessData?.id, websiteUrl, discoveredPages, selectedUrls, discoverySource, setState])
 
   // Phase 1: Discover pages
   const handleDiscoverPages = async () => {
@@ -113,16 +290,16 @@ export function Step2WebsiteScraper({ onNext, onBack, onSkip }: StepProps) {
     }
   }
 
-  // Phase 2: Start scraping with SSE
+  // Phase 2: Start scraping using worker
   const handleStartScraping = async () => {
     if (!state.businessData?.id || selectedUrls.length === 0) return
 
     setScraping(true)
-    setScrapeLog([])
-    setProgress(0)
+    setCurrentStage('starting')
     setError('')
 
     try {
+      // Create worker job
       const response = await fetch('/api/onboarding/scrape-selected', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -133,99 +310,18 @@ export function Step2WebsiteScraper({ onNext, onBack, onSkip }: StepProps) {
         })
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        throw new Error('Failed to start scraping')
+        throw new Error(data.error || 'Failed to start scraping')
       }
 
-      // Read SSE stream
-      const reader = response.body?.getReader()
-      const decoder = new TextDecoder()
-
-      if (!reader) throw new Error('No response body')
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        const chunk = decoder.decode(value)
-        const lines = chunk.split('\n')
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6))
-
-              if (data.type === 'started') {
-                setTotalPages(data.data.total)
-                // Initialize log with waiting status
-                setScrapeLog(selectedUrls.map((url, i) => ({
-                  url,
-                  status: 'waiting',
-                  index: i + 1
-                })))
-              } else if (data.type === 'scraping') {
-                setScrapeLog(prev => prev.map(item =>
-                  item.url === data.data.url
-                    ? { ...item, status: 'scraping' }
-                    : item
-                ))
-              } else if (data.type === 'completed') {
-                setScrapeLog(prev => prev.map(item =>
-                  item.url === data.data.url
-                    ? { ...item, status: 'completed', size: data.data.size }
-                    : item
-                ))
-                setProgress((data.data.index / data.data.total) * 100)
-              } else if (data.type === 'failed') {
-                setScrapeLog(prev => prev.map(item =>
-                  item.url === data.data.url
-                    ? { ...item, status: 'failed', error: data.data.error }
-                    : item
-                ))
-              } else if (data.type === 'pages_complete') {
-                setScraping(false)
-                setExtracting(true)
-                setProgress(100)
-              } else if (data.type === 'extracting') {
-                setExtractionStage(data.data.stage)
-              } else if (data.type === 'extraction_progress') {
-                // Update extraction progress based on stage
-                console.log(`Extraction progress: ${data.data.stage} - ${data.data.count} items`)
-              } else if (data.type === 'complete') {
-                setExtracting(false)
-                setExtractionStage(null)
-                setResults(data.data)
-
-                // Get services from onboarding state (they're stored there by the API)
-                const servicesForReview = data.data.servicesCount > 0 ? [] : []
-
-                // Save results to wizard context
-                setState({
-                  scrapedData: data.data,
-                  detectedServices: servicesForReview, // Will be populated from DB in service review step
-                  chatbotScraperState: {
-                    websiteUrl,
-                    discoveredPages,
-                    selectedUrls,
-                    discoverySource,
-                    scrapeResults: data.data
-                  }
-                })
-              } else if (data.type === 'error') {
-                setError(data.data.message)
-                setScraping(false)
-                setExtracting(false)
-              }
-            } catch (parseError) {
-              console.error('Failed to parse SSE data:', parseError)
-            }
-          }
-        }
-      }
+      // Start polling for progress
+      setJobId(data.jobId)
+      setCurrentStage('discovering')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Scraping failed')
       setScraping(false)
-      setExtracting(false)
     }
   }
 
@@ -251,9 +347,9 @@ export function Step2WebsiteScraper({ onNext, onBack, onSkip }: StepProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold mb-4">Chatbot Knowledge Base Setup</h2>
+        <h2 className="text-2xl font-semibold mb-4">Chatbot-Wissensdatenbank einrichten</h2>
         <p className="text-gray-600">
-          Select which pages from your website to scan for your chatbot&apos;s knowledge base.
+          Wählen Sie, welche Seiten Ihrer Website für die Wissensdatenbank Ihres Chatbots gescannt werden sollen.
         </p>
       </div>
 
@@ -264,20 +360,20 @@ export function Step2WebsiteScraper({ onNext, onBack, onSkip }: StepProps) {
       )}
 
       {/* Phase 1: URL Input & Discovery */}
-      {!discoveredPages.length && !scraping && !extracting && !results && (
+      {!discoveredPages.length && !scraping && !results && (
         <div className="space-y-4">
           <div>
-            <Label htmlFor="website">Website URL</Label>
+            <Label htmlFor="website">Website-URL</Label>
             <Input
               id="website"
               type="text"
-              placeholder="example.com or https://example.com"
+              placeholder="beispiel.de oder https://beispiel.de"
               value={websiteUrl}
               onChange={(e) => setWebsiteUrl(e.target.value)}
               disabled={discovering}
             />
             <p className="text-sm text-gray-500 mt-2">
-              We&apos;ll discover all pages on your website and let you choose which ones to scan.
+              Wir entdecken alle Seiten auf Ihrer Website und lassen Sie wählen, welche gescannt werden sollen.
             </p>
           </div>
 
@@ -289,43 +385,43 @@ export function Step2WebsiteScraper({ onNext, onBack, onSkip }: StepProps) {
               {discovering ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Discovering Pages...
+                  Seiten werden entdeckt...
                 </>
               ) : (
                 <>
                   <Search className="w-4 h-4 mr-2" />
-                  Discover Pages
+                  Seiten entdecken
                 </>
               )}
             </Button>
             <Button variant="outline" onClick={onBack}>
-              Back
+              Zurück
             </Button>
             <Button variant="ghost" onClick={onSkip}>
-              Skip for Now
+              Jetzt überspringen
             </Button>
           </div>
         </div>
       )}
 
       {/* Phase 2: Page Selection */}
-      {discoveredPages.length > 0 && !scraping && !extracting && !results && (
+      {discoveredPages.length > 0 && !scraping && !results && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <div>
               <h3 className="font-semibold text-lg">
-                Discovered {discoveredPages.length} pages
+                {discoveredPages.length} Seiten entdeckt
               </h3>
               <p className="text-sm text-gray-500">
-                via {discoverySource === 'sitemap' ? 'sitemap.xml' : 'homepage crawling'}
+                via {discoverySource === 'sitemap' ? 'sitemap.xml' : 'Homepage-Crawling'}
               </p>
             </div>
             <div className="flex gap-2">
               <Button size="sm" variant="outline" onClick={handleSelectAll}>
-                Select All
+                Alle auswählen
               </Button>
               <Button size="sm" variant="outline" onClick={handleDeselectAll}>
-                Deselect All
+                Alle abwählen
               </Button>
             </div>
           </div>
@@ -381,135 +477,66 @@ export function Step2WebsiteScraper({ onNext, onBack, onSkip }: StepProps) {
           {/* Footer with count and action */}
           <div className="flex justify-between items-center pt-2">
             <div className="text-sm text-gray-600">
-              <strong>{selectedUrls.length}</strong> pages selected
-              {selectedUrls.length > 0 && (
-                <span className="ml-2 text-gray-400">
-                  (~{Math.round(selectedUrls.length * 1.5)}s estimated)
-                </span>
-              )}
+              <strong>{selectedUrls.length}</strong> Seiten ausgewählt
             </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 onClick={() => setDiscoveredPages([])}
               >
-                Change URL
+                URL ändern
               </Button>
               <Button
                 onClick={handleStartScraping}
                 disabled={selectedUrls.length === 0}
               >
-                Start Scraping ({selectedUrls.length})
+                Scannen starten ({selectedUrls.length})
               </Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Phase 3: Real-Time Scraping Progress */}
-      {(scraping || extracting) && (
+      {/* Phase 3: Worker-Based Progress */}
+      {scraping && (
         <div className="space-y-4">
           <div className="flex items-center gap-4">
             <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
             <div className="flex-1">
-              {scraping && (
-                <>
-                  <p className="font-medium">Scraping pages...</p>
-                  <p className="text-sm text-gray-500">
-                    {Math.round(progress)}% complete
-                  </p>
-                </>
-              )}
-              {extracting && !extractionStage && (
-                <>
-                  <p className="font-medium">Creating knowledge base...</p>
-                  <p className="text-sm text-gray-500">Preparing AI extraction...</p>
-                </>
-              )}
-              {extracting && extractionStage === 'knowledge' && (
-                <>
-                  <p className="font-medium">Extracting Knowledge Base...</p>
-                  <p className="text-sm text-gray-500">AI is analyzing content for FAQs, policies, and information</p>
-                </>
-              )}
-              {extracting && extractionStage === 'services' && (
-                <>
-                  <p className="font-medium">Detecting Services...</p>
-                  <p className="text-sm text-gray-500">AI is identifying services, pricing, and offerings</p>
-                </>
-              )}
+              <p className="font-medium">
+                {stageMessages[currentStage || 'processing'] || 'Verarbeitung läuft...'}
+              </p>
+              <p className="text-sm text-gray-500">
+                Das kann einige Minuten dauern...
+              </p>
             </div>
           </div>
 
-          {/* Progress bar - only show during scraping */}
-          {scraping && (
-            <div className="w-full bg-gray-200 rounded-full h-2.5">
-              <div
-                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          )}
+          {/* Stage indicators */}
+          <div className="space-y-3 border rounded-lg p-4 bg-blue-50">
+            {['scraping', 'chunking', 'embedding', 'extracting', 'detecting_services'].map((stage, i) => {
+              const stages = ['scraping', 'chunking', 'embedding', 'extracting', 'detecting_services']
+              const currentIndex = stages.indexOf(currentStage || '')
+              const stageIndex = stages.indexOf(stage)
 
-          {/* Extraction Progress Indicators */}
-          {extracting && (
-            <div className="space-y-3 border rounded-lg p-4 bg-blue-50">
-              {/* Knowledge Base Extraction */}
-              <div className="flex items-center gap-3">
-                {extractionStage === 'knowledge' ? (
-                  <Loader2 className="w-5 h-5 text-blue-600 animate-spin flex-shrink-0" />
-                ) : extractionStage === 'services' ? (
-                  <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
-                ) : (
-                  <Clock className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                )}
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Knowledge Base Extraction</p>
-                  <p className="text-xs text-gray-600">
-                    {extractionStage === 'knowledge' && 'Processing...'}
-                    {extractionStage === 'services' && 'Complete'}
-                    {!extractionStage && 'Pending'}
-                  </p>
-                </div>
-              </div>
+              let status: 'pending' | 'active' | 'done' = 'pending'
+              if (stageIndex < currentIndex) status = 'done'
+              else if (stageIndex === currentIndex) status = 'active'
 
-              {/* Service Detection */}
-              <div className="flex items-center gap-3">
-                {extractionStage === 'services' ? (
-                  <Loader2 className="w-5 h-5 text-blue-600 animate-spin flex-shrink-0" />
-                ) : extractionStage === 'knowledge' ? (
-                  <Clock className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                ) : (
-                  <Clock className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                )}
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Service Detection</p>
-                  <p className="text-xs text-gray-600">
-                    {extractionStage === 'services' && 'Processing...'}
-                    {extractionStage === 'knowledge' && 'Pending'}
-                    {!extractionStage && 'Pending'}
-                  </p>
+              return (
+                <div key={stage} className="flex items-center gap-3">
+                  {status === 'done' && <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />}
+                  {status === 'active' && <Loader2 className="w-5 h-5 text-blue-600 animate-spin flex-shrink-0" />}
+                  {status === 'pending' && <Clock className="w-5 h-5 text-gray-400 flex-shrink-0" />}
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">
+                      {stageMessages[stage]}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* Scrape log - only show during scraping */}
-          {scraping && scrapeLog.length > 0 && (
-            <div className="border rounded-lg p-4 max-h-80 overflow-y-auto bg-gray-50 font-mono text-xs space-y-1">
-              {scrapeLog.map((item, i) => (
-                <div key={i} className="flex items-center gap-2 py-1">
-                  {item.status === 'waiting' && <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />}
-                  {item.status === 'scraping' && <Loader2 className="w-4 h-4 text-blue-500 animate-spin flex-shrink-0" />}
-                  {item.status === 'completed' && <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />}
-                  {item.status === 'failed' && <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />}
-                  <span className="flex-1 truncate">{item.url}</span>
-                  {item.size && <span className="text-gray-500">{item.size}</span>}
-                  {item.error && <span className="text-red-500 text-xs">{item.error}</span>}
-                </div>
-              ))}
-            </div>
-          )}
+              )
+            })}
+          </div>
         </div>
       )}
 
@@ -518,21 +545,21 @@ export function Step2WebsiteScraper({ onNext, onBack, onSkip }: StepProps) {
         <div className="space-y-6">
           <div className="bg-green-50 border border-green-200 rounded-lg p-6">
             <h3 className="font-semibold text-green-900 flex items-center gap-2 text-xl">
-              <span className="text-2xl">✓</span> Your Chatbot is Ready!
+              <span className="text-2xl">&#10003;</span> Ihr Chatbot ist bereit!
             </h3>
             <ul className="mt-4 space-y-2 text-sm text-green-700">
-              <li>• {results.pagesScraped} pages scraped successfully</li>
-              <li>• {results.knowledgeCount} knowledge entries created</li>
-              <li>• {results.servicesCount} services detected</li>
+              <li>&bull; {results.pagesScraped} Seiten erfolgreich gescannt</li>
+              <li>&bull; {results.knowledgeCount} Wissenseinträge erstellt</li>
+              <li>&bull; {results.servicesCount} Dienstleistungen erkannt</li>
               {results.pagesFailed > 0 && (
-                <li className="text-amber-600">• {results.pagesFailed} pages failed</li>
+                <li className="text-amber-600">&bull; {results.pagesFailed} Seiten fehlgeschlagen</li>
               )}
             </ul>
           </div>
 
           {/* Test Chatbot */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-            <h4 className="font-semibold text-blue-900 mb-4">Test Your Chatbot</h4>
+            <h4 className="font-semibold text-blue-900 mb-4">Testen Sie Ihren Chatbot</h4>
             <div className="space-y-3">
               <div>
                 <a
@@ -542,17 +569,17 @@ export function Step2WebsiteScraper({ onNext, onBack, onSkip }: StepProps) {
                   className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   <MessageSquare className="w-4 h-4" />
-                  Test Chatbot Now
+                  Chatbot jetzt testen
                 </a>
                 <p className="text-sm text-gray-600 mt-2">
-                  Open your chatbot in a new tab to test it immediately
+                  Öffnen Sie Ihren Chatbot in einem neuen Tab, um ihn sofort zu testen
                 </p>
               </div>
 
               {/* Public link */}
               <div className="pt-3 border-t border-blue-200">
                 <Label className="text-sm font-medium text-gray-700">
-                  Share this link with your customers:
+                  Teilen Sie diesen Link mit Ihren Kunden:
                 </Label>
                 <div className="flex gap-2 mt-2">
                   <Input
@@ -578,8 +605,8 @@ export function Step2WebsiteScraper({ onNext, onBack, onSkip }: StepProps) {
           {results.servicesCount > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
               <p className="text-sm text-amber-900">
-                We detected <strong>{results.servicesCount} services</strong> from your website.
-                You&apos;ll be able to review and approve them in the next step.
+                Wir haben <strong>{results.servicesCount} Dienstleistungen</strong> auf Ihrer Website erkannt.
+                Sie können diese im nächsten Schritt prüfen und genehmigen.
               </p>
             </div>
           )}
@@ -588,8 +615,8 @@ export function Step2WebsiteScraper({ onNext, onBack, onSkip }: StepProps) {
           <div className="flex justify-center pt-4">
             <Button onClick={onNext} size="lg" className="min-w-[200px]">
               {results.servicesCount > 0
-                ? 'Continue to Review Services →'
-                : 'Continue to Next Step →'}
+                ? 'Weiter zur Dienstleistungsprüfung →'
+                : 'Weiter zum nächsten Schritt →'}
             </Button>
           </div>
         </div>

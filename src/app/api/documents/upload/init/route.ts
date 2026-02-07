@@ -70,11 +70,27 @@ function getSourceType(mimeType: string, filename: string): string | null {
   return extensionMap[ext || ''] || null
 }
 
+/**
+ * MIME types that default to stored_only (potential PII)
+ */
+const STORED_ONLY_MIME_TYPES = [
+  'text/csv',
+  'application/csv',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+]
+
 const initSchema = z.object({
   businessId: z.string().uuid(),
   title: z.string().min(1).max(255),
   filename: z.string().min(1).max(255),
   contentType: z.string(),
+  // Phase 1: Business Logic Separation fields
+  audience: z.enum(['public', 'internal']).optional(),
+  scopeType: z.enum(['global', 'customer', 'staff']).optional(),
+  scopeId: z.string().uuid().optional(),
+  dataClass: z.enum(['knowledge', 'stored_only']).optional(),
+  containsPii: z.boolean().optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -101,7 +117,39 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // ============================================
+    // PHASE 1: Smart Defaults for Access Control
+    // ============================================
+
+    // Determine dataClass: CSV/XLSX default to stored_only (safety)
+    const isTabularData = STORED_ONLY_MIME_TYPES.includes(data.contentType) ||
+      data.filename.toLowerCase().endsWith('.csv') ||
+      data.filename.toLowerCase().endsWith('.xlsx') ||
+      data.filename.toLowerCase().endsWith('.xls')
+
+    const dataClass = data.dataClass || (isTabularData ? 'stored_only' : 'knowledge')
+
+    // Default audience and scope
+    const audience = data.audience || 'public'
+    const scopeType = data.scopeType || 'global'
+    const scopeId = data.scopeId || null
+
+    // Validate: scopeId required if scopeType != global
+    if (scopeType !== 'global' && !scopeId) {
+      return NextResponse.json(
+        {
+          error: 'Invalid scope configuration',
+          message: 'scopeId is required when scopeType is "customer" or "staff"',
+        },
+        { status: 400 }
+      )
+    }
+
+    // CSV/XLSX files are assumed to contain PII by default, allow override
+    const containsPii = data.containsPii !== undefined ? data.containsPii : isTabularData
+
     // Create document record
+    // Note: Only include scopeId if it has a value (avoid inserting empty string to UUID column)
     const [document] = await db
       .insert(documents)
       .values({
@@ -110,6 +158,12 @@ export async function POST(request: NextRequest) {
         originalFilename: data.filename,
         uploadedBy: userId,
         status: 'active',
+        // Phase 1 fields
+        audience,
+        scopeType,
+        ...(scopeId ? { scopeId } : {}),
+        dataClass,
+        containsPii,
       })
       .returning()
 
@@ -128,18 +182,22 @@ export async function POST(request: NextRequest) {
       .returning()
 
     // Create ingestion job (queued, waiting for upload)
+    // Include dataClass so worker can skip stored_only documents
     const [job] = await db
       .insert(ingestionJobs)
       .values({
         documentVersionId: version.id,
         businessId: data.businessId,
         sourceType,
-        status: 'queued',
-        stage: 'pending_upload',
+        status: dataClass === 'stored_only' ? 'done' : 'queued', // Skip processing for stored_only
+        stage: dataClass === 'stored_only' ? 'skipped' : 'pending_upload',
         metrics: {
           initiatedBy: userId,
           filename: data.filename,
           contentType: data.contentType,
+          dataClass,
+          skipped: dataClass === 'stored_only',
+          skipReason: dataClass === 'stored_only' ? 'stored_only: document stored but not indexed' : undefined,
         },
       })
       .returning()
@@ -155,6 +213,13 @@ export async function POST(request: NextRequest) {
       sourceType,
       uploadUrl,
       expiresIn: 900, // seconds
+      // Phase 1 fields
+      audience,
+      scopeType,
+      scopeId,
+      dataClass,
+      containsPii,
+      willBeIndexed: dataClass === 'knowledge', // Helpful for UI
     })
   } catch (error) {
     console.error('[POST /api/documents/upload/init] Error:', error)
@@ -175,8 +240,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Return more detailed error info in development
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json(
-      { error: 'Failed to initialize upload' },
+      {
+        error: 'Failed to initialize upload',
+        message: errorMessage,
+        // Include stack in dev only
+        ...(process.env.NODE_ENV === 'development' && error instanceof Error && { stack: error.stack }),
+      },
       { status: 500 }
     )
   }

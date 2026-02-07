@@ -3,11 +3,11 @@
 import { cn } from '@/lib/utils'
 
 const tabs = [
-  { id: 'all', label: 'All' },
-  { id: 'pending', label: 'Pending' },
-  { id: 'confirmed', label: 'Confirmed' },
-  { id: 'cancelled', label: 'Cancelled' },
-  { id: 'completed', label: 'Completed' },
+  { id: 'all', label: 'Alle' },
+  { id: 'pending', label: 'Ausstehend' },
+  { id: 'confirmed', label: 'Bestätigt' },
+  { id: 'cancelled', label: 'Storniert' },
+  { id: 'completed', label: 'Abgeschlossen' },
 ]
 
 interface BookingFiltersProps {

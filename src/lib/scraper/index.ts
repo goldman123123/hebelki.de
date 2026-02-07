@@ -1,11 +1,10 @@
 /**
  * Scraper library exports
  * Centralized exports for all scraper functionality
+ *
+ * Note: The actual scraping now happens on the fly.io documents-worker.
+ * These utilities are used for page discovery and categorization in the app.
  */
-
-// Core scraper
-export { scrapePages } from './custom-scraper'
-export type { ScrapeEvent, ScrapeEventType } from './custom-scraper'
 
 // Page discovery
 export { fetchSitemap, getPriorityUrls } from './sitemap-parser'
@@ -16,15 +15,9 @@ export type { CrawledLink } from './link-crawler'
 export { categorizePage, categorizePages } from './page-categorizer'
 export type { CategorizedPage, PageCategory, PagePriority } from './page-categorizer'
 
-// HTML to markdown conversion
+// HTML to markdown conversion (for service detection)
 export { scrapePageToMarkdown } from './html-to-markdown'
 export type { ScrapedPage } from './html-to-markdown'
 
-// Job management
-export {
-  createJob,
-  getJob,
-  updateJob,
-  deleteJob
-} from './scrape-job-manager'
-export type { ScrapeJob } from './scrape-job-manager'
+// HTML to clean text (for chunking)
+export { htmlToCleanText, extractMainContentFromHtml } from './html-to-clean-text'

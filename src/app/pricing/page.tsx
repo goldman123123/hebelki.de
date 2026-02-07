@@ -9,104 +9,104 @@ import { DevUserSwitcherPublic } from '@/components/DevUserSwitcherPublic'
 
 const tiers = [
   {
-    name: 'Free',
-    price: '$0',
-    period: 'forever',
-    description: 'Perfect for trying out Hebelki',
+    name: 'Kostenlos',
+    price: '€0',
+    period: 'für immer',
+    description: 'Perfekt zum Ausprobieren von Hebelki',
     features: [
-      '1 staff member',
-      '50 bookings/month',
-      'Email confirmations',
-      'Basic booking page',
+      '1 Mitarbeiter',
+      '50 Buchungen/Monat',
+      'E-Mail-Bestätigungen',
+      'Einfache Buchungsseite',
       'hebelki.de/book/slug URL',
     ],
     limitations: [
-      'Hebelki branding',
+      'Hebelki-Branding',
     ],
-    cta: 'Get Started',
+    cta: 'Jetzt starten',
     ctaVariant: 'outline' as const,
     popular: false,
   },
   {
     name: 'Starter',
-    price: '$19',
-    period: '/month',
-    description: 'For small businesses getting started',
+    price: '€19',
+    period: '/Monat',
+    description: 'Für kleine Unternehmen, die durchstarten',
     features: [
-      'Up to 3 staff members',
-      'Unlimited bookings',
-      'Email + SMS reminders',
-      'Remove Hebelki branding',
-      'Custom colors & logo',
-      'Customer management',
-      'Basic analytics',
+      'Bis zu 3 Mitarbeiter',
+      'Unbegrenzte Buchungen',
+      'E-Mail- & SMS-Erinnerungen',
+      'Hebelki-Branding entfernen',
+      'Eigene Farben & Logo',
+      'Kundenverwaltung',
+      'Basis-Analysen',
     ],
     limitations: [],
-    cta: 'Start Free Trial',
+    cta: 'Kostenlos testen',
     ctaVariant: 'outline' as const,
     popular: false,
   },
   {
     name: 'Professional',
-    price: '$49',
-    period: '/month',
-    description: 'For growing businesses that need more',
+    price: '€49',
+    period: '/Monat',
+    description: 'Für wachsende Unternehmen mit höheren Ansprüchen',
     features: [
-      'Unlimited staff members',
-      'Everything in Starter, plus:',
-      'Google Calendar sync',
-      'Custom domain (book.yourbiz.com)',
-      'Send emails from your domain',
-      'Stripe payments & deposits',
-      'Waitlist management',
-      'API access',
-      'Priority support',
+      'Unbegrenzte Mitarbeiter',
+      'Alles aus Starter, plus:',
+      'Google Kalender-Sync',
+      'Eigene Domain (termine.ihrfirma.de)',
+      'E-Mails von Ihrer Domain senden',
+      'Stripe-Zahlungen & Anzahlungen',
+      'Wartelisten-Verwaltung',
+      'API-Zugang',
+      'Prioritäts-Support',
     ],
     limitations: [],
-    cta: 'Start Free Trial',
+    cta: 'Kostenlos testen',
     ctaVariant: 'default' as const,
     popular: true,
   },
   {
     name: 'Business',
-    price: '$99',
-    period: '/month',
-    description: 'For multi-location businesses',
+    price: '€99',
+    period: '/Monat',
+    description: 'Für Unternehmen mit mehreren Standorten',
     features: [
-      'Everything in Professional, plus:',
-      'Multiple locations',
-      'Team management & roles',
-      'Advanced analytics & reports',
-      'Webhooks & integrations',
-      'Dedicated account manager',
-      'Custom onboarding',
-      'SLA guarantee',
+      'Alles aus Professional, plus:',
+      'Mehrere Standorte',
+      'Team-Verwaltung & Rollen',
+      'Erweiterte Analysen & Berichte',
+      'Webhooks & Integrationen',
+      'Persönlicher Ansprechpartner',
+      'Individuelles Onboarding',
+      'SLA-Garantie',
     ],
     limitations: [],
-    cta: 'Contact Sales',
+    cta: 'Vertrieb kontaktieren',
     ctaVariant: 'outline' as const,
     popular: false,
   },
 ]
 
 const comparisonFeatures = [
-  { name: 'Staff members', free: '1', starter: '3', professional: 'Unlimited', business: 'Unlimited' },
-  { name: 'Bookings/month', free: '50', starter: 'Unlimited', professional: 'Unlimited', business: 'Unlimited' },
-  { name: 'Email confirmations', free: true, starter: true, professional: true, business: true },
-  { name: 'SMS reminders', free: false, starter: true, professional: true, business: true },
-  { name: 'Remove branding', free: false, starter: true, professional: true, business: true },
-  { name: 'Custom colors & logo', free: false, starter: true, professional: true, business: true },
-  { name: 'Google Calendar sync', free: false, starter: false, professional: true, business: true },
-  { name: 'Custom domain', free: false, starter: false, professional: true, business: true },
-  { name: 'White-label email', free: false, starter: false, professional: true, business: true },
-  { name: 'Stripe payments', free: false, starter: false, professional: true, business: true },
-  { name: 'Waitlist', free: false, starter: false, professional: true, business: true },
-  { name: 'API access', free: false, starter: false, professional: true, business: true },
-  { name: 'Multiple locations', free: false, starter: false, professional: false, business: true },
-  { name: 'Team roles', free: false, starter: false, professional: false, business: true },
+  { name: 'Mitarbeiter', free: '1', starter: '3', professional: 'Unbegrenzt', business: 'Unbegrenzt' },
+  { name: 'Buchungen/Monat', free: '50', starter: 'Unbegrenzt', professional: 'Unbegrenzt', business: 'Unbegrenzt' },
+  { name: 'E-Mail-Bestätigungen', free: true, starter: true, professional: true, business: true },
+  { name: 'SMS-Erinnerungen', free: false, starter: true, professional: true, business: true },
+  { name: 'Branding entfernen', free: false, starter: true, professional: true, business: true },
+  { name: 'Eigene Farben & Logo', free: false, starter: true, professional: true, business: true },
+  { name: 'Google Kalender-Sync', free: false, starter: false, professional: true, business: true },
+  { name: 'Eigene Domain', free: false, starter: false, professional: true, business: true },
+  { name: 'White-Label E-Mail', free: false, starter: false, professional: true, business: true },
+  { name: 'Stripe-Zahlungen', free: false, starter: false, professional: true, business: true },
+  { name: 'Warteliste', free: false, starter: false, professional: true, business: true },
+  { name: 'API-Zugang', free: false, starter: false, professional: true, business: true },
+  { name: 'Mehrere Standorte', free: false, starter: false, professional: false, business: true },
+  { name: 'Team-Rollen', free: false, starter: false, professional: false, business: true },
   { name: 'Webhooks', free: false, starter: false, professional: false, business: true },
-  { name: 'Priority support', free: false, starter: false, professional: true, business: true },
-  { name: 'Dedicated manager', free: false, starter: false, professional: false, business: true },
+  { name: 'Prioritäts-Support', free: false, starter: false, professional: true, business: true },
+  { name: 'Persönlicher Ansprechpartner', free: false, starter: false, professional: false, business: true },
 ]
 
 export default async function PricingPage() {
@@ -134,17 +134,17 @@ export default async function PricingPage() {
                 <SignOutButton>
                   <Button variant="ghost" size="sm">
                     <LogOut className="h-4 w-4 mr-2" />
-                    Sign Out
+                    Abmelden
                   </Button>
                 </SignOutButton>
               </>
             ) : (
               <>
                 <Link href="/sign-in">
-                  <Button variant="ghost">Sign In</Button>
+                  <Button variant="ghost">Anmelden</Button>
                 </Link>
                 <Link href="/sign-up">
-                  <Button>Get Started</Button>
+                  <Button>Jetzt starten</Button>
                 </Link>
               </>
             )}
@@ -155,10 +155,10 @@ export default async function PricingPage() {
       {/* Hero */}
       <section className="mx-auto max-w-6xl px-4 py-16 text-center">
         <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
-          Simple, transparent pricing
+          Einfache, transparente Preise
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-xl text-gray-600">
-          Start free and scale as you grow. No hidden fees, no surprises.
+          Starten Sie kostenlos und wachsen Sie mit uns. Keine versteckten Gebühren.
         </p>
       </section>
 
@@ -172,7 +172,7 @@ export default async function PricingPage() {
             >
               {tier.popular && (
                 <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  Most Popular
+                  Beliebteste Wahl
                 </Badge>
               )}
               <CardHeader className="text-center">
@@ -202,7 +202,7 @@ export default async function PricingPage() {
               <CardFooter>
                 <Link href={isLoggedIn ? "/dashboard" : "/sign-up"} className="w-full">
                   <Button variant={tier.ctaVariant} className="w-full">
-                    {isLoggedIn ? "Go to Dashboard" : tier.cta}
+                    {isLoggedIn ? "Zum Dashboard" : tier.cta}
                   </Button>
                 </Link>
               </CardFooter>
@@ -215,18 +215,18 @@ export default async function PricingPage() {
       <section className="border-t bg-white py-16">
         <div className="mx-auto max-w-6xl px-4">
           <h2 className="text-center text-3xl font-bold text-gray-900">
-            Compare plans
+            Tarife vergleichen
           </h2>
           <p className="mt-2 text-center text-gray-600">
-            See which plan is right for your business
+            Finden Sie den passenden Tarif für Ihr Unternehmen
           </p>
 
           <div className="mt-12 overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b">
-                  <th className="py-4 text-left font-semibold">Feature</th>
-                  <th className="py-4 text-center font-semibold">Free</th>
+                  <th className="py-4 text-left font-semibold">Funktion</th>
+                  <th className="py-4 text-center font-semibold">Kostenlos</th>
                   <th className="py-4 text-center font-semibold">Starter</th>
                   <th className="py-4 text-center font-semibold text-primary">Professional</th>
                   <th className="py-4 text-center font-semibold">Business</th>
@@ -276,43 +276,43 @@ export default async function PricingPage() {
       <section className="py-16">
         <div className="mx-auto max-w-3xl px-4">
           <h2 className="text-center text-3xl font-bold text-gray-900">
-            Frequently asked questions
+            Häufig gestellte Fragen
           </h2>
           <div className="mt-12 space-y-8">
             <div>
-              <h3 className="font-semibold">Can I switch plans anytime?</h3>
+              <h3 className="font-semibold">Kann ich jederzeit den Tarif wechseln?</h3>
               <p className="mt-2 text-gray-600">
-                Yes! You can upgrade or downgrade your plan at any time. When upgrading, you'll get immediate access to new features. When downgrading, changes take effect at your next billing cycle.
+                Ja! Sie können jederzeit upgraden oder downgraden. Bei einem Upgrade erhalten Sie sofort Zugang zu neuen Funktionen. Bei einem Downgrade werden die Änderungen zum nächsten Abrechnungszeitraum wirksam.
               </p>
             </div>
             <div>
-              <h3 className="font-semibold">Is there a free trial?</h3>
+              <h3 className="font-semibold">Gibt es eine kostenlose Testphase?</h3>
               <p className="mt-2 text-gray-600">
-                All paid plans come with a 14-day free trial. No credit card required to start. You can also use the Free plan indefinitely with limited features.
+                Alle kostenpflichtigen Tarife beinhalten eine 14-tägige kostenlose Testphase. Keine Kreditkarte erforderlich. Sie können den kostenlosen Tarif auch unbegrenzt nutzen.
               </p>
             </div>
             <div>
-              <h3 className="font-semibold">What payment methods do you accept?</h3>
+              <h3 className="font-semibold">Welche Zahlungsmethoden akzeptieren Sie?</h3>
               <p className="mt-2 text-gray-600">
-                We accept all major credit cards (Visa, Mastercard, American Express) through Stripe. Annual plans can also be paid via invoice.
+                Wir akzeptieren alle gängigen Kreditkarten (Visa, Mastercard, American Express) über Stripe. Jahrestarife können auch per Rechnung bezahlt werden.
               </p>
             </div>
             <div>
-              <h3 className="font-semibold">Do you offer discounts for annual billing?</h3>
+              <h3 className="font-semibold">Gibt es Rabatte bei jährlicher Zahlung?</h3>
               <p className="mt-2 text-gray-600">
-                Yes! Save 20% when you choose annual billing. That's 2 months free compared to monthly billing.
+                Ja! Sparen Sie 20% bei jährlicher Zahlung. Das sind 2 Monate gratis im Vergleich zur monatlichen Zahlung.
               </p>
             </div>
             <div>
-              <h3 className="font-semibold">What happens if I exceed my limits?</h3>
+              <h3 className="font-semibold">Was passiert, wenn ich meine Limits überschreite?</h3>
               <p className="mt-2 text-gray-600">
-                On the Free plan, you won't be able to accept new bookings once you hit 50/month. We'll notify you when you're approaching your limit so you can upgrade if needed.
+                Im kostenlosen Tarif können Sie keine neuen Buchungen mehr annehmen, sobald Sie 50/Monat erreicht haben. Wir benachrichtigen Sie rechtzeitig, damit Sie bei Bedarf upgraden können.
               </p>
             </div>
             <div>
-              <h3 className="font-semibold">Can I cancel anytime?</h3>
+              <h3 className="font-semibold">Kann ich jederzeit kündigen?</h3>
               <p className="mt-2 text-gray-600">
-                Absolutely. No contracts, no cancellation fees. You can cancel your subscription at any time and continue using the service until the end of your billing period.
+                Selbstverständlich. Keine Verträge, keine Kündigungsgebühren. Sie können Ihr Abonnement jederzeit kündigen und den Service bis zum Ende Ihres Abrechnungszeitraums weiter nutzen.
               </p>
             </div>
           </div>
@@ -323,20 +323,20 @@ export default async function PricingPage() {
       <section className="border-t bg-primary/5 py-16">
         <div className="mx-auto max-w-6xl px-4 text-center">
           <h2 className="text-3xl font-bold text-gray-900">
-            {isLoggedIn ? "Upgrade your plan" : "Ready to get started?"}
+            {isLoggedIn ? "Tarif upgraden" : "Bereit loszulegen?"}
           </h2>
           <p className="mt-4 text-xl text-gray-600">
-            {isLoggedIn ? "Choose a plan that fits your business needs" : "Join thousands of businesses using Hebelki to manage their bookings"}
+            {isLoggedIn ? "Wählen Sie den Tarif, der zu Ihrem Unternehmen passt" : "Schließen Sie sich tausenden Unternehmen an, die Hebelki für ihre Terminverwaltung nutzen"}
           </p>
           <div className="mt-8 flex items-center justify-center gap-4">
             <Link href={isLoggedIn ? "/dashboard" : "/sign-up"}>
               <Button size="lg" className="text-lg">
-                {isLoggedIn ? "Go to Dashboard" : "Start Free Trial"}
+                {isLoggedIn ? "Zum Dashboard" : "Kostenlos testen"}
               </Button>
             </Link>
             <Link href="/book/physioplus">
               <Button size="lg" variant="outline" className="text-lg">
-                See Demo
+                Demo ansehen
               </Button>
             </Link>
           </div>
@@ -346,7 +346,7 @@ export default async function PricingPage() {
       {/* Footer */}
       <footer className="border-t py-8">
         <div className="mx-auto max-w-6xl px-4 text-center text-sm text-gray-500">
-          &copy; {new Date().getFullYear()} Hebelki. All rights reserved.
+          &copy; {new Date().getFullYear()} Hebelki. Alle Rechte vorbehalten.
         </div>
       </footer>
     </div>

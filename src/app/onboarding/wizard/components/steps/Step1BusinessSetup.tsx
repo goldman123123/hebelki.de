@@ -66,9 +66,9 @@ export function Step1BusinessSetup({ onNext }: StepProps) {
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100">
           <Building2 className="w-8 h-8 text-blue-600" />
         </div>
-        <h2 className="text-3xl font-bold">Welcome to Hebelki</h2>
+        <h2 className="text-3xl font-bold">Willkommen bei Hebelki</h2>
         <p className="text-lg text-gray-600">
-          Let&apos;s get started with your business name
+          Beginnen wir mit Ihrem Unternehmensnamen
         </p>
       </div>
 
@@ -80,19 +80,19 @@ export function Step1BusinessSetup({ onNext }: StepProps) {
 
       <div className="space-y-3">
         <label htmlFor="name" className="text-sm font-medium text-gray-700">
-          Business Name <span className="text-red-500">*</span>
+          Unternehmensname <span className="text-red-500">*</span>
         </label>
         <Input
           id="name"
           value={businessName}
           onChange={(e) => setBusinessName(e.target.value)}
-          placeholder="My Awesome Business"
+          placeholder="Mein Unternehmen"
           className="text-lg h-12"
           required
           autoFocus
         />
         <p className="text-sm text-gray-500">
-          You can customize your booking URL and other settings later
+          Sie können Ihre Buchungs-URL und andere Einstellungen später anpassen
         </p>
       </div>
 
@@ -106,10 +106,10 @@ export function Step1BusinessSetup({ onNext }: StepProps) {
           {loading ? (
             <>
               <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-              Creating...
+              Wird erstellt...
             </>
           ) : (
-            'Create Business & Continue'
+            'Unternehmen erstellen & fortfahren'
           )}
         </Button>
       </div>

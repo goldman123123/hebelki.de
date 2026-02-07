@@ -64,6 +64,13 @@
       "when": 1770405508844,
       "tag": "0008_broken_santa_claus",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1770414254021,
+      "tag": "0009_oval_chameleon",
+      "breakpoints": true
     }
   ]
 }

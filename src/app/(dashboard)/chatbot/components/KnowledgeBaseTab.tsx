@@ -27,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Edit, Trash2, Loader2, BookOpen, Calendar, Search, X } from 'lucide-react'
+import { Plus, Edit, Trash2, Loader2, BookOpen, Calendar, Search, X, ChevronDown } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { toast } from 'sonner'
@@ -60,6 +60,7 @@ export function KnowledgeBaseTab({ businessId }: KnowledgeBaseTabProps) {
   })
   const [saving, setSaving] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const categories = [
     { value: 'faq', label: 'FAQs' },
@@ -348,53 +349,82 @@ export function KnowledgeBaseTab({ businessId }: KnowledgeBaseTabProps) {
         </Card>
       ) : (
         <div className="space-y-3">
-          {filteredEntries.map((entry) => (
-            <Card key={entry.id} className="p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-medium text-gray-900 truncate">
-                      {entry.title}
-                    </h3>
-                    {entry.category && (
-                      <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
-                        {categories.find(c => c.value === entry.category)?.label || entry.category}
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-1 text-sm text-gray-600 line-clamp-2">
-                    {entry.content}
-                  </p>
-                  <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {formatDistanceToNow(new Date(entry.updatedAt), {
-                        addSuffix: true,
-                        locale: de,
-                      })}
-                    </span>
-                    <span>Quelle: {entry.source === 'manual' ? 'Manuell' : entry.source}</span>
+          {filteredEntries.map((entry) => {
+            const isExpanded = expandedId === entry.id
+            return (
+              <Card key={entry.id} className="overflow-hidden">
+                <div className="p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-medium text-gray-900 truncate">
+                          {entry.title}
+                        </h3>
+                        {entry.category && (
+                          <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+                            {categories.find(c => c.value === entry.category)?.label || entry.category}
+                          </span>
+                        )}
+                      </div>
+                      {!isExpanded && (
+                        <p className="mt-1 text-sm text-gray-600 line-clamp-2">
+                          {entry.content}
+                        </p>
+                      )}
+                      <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {formatDistanceToNow(new Date(entry.updatedAt), {
+                            addSuffix: true,
+                            locale: de,
+                          })}
+                        </span>
+                        <span>Quelle: {entry.source === 'manual' ? 'Manuell' : entry.source}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setExpandedId(isExpanded ? null : entry.id)}
+                        title={isExpanded ? 'Einklappen' : 'Ausklappen'}
+                      >
+                        <ChevronDown
+                          className={`h-4 w-4 transition-transform duration-200 ${
+                            isExpanded ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleOpenDialog(entry)}
+                        title="Bearbeiten"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(entry)}
+                        title="Löschen"
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleOpenDialog(entry)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDelete(entry)}
-                  >
-                    <Trash2 className="h-4 w-4 text-red-500" />
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          ))}
+                {/* Expandable content */}
+                {isExpanded && (
+                  <div className="border-t bg-gray-50 px-4 py-3">
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                      {entry.content}
+                    </p>
+                  </div>
+                )}
+              </Card>
+            )
+          })}
         </div>
       )}
 

@@ -10,11 +10,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/dashboard/StatusBadge'
 import { BookingFilters } from '@/components/dashboard/BookingFilters'
 import { BookingActions } from '@/components/dashboard/BookingActions'
+import { CreateBookingDialog } from '@/components/dashboard/CreateBookingDialog'
 import { formatDate, formatTime, formatCurrency } from '@/lib/utils'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Plus } from 'lucide-react'
 
 interface Booking {
   booking: {
@@ -35,6 +37,7 @@ export default function BookingsPage() {
   const [loading, setLoading] = useState(true)
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [timezone, setTimezone] = useState('Europe/Berlin')
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
 
   const fetchBookings = useCallback(async () => {
     setLoading(true)
@@ -72,9 +75,15 @@ export default function BookingsPage() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Bookings</h1>
-        <p className="text-gray-600">Manage all your appointments</p>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Buchungen</h1>
+          <p className="text-gray-600">Verwalten Sie alle Ihre Termine</p>
+        </div>
+        <Button onClick={() => setShowCreateDialog(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Neue Buchung
+        </Button>
       </div>
 
       <div className="mb-6">
@@ -88,10 +97,15 @@ export default function BookingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>
-            {filter === 'all' ? 'All Bookings' : `${filter.charAt(0).toUpperCase() + filter.slice(1)} Bookings`}
+            {filter === 'all' ? 'Alle Buchungen' :
+             filter === 'pending' ? 'Ausstehende Buchungen' :
+             filter === 'confirmed' ? 'Bestätigte Buchungen' :
+             filter === 'cancelled' ? 'Stornierte Buchungen' :
+             filter === 'completed' ? 'Abgeschlossene Buchungen' :
+             `${filter.charAt(0).toUpperCase() + filter.slice(1)} Buchungen`}
           </CardTitle>
           <CardDescription>
-            {bookings.length} booking{bookings.length !== 1 ? 's' : ''} found
+            {bookings.length} Buchung{bookings.length !== 1 ? 'en' : ''} gefunden
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -101,19 +115,19 @@ export default function BookingsPage() {
             </div>
           ) : bookings.length === 0 ? (
             <p className="py-8 text-center text-gray-500">
-              No bookings found.
+              Keine Buchungen gefunden.
             </p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date & Time</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Service</TableHead>
-                  <TableHead>Staff</TableHead>
-                  <TableHead>Price</TableHead>
+                  <TableHead>Datum & Uhrzeit</TableHead>
+                  <TableHead>Kunde</TableHead>
+                  <TableHead>Dienstleistung</TableHead>
+                  <TableHead>Mitarbeiter</TableHead>
+                  <TableHead>Preis</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="text-right">Aktionen</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -129,7 +143,7 @@ export default function BookingsPage() {
                     </TableCell>
                     <TableCell>
                       <div className="font-medium">
-                        {customer?.name || 'Unknown'}
+                        {customer?.name || 'Unbekannt'}
                       </div>
                       <div className="text-sm text-gray-500">
                         {customer?.email || '—'}
@@ -159,6 +173,12 @@ export default function BookingsPage() {
           )}
         </CardContent>
       </Card>
+
+      <CreateBookingDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        onSuccess={fetchBookings}
+      />
     </div>
   )
 }

@@ -15,6 +15,7 @@ import { Book, MessageSquare, Settings, Loader2, AlertCircle } from 'lucide-reac
 import { KnowledgeBaseTab } from './components/KnowledgeBaseTab'
 import { ConversationsTab } from './components/ConversationsTab'
 import { SettingsTab } from './components/SettingsTab'
+import { AiLiteracyBanner } from '@/components/dashboard/AiLiteracyBanner'
 import Link from 'next/link'
 
 interface Business {
@@ -101,6 +102,9 @@ export default function ChatbotDashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* AI Literacy Warning Banner */}
+      <AiLiteracyBanner businessId={business.id} />
+
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Chatbot Einstellungen</h1>

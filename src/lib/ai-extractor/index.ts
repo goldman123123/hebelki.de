@@ -252,7 +252,7 @@ Return JSON array. Only include services with confidence >= 60. Return valid JSO
         { role: 'user', content: combinedContent }
       ],
       temperature: 0.3,
-      max_tokens: 3000
+      max_tokens: 8000
     })
 
     console.log('✅ [SERVICE EXTRACTION] AI response received')

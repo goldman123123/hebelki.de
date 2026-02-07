@@ -84,18 +84,18 @@ export function Step5CalendarPreview({ onNext, onBack, onSkip }: StepProps) {
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 mb-2">
           <Clock className="w-8 h-8 text-blue-600" />
         </div>
-        <h2 className="text-3xl font-bold text-gray-900">Set Your Business Hours</h2>
+        <h2 className="text-3xl font-bold text-gray-900">Ihre Öffnungszeiten festlegen</h2>
         <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-          Configure your weekly availability so customers know when they can book appointments with you.
+          Konfigurieren Sie Ihre wöchentliche Verfügbarkeit, damit Kunden wissen, wann sie Termine buchen können.
         </p>
       </div>
 
       {/* Main Content Card */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="p-6 border-b border-gray-100 bg-gray-50">
-          <h3 className="text-lg font-semibold text-gray-900">Weekly Schedule</h3>
+          <h3 className="text-lg font-semibold text-gray-900">Wochenplan</h3>
           <p className="text-sm text-gray-600 mt-1">
-            Set your available hours for each day of the week
+            Legen Sie Ihre verfügbaren Zeiten für jeden Wochentag fest
           </p>
         </div>
 
@@ -130,9 +130,9 @@ export function Step5CalendarPreview({ onNext, onBack, onSkip }: StepProps) {
               </svg>
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium text-blue-900">Flexible Configuration</p>
+              <p className="text-sm font-medium text-blue-900">Flexible Konfiguration</p>
               <p className="text-sm text-blue-800 mt-1">
-                These hours will apply business-wide. You can set custom hours per staff member and add special hours for specific dates later in your dashboard.
+                Diese Zeiten gelten unternehmensweit. Sie können später im Dashboard individuelle Zeiten pro Mitarbeiter festlegen und Sonderzeiten für bestimmte Tage hinzufügen.
               </p>
             </div>
           </div>
@@ -148,7 +148,7 @@ export function Step5CalendarPreview({ onNext, onBack, onSkip }: StepProps) {
           size="lg"
           className="px-6"
         >
-          Back
+          Zurück
         </Button>
         <div className="flex gap-3">
           <Button
@@ -158,7 +158,7 @@ export function Step5CalendarPreview({ onNext, onBack, onSkip }: StepProps) {
             size="lg"
             className="px-6"
           >
-            Skip for Now
+            Jetzt überspringen
           </Button>
           <Button
             onClick={handleSave}
@@ -172,10 +172,10 @@ export function Step5CalendarPreview({ onNext, onBack, onSkip }: StepProps) {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                Saving...
+                Wird gespeichert...
               </span>
             ) : (
-              'Save & Continue'
+              'Speichern & weiter'
             )}
           </Button>
         </div>

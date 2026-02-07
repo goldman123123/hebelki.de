@@ -10,19 +10,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2 } from 'lucide-react'
 
 const businessTypes = [
-  { value: 'clinic', label: 'Clinic / Medical Practice' },
+  { value: 'clinic', label: 'Klinik / Arztpraxis' },
   { value: 'salon', label: 'Salon / Spa' },
-  { value: 'consultant', label: 'Consultant / Coach' },
-  { value: 'gym', label: 'Gym / Fitness' },
-  { value: 'other', label: 'Other' },
+  { value: 'consultant', label: 'Berater / Coach' },
+  { value: 'gym', label: 'Fitnessstudio' },
+  { value: 'other', label: 'Sonstiges' },
 ]
 
 const timezones = [
-  { value: 'Europe/Berlin', label: 'Berlin (CET/CEST)' },
+  { value: 'Europe/Berlin', label: 'Berlin (MEZ/MESZ)' },
   { value: 'Europe/London', label: 'London (GMT/BST)' },
   { value: 'America/New_York', label: 'New York (EST/EDT)' },
   { value: 'America/Los_Angeles', label: 'Los Angeles (PST/PDT)' },
-  { value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
+  { value: 'Asia/Tokyo', label: 'Tokio (JST)' },
   { value: 'Australia/Sydney', label: 'Sydney (AEST/AEDT)' },
 ]
 
@@ -85,18 +85,18 @@ export function OnboardingForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Business Details</CardTitle>
+        <CardTitle>Unternehmensdetails</CardTitle>
         <CardDescription>
-          Tell us about your business. You can change these settings later.
+          Erzählen Sie uns von Ihrem Unternehmen. Sie können diese Einstellungen später ändern.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Business Name *</Label>
+            <Label htmlFor="name">Unternehmensname *</Label>
             <Input
               id="name"
-              placeholder="My Awesome Business"
+              placeholder="Mein Unternehmen"
               value={formData.name}
               onChange={handleNameChange}
               required
@@ -104,12 +104,12 @@ export function OnboardingForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="slug">Booking URL *</Label>
+            <Label htmlFor="slug">Buchungs-URL *</Label>
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-500">hebelki.de/book/</span>
               <Input
                 id="slug"
-                placeholder="my-business"
+                placeholder="mein-unternehmen"
                 value={formData.slug}
                 onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))}
                 className="flex-1"
@@ -117,19 +117,19 @@ export function OnboardingForm() {
               />
             </div>
             <p className="text-xs text-gray-500">
-              This will be your public booking page URL
+              Dies wird Ihre öffentliche Buchungsseiten-URL
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="type">Business Type *</Label>
+            <Label htmlFor="type">Unternehmensart *</Label>
             <Select
               value={formData.type}
               onValueChange={(value) => setFormData(prev => ({ ...prev, type: value }))}
               required
             >
               <SelectTrigger id="type">
-                <SelectValue placeholder="Select your business type" />
+                <SelectValue placeholder="Wählen Sie Ihre Unternehmensart" />
               </SelectTrigger>
               <SelectContent>
                 {businessTypes.map((type) => (
@@ -142,14 +142,14 @@ export function OnboardingForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="timezone">Timezone *</Label>
+            <Label htmlFor="timezone">Zeitzone *</Label>
             <Select
               value={formData.timezone}
               onValueChange={(value) => setFormData(prev => ({ ...prev, timezone: value }))}
               required
             >
               <SelectTrigger id="timezone">
-                <SelectValue placeholder="Select timezone" />
+                <SelectValue placeholder="Zeitzone auswählen" />
               </SelectTrigger>
               <SelectContent>
                 {timezones.map((tz) => (
@@ -162,11 +162,11 @@ export function OnboardingForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">Contact Email (optional)</Label>
+            <Label htmlFor="email">Kontakt-E-Mail (optional)</Label>
             <Input
               id="email"
               type="email"
-              placeholder="contact@mybusiness.com"
+              placeholder="kontakt@meinunternehmen.de"
               value={formData.email}
               onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
             />
@@ -186,10 +186,10 @@ export function OnboardingForm() {
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating your business...
+                Unternehmen wird erstellt...
               </>
             ) : (
-              'Create Business'
+              'Unternehmen erstellen'
             )}
           </Button>
         </form>

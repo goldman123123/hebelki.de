@@ -29,7 +29,7 @@ async function checkBusinessHours() {
       console.log(`\nAvailability Templates: ${templates.length}`)
 
       for (const template of templates) {
-        console.log(`\n  Template: ${template.name || 'Default'} (${template.scope})`)
+        console.log(`\n  Template: ${template.name || 'Default'} (${template.isDefault ? 'default' : 'custom'})`)
         console.log(`  Template ID: ${template.id}`)
 
         // Get slots for this template

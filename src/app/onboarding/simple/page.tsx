@@ -26,13 +26,13 @@ export default async function SimpleOnboardingPage() {
           className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-6"
         >
           <ArrowLeft className="w-4 h-4 mr-1" />
-          Back to setup options
+          Zurück zu den Einrichtungsoptionen
         </Link>
 
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-gray-900">Quick Setup</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Schnelleinrichtung</h1>
           <p className="mt-2 text-gray-600">
-            Enter your basic business information to get started.
+            Geben Sie Ihre grundlegenden Unternehmensdaten ein, um zu starten.
           </p>
         </div>
         <OnboardingForm />
