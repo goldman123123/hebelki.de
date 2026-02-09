@@ -40,7 +40,10 @@ export function DatePicker({
         )
         if (response.ok) {
           const data = await response.json()
-          setAvailableDates(data.dates.map((d: string) => new Date(d)))
+          setAvailableDates(data.dates.map((d: string) => {
+            const [y, m, day] = d.split('-').map(Number)
+            return new Date(y, m - 1, day)
+          }))
         }
       } catch (error) {
         console.error('Failed to fetch availability:', error)

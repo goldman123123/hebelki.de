@@ -3,6 +3,11 @@
  *
  * GET: List knowledge entries for a business
  * POST: Create a new knowledge entry
+ *
+ * Split Brain Prevention (2026-02):
+ * - Full embedding metadata (provider, model, dim, preprocessVersion, contentHash)
+ * - Consistent header pattern for embedding text
+ * - NFKC normalization via embeddings module
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -10,7 +15,7 @@ import { db } from '@/lib/db'
 import { chatbotKnowledge } from '@/lib/db/schema'
 import { eq, and, desc } from 'drizzle-orm'
 import { requireBusinessAccess } from '@/lib/auth-helpers'
-import { generateEmbedding } from '@/lib/embeddings'
+import { generateEmbeddingWithMetadata, normalizeText } from '@/lib/embeddings'
 import { KnowledgeEntrySchema } from '@/lib/schemas/chatbot'
 import { ZodError } from 'zod'
 import {
@@ -90,6 +95,7 @@ export async function GET(request: NextRequest) {
  * POST /api/chatbot/knowledge
  *
  * Create a new knowledge entry with embedding generation
+ * Stores full embedding metadata for split brain prevention
  */
 export async function POST(request: NextRequest) {
   try {
@@ -101,14 +107,16 @@ export async function POST(request: NextRequest) {
     // Verify user has access to this business
     await requireBusinessAccess(validated.businessId)
 
-    // Generate embedding for semantic search with retry
-    const embeddingText = `${validated.title}\n${validated.content}`
+    // Consistent header pattern: {Title}\n\n{Content}
+    // This matches document chunk format for consistent embedding space
+    const embeddingText = `${validated.title}\n\n${validated.content}`
     console.log(`[Knowledge Create] Generating embedding for: "${validated.title}"`)
 
-    const embedding = await withRetry(
+    // Generate embedding with full metadata for provenance tracking
+    const embeddingResult = await withRetry(
       async () => {
         try {
-          return await generateEmbedding(embeddingText)
+          return await generateEmbeddingWithMetadata(embeddingText)
         } catch (error) {
           // Wrap embedding errors in ExternalAPIError for proper retry logic
           throw new ExternalAPIError(
@@ -128,7 +136,7 @@ export async function POST(request: NextRequest) {
       }
     )
 
-    // Create knowledge entry with embedding and retry on database errors
+    // Create knowledge entry with full embedding metadata
     const entry = await withRetry(
       async () => {
         try {
@@ -140,7 +148,18 @@ export async function POST(request: NextRequest) {
               content: validated.content,
               category: validated.category || null,
               source: validated.source,
-              embedding, // ✅ NOW INCLUDED
+              // Embedding vector
+              embedding: embeddingResult.embedding,
+              // Full embedding provenance (split brain prevention)
+              embeddingProvider: embeddingResult.provider,
+              embeddingModel: embeddingResult.model,
+              embeddingDim: embeddingResult.dim,
+              preprocessVersion: embeddingResult.preprocessVersion,
+              contentHash: embeddingResult.contentHash,
+              embeddedAt: new Date(),
+              // Authority level (default normal, can be set by admin)
+              authorityLevel: 'normal',
+              // Legacy metadata field
               metadata: validated.confidence
                 ? { confidence: validated.confidence }
                 : {},
@@ -165,7 +184,11 @@ export async function POST(request: NextRequest) {
       }
     )
 
-    console.log(`[Knowledge Create] ✅ Created entry ${entry.id} with embedding`)
+    console.log(`[Knowledge Create] ✅ Created entry ${entry.id}`, {
+      model: embeddingResult.model,
+      preprocessVersion: embeddingResult.preprocessVersion,
+      contentHash: embeddingResult.contentHash.substring(0, 16) + '...',
+    })
 
     return NextResponse.json({
       success: true,

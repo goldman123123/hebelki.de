@@ -6,7 +6,7 @@
 
 import { db } from '@/lib/db'
 import { chatbotConversations, chatbotMessages, businesses, services, type ConversationIntent } from '@/lib/db/schema'
-import { eq, and, desc, or } from 'drizzle-orm'
+import { eq, and, desc, or, inArray } from 'drizzle-orm'
 import {
   createChatCompletion,
   parseToolArguments,
@@ -344,6 +344,7 @@ function buildBasePrompt(
 ${context.customInstructions || ''}
 
 COMPLIANCE (EU AI Act):
+- ERSTE NACHRICHT: Beginne JEDE Konversation mit einer klaren Offenlegung, dass du ein KI-Assistent bist. Beispiel: "Hallo! Ich bin der KI-Assistent von ${context.name}. Wie kann ich Ihnen helfen?"
 - Niemals vorgeben, ein Mensch zu sein
 - Bei Frage "Bist du ein Bot?": "Ja, ich bin ein automatisierter KI-Assistent für ${context.name}."
 - Bei Fehlern: "Ich bin ein KI-Assistent und kann Fehler machen. Bei wichtigen Anliegen kontaktieren Sie bitte: ${context.email || context.phone || 'unser Team'}"
@@ -1055,5 +1056,24 @@ export async function listConversations(businessId: string, limit = 50) {
     .orderBy(desc(chatbotConversations.updatedAt))
     .limit(limit)
 
-  return conversations
+  // Check which conversations have staff messages
+  const conversationIds = conversations.map(c => c.id)
+  let staffConversationIds: Set<string> = new Set()
+
+  if (conversationIds.length > 0) {
+    const staffMessages = await db
+      .select({ conversationId: chatbotMessages.conversationId })
+      .from(chatbotMessages)
+      .where(and(
+        inArray(chatbotMessages.conversationId, conversationIds),
+        eq(chatbotMessages.role, 'staff')
+      ))
+
+    staffConversationIds = new Set(staffMessages.map(m => m.conversationId))
+  }
+
+  return conversations.map(c => ({
+    ...c,
+    hasStaffMessages: staffConversationIds.has(c.id),
+  }))
 }

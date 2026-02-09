@@ -38,6 +38,13 @@ export type EventType =
   | 'customer.created'
   | 'customer.updated'
 
+  // Invoice events
+  | 'invoice.sent'
+
+  // Chat events
+  | 'chat.live_requested'
+  | 'chat.escalated'
+
   // Business events
   | 'business.created'
   | 'business.plan_changed'
@@ -61,6 +68,8 @@ export interface BookingCreatedPayload {
   currency: string
   confirmationToken?: string
   notes?: string
+  bookingStatus?: string  // 'unconfirmed' | 'pending' | 'confirmed'
+  requireEmailConfirmation?: boolean
 }
 
 export interface BookingConfirmedPayload {
@@ -122,6 +131,15 @@ export interface MemberJoinedPayload {
   role: string
 }
 
+export interface InvoiceSentPayload {
+  invoiceId: string
+  invoiceNumber: string
+  businessId: string
+  businessName: string
+  pdfR2Key: string
+  total: string
+}
+
 export interface CustomerCreatedPayload {
   customerId: string
   businessId: string
@@ -129,6 +147,26 @@ export interface CustomerCreatedPayload {
   customerEmail: string
   customerName?: string
   customerPhone?: string
+}
+
+export interface ChatLiveRequestedPayload {
+  conversationId: string
+  businessName: string
+  ownerEmail: string
+  customerName?: string
+  firstMessage: string
+  dashboardUrl: string
+}
+
+export interface ChatEscalatedPayload {
+  conversationId: string
+  businessName: string
+  ownerEmail: string
+  customerName?: string
+  customerEmail?: string
+  customerPhone?: string
+  conversationSummary: string
+  dashboardUrl: string
 }
 
 // Type mapping for event payloads
@@ -139,7 +177,10 @@ export type EventPayload<T extends EventType> =
   T extends 'booking.reminded' ? BookingRemindedPayload :
   T extends 'member.invited' ? MemberInvitedPayload :
   T extends 'member.joined' ? MemberJoinedPayload :
+  T extends 'invoice.sent' ? InvoiceSentPayload :
   T extends 'customer.created' ? CustomerCreatedPayload :
+  T extends 'chat.live_requested' ? ChatLiveRequestedPayload :
+  T extends 'chat.escalated' ? ChatEscalatedPayload :
   Record<string, unknown>
 
 // ============================================
@@ -214,8 +255,12 @@ export function getEventTypeDescription(eventType: EventType): string {
     'member.removed': 'Mitglied entfernt',
     'member.role_changed': 'Mitgliederrolle geändert',
 
+    'invoice.sent': 'Rechnung versendet',
     'customer.created': 'Kunde erstellt',
     'customer.updated': 'Kunde aktualisiert',
+
+    'chat.live_requested': 'Live-Chat angefragt',
+    'chat.escalated': 'Chat eskaliert',
 
     'business.created': 'Platz erstellt',
     'business.plan_changed': 'Tarif geändert',

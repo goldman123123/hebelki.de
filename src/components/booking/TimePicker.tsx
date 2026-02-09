@@ -35,9 +35,12 @@ export function TimePicker({
     const fetchSlots = async () => {
       setIsLoading(true)
       try {
+        const yyyy = date.getFullYear()
+        const mm = String(date.getMonth() + 1).padStart(2, '0')
+        const dd = String(date.getDate()).padStart(2, '0')
         const params = new URLSearchParams({
           serviceId,
-          date: date.toISOString(),
+          date: `${yyyy}-${mm}-${dd}`,
         })
         if (staffId) {
           params.set('staffId', staffId)

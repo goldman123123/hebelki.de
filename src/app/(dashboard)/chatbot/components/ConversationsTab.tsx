@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Loader2, MessageSquare, User, Bot, Calendar, Globe, MessageCircle } from 'lucide-react'
+import { Loader2, MessageSquare, User, Bot, UserCheck, Calendar, Globe, MessageCircle } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
 
@@ -24,6 +24,7 @@ interface Conversation {
   id: string
   channel: string
   status: string
+  hasStaffMessages?: boolean
   createdAt: string
   updatedAt: string
 }
@@ -32,6 +33,7 @@ interface Message {
   id: string
   role: string
   content: string
+  metadata?: Record<string, unknown> | null
   createdAt: string
 }
 
@@ -103,6 +105,10 @@ export function ConversationsTab({ businessId }: ConversationsTabProps) {
     switch (status) {
       case 'active':
         return 'bg-green-100 text-green-800'
+      case 'live_queue':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'live_active':
+        return 'bg-green-100 text-green-800'
       case 'escalated':
         return 'bg-red-100 text-red-800'
       case 'closed':
@@ -116,6 +122,10 @@ export function ConversationsTab({ businessId }: ConversationsTabProps) {
     switch (status) {
       case 'active':
         return 'Aktiv'
+      case 'live_queue':
+        return 'Wartend'
+      case 'live_active':
+        return 'Live-Chat'
       case 'escalated':
         return 'Eskaliert'
       case 'closed':
@@ -173,6 +183,12 @@ export function ConversationsTab({ businessId }: ConversationsTabProps) {
                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(conversation.status)}`}>
                       {getStatusLabel(conversation.status)}
                     </span>
+                    {conversation.hasStaffMessages && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 text-purple-800 px-2.5 py-0.5 text-xs font-medium">
+                        <UserCheck className="h-3 w-3" />
+                        Mitarbeiter
+                      </span>
+                    )}
                   </div>
                   <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
                     <span className="flex items-center gap-1">
@@ -238,7 +254,40 @@ export function ConversationsTab({ businessId }: ConversationsTabProps) {
               <div className="space-y-4">
                 {messages
                   .filter(m => m.role !== 'tool')
-                  .map((message) => (
+                  .map((message) => {
+                    // System messages: centered
+                    if (message.role === 'system') {
+                      return (
+                        <div key={message.id} className="text-center">
+                          <span className="inline-block rounded-full bg-gray-100 px-3 py-1 text-xs italic text-gray-500">
+                            {message.content}
+                          </span>
+                        </div>
+                      )
+                    }
+
+                    // Staff messages: right-aligned with green accent
+                    if (message.role === 'staff') {
+                      const staffName = (message.metadata?.staffName as string) || 'Support'
+                      return (
+                        <div key={message.id} className="flex gap-3 justify-end">
+                          <div className="text-right">
+                            <p className="text-[10px] font-medium text-purple-600 mb-0.5">{staffName}</p>
+                            <div className="max-w-[70%] ml-auto rounded-lg bg-purple-50 border border-purple-200 px-4 py-2">
+                              <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+                              <p className="mt-1 text-xs text-gray-500">
+                                {new Date(message.createdAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 flex-shrink-0">
+                            <UserCheck className="h-5 w-5 text-purple-600" />
+                          </div>
+                        </div>
+                      )
+                    }
+
+                    return (
                     <div
                       key={message.id}
                       className={`flex gap-3 ${
@@ -255,11 +304,12 @@ export function ConversationsTab({ businessId }: ConversationsTabProps) {
                         className={`max-w-[70%] rounded-lg px-4 py-2 ${
                           message.role === 'user'
                             ? 'bg-blue-600 text-white'
-                            : message.role === 'system'
-                            ? 'bg-gray-50 text-gray-600 italic'
                             : 'bg-gray-100 text-gray-900'
                         }`}
                       >
+                        {message.role === 'assistant' && (
+                          <p className="text-[10px] font-medium text-blue-500 mb-0.5">KI-Assistent</p>
+                        )}
                         <p className="whitespace-pre-wrap text-sm">
                           {message.content}
                         </p>
@@ -283,7 +333,8 @@ export function ConversationsTab({ businessId }: ConversationsTabProps) {
                         </div>
                       )}
                     </div>
-                  ))}
+                    )
+                  })}
               </div>
             )}
           </div>

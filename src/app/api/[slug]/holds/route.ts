@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getBusinessBySlug, getServiceById } from '@/lib/db/queries'
 import { createHold, cancelHold } from '@/lib/db/holds'
-import { isSlotAvailable } from '@/lib/availability'
+import { isSlotAvailable, getAvailableSlotsWithStaff } from '@/lib/availability'
 
 /**
  * POST /api/{slug}/holds - Create a hold
@@ -59,12 +59,25 @@ export async function POST(
       }, { status: 409 })
     }
 
+    // Auto-assign staff when none specified: find recommended staff for this slot
+    let assignedStaffId: string | null = staffId || null
+    if (!staffId) {
+      const slotsWithStaff = await getAvailableSlotsWithStaff(config, slotStart)
+      const matchingSlot = slotsWithStaff.find(s => {
+        const diff = Math.abs(s.start.getTime() - slotStart.getTime())
+        return diff <= 60 * 1000 && s.available && s.recommendedStaffId
+      })
+      if (matchingSlot?.recommendedStaffId) {
+        assignedStaffId = matchingSlot.recommendedStaffId
+      }
+    }
+
     // Create hold
     const slotEnd = new Date(slotStart.getTime() + service.durationMinutes * 60 * 1000)
     const hold = await createHold({
       businessId: business.id,
       serviceId,
-      staffId: staffId || null,
+      staffId: assignedStaffId,
       startsAt: slotStart,
       endsAt: slotEnd,
       holdDurationMinutes: holdDurationMinutes || 5,
@@ -78,6 +91,7 @@ export async function POST(
       expiresAt: hold.expiresAt.toISOString(),
       startsAt: hold.startsAt.toISOString(),
       endsAt: hold.endsAt.toISOString(),
+      staffId: assignedStaffId,
     })
   } catch (error) {
     console.error('Error creating hold:', error)

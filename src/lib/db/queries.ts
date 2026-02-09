@@ -88,6 +88,32 @@ export async function createBusinessForUser(data: {
       joinedAt: new Date(),
     })
 
+  // Step 3: Create default availability template with business hours
+  // Mon-Fri: 09:00 - 17:00, Sat-Sun: Closed
+  const templateResult = await db
+    .insert(availabilityTemplates)
+    .values({
+      businessId: business.id,
+      staffId: null,
+      name: 'Business Hours',
+      isDefault: true,
+    })
+    .returning()
+
+  const template = templateResult[0]
+
+  // Add default slots: Monday (1) through Friday (5), 09:00-17:00
+  const defaultSlots = [
+    { templateId: template.id, dayOfWeek: 1, startTime: '09:00', endTime: '17:00' }, // Monday
+    { templateId: template.id, dayOfWeek: 2, startTime: '09:00', endTime: '17:00' }, // Tuesday
+    { templateId: template.id, dayOfWeek: 3, startTime: '09:00', endTime: '17:00' }, // Wednesday
+    { templateId: template.id, dayOfWeek: 4, startTime: '09:00', endTime: '17:00' }, // Thursday
+    { templateId: template.id, dayOfWeek: 5, startTime: '09:00', endTime: '17:00' }, // Friday
+    // Saturday (6) and Sunday (0) are closed - no slots
+  ]
+
+  await db.insert(availabilitySlots).values(defaultSlots)
+
   return business
 }
 
@@ -554,7 +580,7 @@ export async function getBookingStats(businessId: string) {
 export async function updateBookingStatus(
   bookingId: string,
   businessId: string,
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'no_show',
+  status: 'unconfirmed' | 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'no_show',
   options?: {
     cancellationReason?: string
     cancelledBy?: 'customer' | 'staff' | 'system'
@@ -690,7 +716,7 @@ export async function getAllStaff(businessId: string) {
   return db
     .select()
     .from(staff)
-    .where(eq(staff.businessId, businessId))
+    .where(and(eq(staff.businessId, businessId), isNull(staff.deletedAt)))
     .orderBy(asc(staff.name))
 }
 
@@ -768,8 +794,14 @@ export async function updateStaff(
 }
 
 export async function deleteStaff(staffId: string) {
-  // Soft delete - set inactive
-  return updateStaff(staffId, { isActive: false })
+  // Soft delete - set deletedAt timestamp (separate from isActive toggle)
+  const result = await db
+    .update(staff)
+    .set({ deletedAt: new Date() })
+    .where(eq(staff.id, staffId))
+    .returning()
+
+  return result[0]
 }
 
 export async function updateStaffServices(staffId: string, serviceIds: string[], businessId: string) {

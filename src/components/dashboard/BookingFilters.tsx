@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 
 const tabs = [
   { id: 'all', label: 'Alle' },
+  { id: 'unconfirmed', label: 'Unbestätigt' },
   { id: 'pending', label: 'Ausstehend' },
   { id: 'confirmed', label: 'Bestätigt' },
   { id: 'cancelled', label: 'Storniert' },

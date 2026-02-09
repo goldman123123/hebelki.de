@@ -3,8 +3,22 @@ import { requireBusinessAuth } from '@/lib/auth'
 import { getBookingById, updateBookingStatus, verifyBookingOwnership } from '@/lib/db/queries'
 import { bookingStatusSchema } from '@/lib/validations/schemas'
 import { db } from '@/lib/db'
+import { bookings } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
 import { emitEventStandalone } from '@/modules/core/events'
 import { processEvents } from '@/modules/core/events/processor'
+import { z } from 'zod'
+
+const itemSchema = z.object({
+  description: z.string().min(1),
+  quantity: z.number().min(0),
+  unitPrice: z.string(),
+  total: z.string(),
+})
+
+const itemsUpdateSchema = z.object({
+  items: z.array(itemSchema),
+})
 
 export async function GET(
   request: NextRequest,
@@ -57,6 +71,26 @@ export async function PATCH(
 
   const body = await request.json()
 
+  // Handle items-only update
+  if (body.items !== undefined && !body.status) {
+    const parsed = itemsUpdateSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+    }
+
+    const [updated] = await db
+      .update(bookings)
+      .set({
+        items: parsed.data.items,
+        updatedAt: new Date(),
+      })
+      .where(eq(bookings.id, id))
+      .returning()
+
+    return NextResponse.json({ booking: updated })
+  }
+
+  // Handle status update
   const parsed = bookingStatusSchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })

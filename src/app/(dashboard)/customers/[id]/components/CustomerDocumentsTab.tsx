@@ -18,6 +18,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
   FileText,
   FileSpreadsheet,
   FileCode,
@@ -32,6 +39,8 @@ import {
   X,
   File,
   Eye,
+  Download,
+  MoreVertical,
   Lock,
   Globe,
 } from 'lucide-react'
@@ -140,6 +149,7 @@ export function CustomerDocumentsTab({
   const [loading, setLoading] = useState(true)
   const [deleteDialog, setDeleteDialog] = useState<Document | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const pollingRef = useRef<Record<string, NodeJS.Timeout>>({})
 
@@ -224,6 +234,32 @@ export function CustomerDocumentsTab({
       toast.error(error instanceof Error ? error.message : 'Fehler beim Löschen')
     } finally {
       setDeleting(false)
+    }
+  }
+
+  const handleViewOrDownload = async (doc: Document, action: 'view' | 'download') => {
+    setActionLoading(`${action}-${doc.id}`)
+    try {
+      const response = await fetch(`/api/documents/${doc.id}?businessId=${businessId}`)
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Fehler beim Laden')
+      if (!data.downloadUrl) throw new Error('Keine Download-URL verfügbar')
+      if (action === 'view') {
+        window.open(data.downloadUrl, '_blank')
+      } else {
+        const link = document.createElement('a')
+        link.href = data.downloadUrl
+        link.download = doc.originalFilename
+        link.target = '_blank'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      }
+    } catch (error) {
+      console.error(`${action} error:`, error)
+      toast.error(error instanceof Error ? error.message : 'Fehler beim Laden')
+    } finally {
+      setActionLoading(null)
     }
   }
 
@@ -359,14 +395,41 @@ export function CustomerDocumentsTab({
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setDeleteDialog(doc)}
-                      disabled={doc.status === 'deleted_pending'}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={doc.status === 'deleted_pending' || actionLoading !== null}
+                          className="h-8 w-8 p-0"
+                        >
+                          {actionLoading?.endsWith(doc.id) ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <MoreVertical className="h-4 w-4" />
+                          )}
+                          <span className="sr-only">Aktionen</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem onClick={() => handleViewOrDownload(doc, 'view')}>
+                          <Eye className="mr-2 h-4 w-4" />
+                          Anzeigen
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleViewOrDownload(doc, 'download')}>
+                          <Download className="mr-2 h-4 w-4" />
+                          Herunterladen
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => setDeleteDialog(doc)}
+                          variant="destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Löschen
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
               </Card>

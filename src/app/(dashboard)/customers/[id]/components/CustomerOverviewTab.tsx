@@ -32,6 +32,7 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
+  MapPin,
 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
@@ -44,6 +45,11 @@ interface Customer {
   phone: string | null
   notes: string | null
   source: string | null
+  street: string | null
+  city: string | null
+  postalCode: string | null
+  country: string | null
+  whatsappOptInStatus: string | null
   customFields: Record<string, unknown>
   createdAt: string | null
 }
@@ -114,6 +120,10 @@ export function CustomerOverviewTab({
     name: customer.name || '',
     email: customer.email || '',
     phone: customer.phone || '',
+    street: customer.street || '',
+    city: customer.city || '',
+    postalCode: customer.postalCode || '',
+    country: customer.country || '',
     notes: customer.notes || '',
   })
 
@@ -132,6 +142,10 @@ export function CustomerOverviewTab({
           name: editData.name.trim(),
           email: editData.email.trim() || null,
           phone: editData.phone.trim() || null,
+          street: editData.street.trim() || null,
+          city: editData.city.trim() || null,
+          postalCode: editData.postalCode.trim() || null,
+          country: editData.country.trim() || null,
           notes: editData.notes.trim() || null,
         }),
       })
@@ -180,6 +194,10 @@ export function CustomerOverviewTab({
       name: customer.name || '',
       email: customer.email || '',
       phone: customer.phone || '',
+      street: customer.street || '',
+      city: customer.city || '',
+      postalCode: customer.postalCode || '',
+      country: customer.country || '',
       notes: customer.notes || '',
     })
     setEditing(false)
@@ -258,6 +276,55 @@ export function CustomerOverviewTab({
                   className="mt-1"
                 />
               </div>
+
+              {/* Address fields */}
+              <div className="pt-2 border-t">
+                <p className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-1.5">
+                  <MapPin className="h-4 w-4" />
+                  Adresse
+                </p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Straße</label>
+                    <Input
+                      value={editData.street}
+                      onChange={(e) => setEditData({ ...editData, street: e.target.value })}
+                      className="mt-1"
+                      placeholder="Musterstraße 1"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">PLZ</label>
+                      <Input
+                        value={editData.postalCode}
+                        onChange={(e) => setEditData({ ...editData, postalCode: e.target.value })}
+                        className="mt-1"
+                        placeholder="10115"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Stadt</label>
+                      <Input
+                        value={editData.city}
+                        onChange={(e) => setEditData({ ...editData, city: e.target.value })}
+                        className="mt-1"
+                        placeholder="Berlin"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Land</label>
+                    <Input
+                      value={editData.country}
+                      onChange={(e) => setEditData({ ...editData, country: e.target.value })}
+                      className="mt-1"
+                      placeholder="Deutschland"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="text-sm font-medium text-gray-700">Notizen</label>
                 <Textarea
@@ -289,6 +356,44 @@ export function CustomerOverviewTab({
                   {customer.source ? sourceLabels[customer.source] || customer.source : '-'}
                 </dd>
               </div>
+
+              {/* Address */}
+              {(customer.street || customer.city || customer.postalCode || customer.country) && (
+                <div className="pt-3 border-t">
+                  <dt className="text-sm font-medium text-gray-500 flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5" />
+                    Adresse
+                  </dt>
+                  <dd className="mt-1 text-gray-900">
+                    {customer.street && <div>{customer.street}</div>}
+                    {(customer.postalCode || customer.city) && (
+                      <div>{[customer.postalCode, customer.city].filter(Boolean).join(' ')}</div>
+                    )}
+                    {customer.country && customer.country !== 'Deutschland' && (
+                      <div>{customer.country}</div>
+                    )}
+                  </dd>
+                </div>
+              )}
+
+              {/* WhatsApp Status */}
+              {customer.whatsappOptInStatus && customer.whatsappOptInStatus !== 'UNSET' && (
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">WhatsApp</dt>
+                  <dd className="mt-1">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        customer.whatsappOptInStatus === 'OPTED_IN'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-red-100 text-red-700'
+                      }`}
+                    >
+                      {customer.whatsappOptInStatus === 'OPTED_IN' ? 'Opt-In' : 'Opt-Out'}
+                    </span>
+                  </dd>
+                </div>
+              )}
+
               <div>
                 <dt className="text-sm font-medium text-gray-500">Erstellt am</dt>
                 <dd className="mt-1 text-gray-900">

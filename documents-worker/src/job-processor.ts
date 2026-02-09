@@ -3,12 +3,16 @@
  *
  * Uses quality gates to detect extraction issues.
  * Separates status (operational state) from errorCode (failure reason).
+ *
+ * Split Brain Prevention (2026-02):
+ * - Consistent header pattern: {DocumentTitle}\n\n{ChunkContent}
+ * - Full embedding metadata for provenance tracking
  */
 
 import { downloadFromR2 } from './r2.js'
 import { parseDocument, isSupported } from './parser-router.js'
 import { chunkPagesWithProvenance } from './chunker.js'
-import { generateEmbeddingsBatched } from './embed.js'
+import { generateEmbeddingsBatchedWithMetadata, EMBEDDING_CONFIG } from './embed.js'
 import { checkExtractionQuality, classifyError, type ErrorCode } from './quality-gates.js'
 import {
   updateJobStatus,
@@ -18,6 +22,7 @@ import {
   isDocumentDeleted,
   savePages,
   saveChunksWithEmbeddings,
+  getDocumentTitle,
   heartbeat,
   type IngestionJob,
 } from './db.js'
@@ -221,17 +226,31 @@ async function processJobInternal(
     }
   }
 
-  // PHASE 4: Generate embeddings
+  // Get document title for consistent header pattern
+  const documentTitle = await getDocumentTitle(job.document_version_id) || 'Document'
+  console.log(`[Job ${job.id}] Document title: "${documentTitle}"`)
+
+  // PHASE 4: Generate embeddings with consistent header pattern
+  // Format: {DocumentTitle}\n\n{ChunkContent}
+  // This matches KB entries ({Title}\n\n{Content}) for consistent embedding space
   await updateJobStage(job.id, 'embedding')
   const embedStart = Date.now()
-  const embeddings = await generateEmbeddingsBatched(
-    chunks.map(c => c.content),
+
+  // Create embedding texts with header
+  const embeddingTexts = chunks.map(c => `${documentTitle}\n\n${c.content}`)
+
+  // Generate embeddings with full metadata
+  const embeddingResults = await generateEmbeddingsBatchedWithMetadata(
+    embeddingTexts,
     50 // Batch size
   )
   const embedDuration = Date.now() - embedStart
   await heartbeat(job.id)
 
-  console.log(`[Job ${job.id}] Generated ${embeddings.length} embeddings`)
+  console.log(`[Job ${job.id}] Generated ${embeddingResults.length} embeddings`, {
+    model: EMBEDDING_CONFIG.model,
+    preprocessVersion: EMBEDDING_CONFIG.preprocessVersion,
+  })
 
   // Final check if deleted
   if (await isDocumentDeleted(job.document_version_id)) {
@@ -240,7 +259,7 @@ async function processJobInternal(
     return { success: false, pageCount: 0, chunkCount: 0, wordCount: 0, durationMs: Date.now() - startTime }
   }
 
-  // Save chunks with embeddings
+  // Save chunks with embeddings and full metadata
   await saveChunksWithEmbeddings(
     job.document_version_id,
     job.business_id,
@@ -250,7 +269,15 @@ async function processJobInternal(
       pageStart: chunk.pageStart,
       pageEnd: chunk.pageEnd,
       metadata: { sentences: chunk.sentences.length },
-      embedding: embeddings[index],
+      embedding: embeddingResults[index].embedding,
+      // Full embedding metadata for split brain prevention
+      embeddingMetadata: {
+        provider: embeddingResults[index].provider,
+        model: embeddingResults[index].model,
+        dim: embeddingResults[index].dim,
+        preprocessVersion: embeddingResults[index].preprocessVersion,
+        contentHash: embeddingResults[index].contentHash,
+      },
     }))
   )
 
@@ -271,7 +298,8 @@ async function processJobInternal(
     mimeType,
     sourceType,
     chunker: 'v1',
-    model: 'text-embedding-3-small',
+    model: EMBEDDING_CONFIG.model,
+    preprocessVersion: EMBEDDING_CONFIG.preprocessVersion,
   })
 
   console.log(`[Job ${job.id}] Completed in ${totalDuration}ms`)

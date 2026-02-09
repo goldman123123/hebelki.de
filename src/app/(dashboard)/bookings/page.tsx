@@ -37,6 +37,7 @@ export default function BookingsPage() {
   const [loading, setLoading] = useState(true)
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [timezone, setTimezone] = useState('Europe/Berlin')
+  const [slug, setSlug] = useState<string | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
 
   const fetchBookings = useCallback(async () => {
@@ -47,6 +48,9 @@ export default function BookingsPage() {
       const settingsData = await settingsRes.json()
       if (settingsData.business?.timezone) {
         setTimezone(settingsData.business.timezone)
+      }
+      if (settingsData.business?.slug) {
+        setSlug(settingsData.business.slug)
       }
 
       const res = await fetch(`/api/admin/bookings?status=${filter}`)
@@ -79,6 +83,18 @@ export default function BookingsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Buchungen</h1>
           <p className="text-gray-600">Verwalten Sie alle Ihre Termine</p>
+          {slug && (
+            <p className="text-sm text-gray-500">
+              Buchungs-URL:{' '}
+              <a
+                href={`/book/${slug}`}
+                className="text-primary hover:underline"
+                target="_blank"
+              >
+                /book/{slug}
+              </a>
+            </p>
+          )}
         </div>
         <Button onClick={() => setShowCreateDialog(true)}>
           <Plus className="mr-2 h-4 w-4" />

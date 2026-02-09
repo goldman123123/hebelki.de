@@ -4,12 +4,7 @@ import { SignOutButton } from '@clerk/nextjs'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion'
+import { FAQAccordion } from '@/components/faq-accordion'
 import {
   Calendar,
   Clock,
@@ -614,18 +609,7 @@ export default async function Home() {
           <p className="text-center text-gray-600 mb-12">
             Haben Sie weitere Fragen? Kontaktieren Sie uns.
           </p>
-          <Accordion type="single" collapsible className="w-full">
-            {faqs.map((faq, index) => (
-              <AccordionItem key={index} value={`item-${index}`}>
-                <AccordionTrigger className="text-left">
-                  {faq.question}
-                </AccordionTrigger>
-                <AccordionContent className="text-gray-600">
-                  {faq.answer}
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
+          <FAQAccordion faqs={faqs} />
         </div>
       </section>
 

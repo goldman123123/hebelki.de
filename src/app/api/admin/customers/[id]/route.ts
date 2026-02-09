@@ -25,6 +25,10 @@ const updateCustomerSchema = z.object({
   phone: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   source: z.string().optional(),
+  street: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  postalCode: z.string().optional().nullable(),
+  country: z.string().optional().nullable(),
   customFields: z.record(z.string(), z.any()).optional(),
 })
 
@@ -180,7 +184,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    const { name, email, phone, notes, source, customFields } = parsed.data
+    const { name, email, phone, notes, source, street, city, postalCode, country, customFields } = parsed.data
 
     // Check for email uniqueness if email is being updated
     if (email !== undefined && email !== null) {
@@ -211,6 +215,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (phone !== undefined) updateData.phone = phone
     if (notes !== undefined) updateData.notes = notes
     if (source !== undefined) updateData.source = source
+    if (street !== undefined) updateData.street = street
+    if (city !== undefined) updateData.city = city
+    if (postalCode !== undefined) updateData.postalCode = postalCode
+    if (country !== undefined) updateData.country = country
     if (customFields !== undefined) updateData.customFields = customFields
 
     const [updated] = await db

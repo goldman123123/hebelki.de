@@ -38,11 +38,15 @@ export default async function PublicChatPage({ params }: PageProps) {
     ? (business.settings as {
         chatbotWelcomeMessage?: string
         chatbotColor?: string
+        liveChatEnabled?: boolean
+        chatDefaultMode?: 'ai' | 'live'
       })
     : {}
 
   const welcomeMessage = settings.chatbotWelcomeMessage || `Hallo und herzlich willkommen bei ${business.name}! Wie kann ich Ihnen helfen?`
   const primaryColor = settings.chatbotColor || business.primaryColor || '#3B82F6'
+  const liveChatEnabled = settings.liveChatEnabled || false
+  const chatDefaultMode = settings.chatDefaultMode || 'ai'
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -79,6 +83,8 @@ export default async function PublicChatPage({ params }: PageProps) {
           businessName={business.name}
           primaryColor={primaryColor}
           welcomeMessage={welcomeMessage}
+          liveChatEnabled={liveChatEnabled}
+          chatDefaultMode={chatDefaultMode}
         />
       </div>
 

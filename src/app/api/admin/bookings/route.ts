@@ -11,7 +11,7 @@ import {
 import { isSlotAvailable } from '@/lib/availability'
 import { db } from '@/lib/db'
 import { bookings, customers } from '@/lib/db/schema'
-import { emitEvent } from '@/modules/core/events'
+import { emitEventStandalone } from '@/modules/core/events'
 import { processEvents } from '@/modules/core/events/processor'
 import { eq, and } from 'drizzle-orm'
 
@@ -193,50 +193,46 @@ export async function POST(request: NextRequest) {
       ? customPrice.toString()
       : (service.price || undefined)
 
-    // Create booking within transaction
-    const booking = await db.transaction(async (tx) => {
-      const inserted = await tx
-        .insert(bookings)
-        .values({
-          businessId: business.id,
-          serviceId,
-          staffId: staffId || null,
-          customerId: customer.id,
-          startsAt: slotStart,
-          endsAt,
-          price,
-          notes: customerNotes || null,
-          internalNotes: internalNotes || null,
-          source: 'admin',
-          status: 'confirmed', // Admin bookings are auto-confirmed
-          confirmedAt: new Date(),
-        })
-        .returning()
+    // Create booking
+    const inserted = await db
+      .insert(bookings)
+      .values({
+        businessId: business.id,
+        serviceId,
+        staffId: staffId || null,
+        customerId: customer.id,
+        startsAt: slotStart,
+        endsAt,
+        price,
+        notes: customerNotes || null,
+        internalNotes: internalNotes || null,
+        source: 'admin',
+        status: 'confirmed', // Admin bookings are auto-confirmed
+        confirmedAt: new Date(),
+      })
+      .returning()
 
-      const booking = inserted[0]
+    const booking = inserted[0]
 
-      // Emit booking.created event for email notification (if enabled)
-      if (sendConfirmationEmail && customer.email) {
-        await emitEvent(tx, business.id, 'booking.created', {
-          bookingId: booking.id,
-          customerEmail: customer.email,
-          customerName: customer.name || 'Kunde',
-          customerPhone: customer.phone || undefined,
-          serviceName: service.name,
-          businessName: business.name,
-          businessEmail: business.email || undefined,
-          staffName: staffMember?.name,
-          startsAt: slotStart.toISOString(),
-          endsAt: endsAt.toISOString(),
-          price: price ? parseFloat(price) : undefined,
-          currency: business.currency || 'EUR',
-          confirmationToken: booking.confirmationToken || booking.id,
-          notes: customerNotes,
-        })
-      }
-
-      return booking
-    })
+    // Emit booking.created event for email notification (if enabled)
+    if (sendConfirmationEmail && customer.email) {
+      await emitEventStandalone(business.id, 'booking.created', {
+        bookingId: booking.id,
+        customerEmail: customer.email,
+        customerName: customer.name || 'Kunde',
+        customerPhone: customer.phone || undefined,
+        serviceName: service.name,
+        businessName: business.name,
+        businessEmail: business.email || undefined,
+        staffName: staffMember?.name,
+        startsAt: slotStart.toISOString(),
+        endsAt: endsAt.toISOString(),
+        price: price ? parseFloat(price) : undefined,
+        currency: business.currency || 'EUR',
+        confirmationToken: booking.confirmationToken || booking.id,
+        notes: customerNotes,
+      })
+    }
 
     // Process events immediately (send emails)
     if (sendConfirmationEmail && customer.email) {

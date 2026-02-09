@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
   const sortBy = searchParams.get('sortBy') || 'name'
   const limit = parseInt(searchParams.get('limit') || '50', 10)
   const offset = parseInt(searchParams.get('offset') || '0', 10)
+  const simple = searchParams.get('simple') === 'true'
 
   try {
     // Build search filter
@@ -77,6 +78,19 @@ export async function GET(request: NextRequest) {
       )
 
     const total = totalResult[0]?.count || 0
+
+    // In simple mode, skip expensive per-customer stats queries
+    if (simple) {
+      return NextResponse.json({
+        customers: customersData,
+        pagination: {
+          total,
+          limit,
+          offset,
+          hasMore: offset + customersData.length < total,
+        },
+      })
+    }
 
     // Get booking and conversation counts for each customer
     const customersWithStats = await Promise.all(

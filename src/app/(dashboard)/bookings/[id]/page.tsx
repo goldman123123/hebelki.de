@@ -1,15 +1,18 @@
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/dashboard/StatusBadge'
 import { getBookingById } from '@/lib/db/queries'
 import { formatDate, formatTime, formatCurrency } from '@/lib/utils'
-import { ArrowLeft, User, Briefcase, Clock, DollarSign, Mail, Phone, FileText } from 'lucide-react'
+import { ArrowLeft, User, Clock, Mail, Phone, FileText } from 'lucide-react'
 import { BookingDetailActions } from './BookingDetailActions'
+import { BookingItems } from './BookingItems'
 import { InvoiceCard } from '@/components/invoices/InvoiceCard'
+import { LieferscheinCard } from '@/components/lieferschein/LieferscheinCard'
 import { auth } from '@clerk/nextjs/server'
 import { getUserFirstBusiness } from '@/lib/auth-helpers'
+import { getInvoiceByBookingId } from '@/lib/invoices'
+import type { InvoiceLineItem } from '@/lib/db/schema'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -33,6 +36,14 @@ export default async function BookingDetailPage({ params }: PageProps) {
   }
 
   const { booking, service, staffMember, customer } = result
+
+  // Get items and lieferschein status from booking
+  const bookingItems = (booking as Record<string, unknown>).items as InvoiceLineItem[] | null
+  const lieferscheinR2Key = (booking as Record<string, unknown>).lieferscheinR2Key as string | null
+
+  // Fetch active invoice status for BookingItems warning
+  const activeInvoice = await getInvoiceByBookingId(booking.id)
+  const invoiceStatus = activeInvoice?.status
 
   return (
     <div>
@@ -136,6 +147,20 @@ export default async function BookingDetailPage({ params }: PageProps) {
                 </a>
               </div>
             )}
+            {(customer?.street || customer?.city || customer?.postalCode) && (
+              <div>
+                <p className="text-sm text-gray-500">Address</p>
+                <div className="font-medium">
+                  {customer.street && <p>{customer.street}</p>}
+                  {(customer.postalCode || customer.city) && (
+                    <p>{[customer.postalCode, customer.city].filter(Boolean).join(' ')}</p>
+                  )}
+                  {customer.country && customer.country !== 'Deutschland' && (
+                    <p>{customer.country}</p>
+                  )}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -185,6 +210,24 @@ export default async function BookingDetailPage({ params }: PageProps) {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* Booking Items (for Lieferschein) */}
+        {booking.status !== 'cancelled' && (
+          <BookingItems
+            bookingId={booking.id}
+            initialItems={bookingItems}
+            invoiceStatus={invoiceStatus}
+          />
+        )}
+
+        {/* Lieferschein */}
+        {booking.status !== 'cancelled' && (
+          <LieferscheinCard
+            bookingId={booking.id}
+            hasItems={!!bookingItems && bookingItems.length > 0}
+            hasLieferschein={!!lieferscheinR2Key}
+          />
         )}
 
         {/* Invoice */}

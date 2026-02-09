@@ -272,7 +272,19 @@ export async function savePages(
 }
 
 /**
+ * Full embedding metadata for provenance tracking (split brain prevention)
+ */
+export interface EmbeddingMetadata {
+  provider: string
+  model: string
+  dim: number
+  preprocessVersion: string
+  contentHash: string
+}
+
+/**
  * Save chunks with embeddings to database
+ * Now includes full embedding metadata for split brain prevention
  */
 export async function saveChunksWithEmbeddings(
   documentVersionId: string,
@@ -284,6 +296,8 @@ export async function saveChunksWithEmbeddings(
     pageEnd: number
     metadata?: Record<string, unknown>
     embedding: number[]
+    // Full embedding metadata (optional for backward compatibility)
+    embeddingMetadata?: EmbeddingMetadata
   }>
 ): Promise<void> {
   for (const chunk of chunks) {
@@ -298,13 +312,39 @@ export async function saveChunksWithEmbeddings(
 
     const chunkId = chunkResult[0].id
 
-    // Insert embedding
-    await sql`
-      INSERT INTO chunk_embeddings (chunk_id, business_id, embedding)
-      VALUES (${chunkId}, ${businessId}, ${JSON.stringify(chunk.embedding)}::vector)
-      ON CONFLICT (chunk_id) DO UPDATE
-      SET embedding = ${JSON.stringify(chunk.embedding)}::vector
-    `
+    // Insert embedding with full metadata if provided
+    if (chunk.embeddingMetadata) {
+      await sql`
+        INSERT INTO chunk_embeddings (
+          chunk_id, business_id, embedding,
+          embedding_provider, embedding_model, embedding_dim,
+          preprocess_version, content_hash, embedded_at
+        )
+        VALUES (
+          ${chunkId}, ${businessId}, ${JSON.stringify(chunk.embedding)}::vector,
+          ${chunk.embeddingMetadata.provider}, ${chunk.embeddingMetadata.model},
+          ${chunk.embeddingMetadata.dim}, ${chunk.embeddingMetadata.preprocessVersion},
+          ${chunk.embeddingMetadata.contentHash}, NOW()
+        )
+        ON CONFLICT (chunk_id) DO UPDATE
+        SET
+          embedding = ${JSON.stringify(chunk.embedding)}::vector,
+          embedding_provider = ${chunk.embeddingMetadata.provider},
+          embedding_model = ${chunk.embeddingMetadata.model},
+          embedding_dim = ${chunk.embeddingMetadata.dim},
+          preprocess_version = ${chunk.embeddingMetadata.preprocessVersion},
+          content_hash = ${chunk.embeddingMetadata.contentHash},
+          embedded_at = NOW()
+      `
+    } else {
+      // Legacy: just embedding vector
+      await sql`
+        INSERT INTO chunk_embeddings (chunk_id, business_id, embedding)
+        VALUES (${chunkId}, ${businessId}, ${JSON.stringify(chunk.embedding)}::vector)
+        ON CONFLICT (chunk_id) DO UPDATE
+        SET embedding = ${JSON.stringify(chunk.embedding)}::vector
+      `
+    }
   }
 }
 
@@ -351,6 +391,21 @@ export async function claimUrlJobs(batchSize: number): Promise<UrlIngestionJob[]
   `
 
   return result as UrlIngestionJob[]
+}
+
+/**
+ * Get document title by version ID
+ */
+export async function getDocumentTitle(documentVersionId: string): Promise<string | null> {
+  const result = await sql`
+    SELECT d.title
+    FROM documents d
+    JOIN document_versions dv ON d.id = dv.document_id
+    WHERE dv.id = ${documentVersionId}
+    LIMIT 1
+  `
+
+  return result.length > 0 ? result[0].title : null
 }
 
 export { sql }

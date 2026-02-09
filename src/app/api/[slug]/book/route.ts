@@ -5,10 +5,10 @@ import {
   getStaffById,
   getOrCreateCustomer,
 } from '@/lib/db/queries'
-import { isSlotAvailable } from '@/lib/availability'
+import { isSlotAvailable, getAvailableSlotsWithStaff } from '@/lib/availability'
 import { db } from '@/lib/db'
 import { bookings } from '@/lib/db/schema'
-import { emitEvent } from '@/modules/core/events'
+import { emitEventStandalone } from '@/modules/core/events'
 import { processEvents } from '@/modules/core/events/processor'
 
 export async function POST(
@@ -115,6 +115,19 @@ export async function POST(
       }
     }
 
+    // Auto-assign staff when none specified: find recommended staff for this slot
+    let assignedStaffId: string | undefined = staffId
+    if (!staffId) {
+      const slotsWithStaff = await getAvailableSlotsWithStaff(config, slotStart)
+      const matchingSlot = slotsWithStaff.find(s => {
+        const diff = Math.abs(s.start.getTime() - slotStart.getTime())
+        return diff <= 60 * 1000 && s.available && s.recommendedStaffId
+      })
+      if (matchingSlot?.recommendedStaffId) {
+        assignedStaffId = matchingSlot.recommendedStaffId
+      }
+    }
+
     // Get or create customer
     const customer = await getOrCreateCustomer(
       business.id,
@@ -128,51 +141,52 @@ export async function POST(
 
     // Get staff name if assigned
     let staffName: string | undefined
-    if (staffId) {
-      const staffMember = await getStaffById(staffId, business.id)
+    if (assignedStaffId) {
+      const staffMember = await getStaffById(assignedStaffId, business.id)
       staffName = staffMember?.name
     }
 
-    // Create booking within transaction and emit event
-    const booking = await db.transaction(async (tx) => {
-      // Create booking
-      const inserted = await tx
-        .insert(bookings)
-        .values({
-          businessId: business.id,
-          serviceId,
-          staffId,
-          customerId: customer.id,
-          startsAt: slotStart,
-          endsAt,
-          price: service.price || undefined,
-          notes,
-          source: 'web',
-          status: business.requireApproval ? 'pending' : 'confirmed',
-        })
-        .returning()
-
-      const booking = inserted[0]
-
-      // Emit booking.created event (async email processing)
-      await emitEvent(tx, business.id, 'booking.created', {
-        bookingId: booking.id,
-        customerEmail,
-        customerName,
-        customerPhone,
-        serviceName: service.name,
-        businessName: business.name,
-        businessEmail: business.email || undefined,
-        staffName,
-        startsAt: slotStart.toISOString(),
-        endsAt: endsAt.toISOString(),
-        price: service.price ? parseFloat(service.price) : undefined,
-        currency: business.currency || 'EUR',
-        confirmationToken: booking.confirmationToken || booking.id,
+    // Create booking
+    const inserted = await db
+      .insert(bookings)
+      .values({
+        businessId: business.id,
+        serviceId,
+        staffId: assignedStaffId,
+        customerId: customer.id,
+        startsAt: slotStart,
+        endsAt,
+        price: service.price || undefined,
         notes,
+        source: 'web',
+        status: business.requireEmailConfirmation
+          ? 'unconfirmed'
+          : business.requireApproval
+            ? 'pending'
+            : 'confirmed',
       })
+      .returning()
 
-      return booking
+    const booking = inserted[0]
+
+    // Emit booking.created event (async email processing)
+    await emitEventStandalone(business.id, 'booking.created', {
+      bookingId: booking.id,
+      customerEmail,
+      customerName,
+      customerPhone,
+      serviceName: service.name,
+      businessName: business.name,
+      businessEmail: business.email || undefined,
+      staffName,
+      startsAt: slotStart.toISOString(),
+      endsAt: endsAt.toISOString(),
+      price: service.price ? parseFloat(service.price) : undefined,
+      currency: business.currency || 'EUR',
+      confirmationToken: booking.confirmationToken || booking.id,
+      notes,
+      bookingStatus: booking.status || 'pending',
+      requireEmailConfirmation: business.requireEmailConfirmation ?? false,
     })
 
     // Process events immediately (send emails right away)

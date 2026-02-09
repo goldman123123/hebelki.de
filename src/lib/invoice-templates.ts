@@ -20,6 +20,8 @@ interface InvoiceTemplateData {
   serviceName: string
   serviceDate: string
   showLogo?: boolean
+  invoiceType?: string                // 'invoice' | 'storno'
+  originalInvoiceNumber?: string      // For storno: reference to original invoice
 }
 
 /**
@@ -60,7 +62,10 @@ function formatCurrency(amount: string | number): string {
  * 10. Bruttobetrag (Gross amount)
  */
 export function generateInvoiceHtml(data: InvoiceTemplateData): string {
-  const { invoice, business, customer, taxSettings, serviceName, serviceDate, showLogo = true } = data
+  const { invoice, business, customer, taxSettings, serviceName, serviceDate, showLogo = true, invoiceType, originalInvoiceNumber } = data
+  const isStorno = invoiceType === 'storno'
+  const documentTitle = isStorno ? 'STORNORECHNUNG' : 'RECHNUNG'
+  const accentColor = isStorno ? '#DC2626' : (business.primaryColor || '#3B82F6')
 
   const items = invoice.items as Array<{
     description: string
@@ -114,7 +119,7 @@ export function generateInvoiceHtml(data: InvoiceTemplateData): string {
       align-items: flex-start;
       margin-bottom: 30px;
       padding-bottom: 20px;
-      border-bottom: 2px solid ${business.primaryColor || '#3B82F6'};
+      border-bottom: 2px solid ${accentColor};
     }
 
     .logo-section {
@@ -130,7 +135,7 @@ export function generateInvoiceHtml(data: InvoiceTemplateData): string {
     .logo-section h1 {
       font-size: 24pt;
       font-weight: 700;
-      color: ${business.primaryColor || '#3B82F6'};
+      color: ${accentColor};
       margin-bottom: 5px;
     }
 
@@ -382,7 +387,7 @@ export function generateInvoiceHtml(data: InvoiceTemplateData): string {
     <div class="header">
       <div class="logo-section">
         ${showLogo && business.logoUrl ? `<img src="${business.logoUrl}" alt="${business.name}">` : ''}
-        <h1>${business.name}</h1>
+        <h1>${business.legalName || business.name}</h1>
         <div class="business-details">
           ${businessAddress ? businessAddress + '<br>' : ''}
           ${business.email ? `E-Mail: ${business.email}<br>` : ''}
@@ -391,8 +396,9 @@ export function generateInvoiceHtml(data: InvoiceTemplateData): string {
         </div>
       </div>
       <div class="invoice-title-section">
-        <div class="invoice-title">RECHNUNG</div>
+        <div class="invoice-title" ${isStorno ? 'style="color: #DC2626;"' : ''}>${documentTitle}</div>
         <div class="invoice-number">${invoice.invoiceNumber}</div>
+        ${isStorno && originalInvoiceNumber ? `<div class="invoice-number" style="margin-top: 4px; font-size: 10pt; color: #DC2626;">Stornierung zu ${originalInvoiceNumber}</div>` : ''}
       </div>
     </div>
 
@@ -498,7 +504,7 @@ export function generateInvoiceHtml(data: InvoiceTemplateData): string {
 
     <!-- Footer -->
     <div class="footer">
-      <p>${business.name}${businessAddress ? ` • ${businessAddress}` : ''}</p>
+      <p>${business.legalName || business.name}${businessAddress ? ` • ${businessAddress}` : ''}</p>
       <p>
         ${business.email ? `E-Mail: ${business.email}` : ''}
         ${business.email && business.phone ? ' • ' : ''}

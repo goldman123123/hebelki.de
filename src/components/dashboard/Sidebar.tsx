@@ -8,14 +8,15 @@ import {
   LayoutDashboard,
   Calendar,
   CalendarDays,
+  CalendarCheck,
   Briefcase,
   Users,
   UserRound,
-  Settings,
-  Clock,
   MessageSquare,
-  Database,
+  Headphones,
   Building2,
+  Palette,
+  Receipt,
 } from 'lucide-react'
 import { DevUserSwitcher } from './DevUserSwitcher'
 
@@ -26,10 +27,12 @@ const navigation = [
   { name: 'Dienstleistungen', href: '/services', icon: Briefcase },
   { name: 'Team & Planung', href: '/team-scheduling', icon: Users },
   { name: 'Kunden', href: '/customers', icon: UserRound },
-  { name: 'Chatbot', href: '/chatbot', icon: MessageSquare },
-  { name: 'Daten', href: '/data', icon: Database },
-  { name: 'Konto', href: '/account', icon: Building2 },
-  { name: 'Einstellungen', href: '/settings', icon: Settings },
+  { name: 'Chatbot & Daten', href: '/chatbot', icon: MessageSquare },
+  { name: 'Live-Chat', href: '/support-chat', icon: Headphones },
+  { name: 'Unternehmen', href: '/unternehmen', icon: Building2 },
+  { name: 'Buchungsregeln', href: '/buchungsregeln', icon: CalendarCheck },
+  { name: 'Branding', href: '/branding', icon: Palette },
+  { name: 'Steuern', href: '/steuern', icon: Receipt },
 ]
 
 export function Sidebar() {

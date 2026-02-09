@@ -16,6 +16,7 @@ import {
   UserRound,
   Mail,
   Phone,
+  MapPin,
   Calendar,
   MessageSquare,
   FileText,
@@ -33,6 +34,11 @@ interface Customer {
   phone: string | null
   notes: string | null
   source: string | null
+  street: string | null
+  city: string | null
+  postalCode: string | null
+  country: string | null
+  whatsappOptInStatus: string | null
   customFields: Record<string, unknown>
   createdAt: string | null
 }
@@ -160,6 +166,12 @@ export default function CustomerDetailPage() {
                 <span className="flex items-center gap-1">
                   <Phone className="h-4 w-4" />
                   {customer.phone}
+                </span>
+              )}
+              {customer.city && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-4 w-4" />
+                  {customer.city}
                 </span>
               )}
             </div>

@@ -145,16 +145,19 @@ export function CreateBookingDialog({
     }
   }, [open])
 
-  // Search customers
-  const searchCustomers = useCallback(async () => {
-    if (customerSearch.length < 2) {
-      setCustomers([])
+  // Search customers (empty search = recent customers)
+  const searchCustomers = useCallback(async (query: string) => {
+    if (query.length === 1) {
       return
     }
 
     setLoadingCustomers(true)
     try {
-      const res = await fetch(`/api/admin/customers?search=${encodeURIComponent(customerSearch)}&limit=10`)
+      let url = '/api/admin/customers?limit=10&simple=true'
+      if (query.length >= 2) {
+        url += `&search=${encodeURIComponent(query)}`
+      }
+      const res = await fetch(url)
       const data = await res.json()
       if (res.ok) {
         setCustomers(data.customers || [])
@@ -164,13 +167,21 @@ export function CreateBookingDialog({
     } finally {
       setLoadingCustomers(false)
     }
-  }, [customerSearch])
+  }, [])
+
+  // Load recent customers when dialog opens
+  useEffect(() => {
+    if (open && customerTab === 'existing') {
+      searchCustomers('')
+    }
+  }, [open, customerTab, searchCustomers])
 
   // Debounced search
   useEffect(() => {
+    if (!customerSearch) return
     const timer = setTimeout(() => {
       if (customerTab === 'existing') {
-        searchCustomers()
+        searchCustomers(customerSearch)
       }
     }, 300)
     return () => clearTimeout(timer)
@@ -350,7 +361,11 @@ export function CreateBookingDialog({
                   <Input
                     placeholder="Kunde suchen (Name, E-Mail, Telefon)..."
                     value={customerSearch}
-                    onChange={(e) => setCustomerSearch(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setCustomerSearch(val)
+                      if (val === '') searchCustomers('')
+                    }}
                     className="pl-10"
                   />
                 </div>
@@ -359,13 +374,11 @@ export function CreateBookingDialog({
                   <div className="flex justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
                   </div>
-                ) : customers.length === 0 && customerSearch.length >= 2 ? (
+                ) : customers.length === 0 ? (
                   <p className="py-4 text-center text-sm text-gray-500">
-                    Keine Kunden gefunden
-                  </p>
-                ) : customerSearch.length < 2 ? (
-                  <p className="py-4 text-center text-sm text-gray-500">
-                    Mindestens 2 Zeichen eingeben
+                    {customerSearch.length === 1
+                      ? 'Mindestens 2 Zeichen eingeben'
+                      : 'Keine Kunden gefunden'}
                   </p>
                 ) : (
                   <div className="max-h-[200px] space-y-1 overflow-y-auto">

@@ -4,6 +4,10 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
 const statusConfig = {
+  unconfirmed: {
+    label: 'Unbestätigt',
+    className: 'bg-orange-100 text-orange-800 hover:bg-orange-100',
+  },
   pending: {
     label: 'Ausstehend',
     className: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100',

@@ -39,7 +39,7 @@ export type StaffFormData = z.infer<typeof staffSchema>
 // ============================================
 
 export const bookingStatusSchema = z.object({
-  status: z.enum(['pending', 'confirmed', 'cancelled', 'completed', 'no_show']),
+  status: z.enum(['unconfirmed', 'pending', 'confirmed', 'cancelled', 'completed', 'no_show']),
   cancellationReason: z.string().max(500).optional().nullable(),
   cancelledBy: z.enum(['customer', 'staff', 'system']).optional().nullable(),
   internalNotes: z.string().max(1000).optional().nullable(),

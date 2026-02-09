@@ -10,6 +10,8 @@ interface BookingEmailData {
   notes?: string
   price?: number
   currency?: string
+  bookingStatus?: string
+  confirmationUrl?: string
 }
 
 function formatDate(date: Date, timezone = 'Europe/Berlin'): string {
@@ -51,26 +53,8 @@ const baseStyles = `
   .highlight { background: #fef3c7; padding: 15px; border-radius: 6px; border-left: 4px solid #f59e0b; margin: 20px 0; }
 `
 
-export function bookingConfirmationEmail(data: BookingEmailData): { subject: string; html: string; text: string } {
-  const subject = `Buchungsbestätigung - ${data.serviceName} am ${formatDate(data.startsAt)}`
-
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <style>${baseStyles}</style>
-</head>
-<body>
-  <div class="header">
-    <h1>Buchung eingegangen</h1>
-  </div>
-  <div class="content">
-    <p>Hallo ${data.customerName},</p>
-    <p>vielen Dank für Ihre Buchung bei <strong>${data.businessName}</strong>. Ihre Anfrage wurde erfolgreich übermittelt.</p>
-
-    <div class="details">
-      <h3 style="margin-top: 0;">Buchungsdetails</h3>
+function buildDetailsTable(data: BookingEmailData): string {
+  return `
       <table style="width: 100%; border-collapse: collapse;">
         <tr>
           <td style="padding: 8px 0; color: #6b7280; width: 140px;">Service:</td>
@@ -102,12 +86,78 @@ export function bookingConfirmationEmail(data: BookingEmailData): { subject: str
           <td style="padding: 8px 0;">${data.notes}</td>
         </tr>
         ` : ''}
-      </table>
+      </table>`
+}
+
+export function bookingConfirmationEmail(data: BookingEmailData): { subject: string; html: string; text: string } {
+  const status = data.bookingStatus || 'pending'
+
+  // Determine header, hint, and button based on booking status
+  let headerTitle: string
+  let hintHtml: string
+  let hintText: string
+  let confirmButtonHtml = ''
+  let confirmButtonText = ''
+
+  if (status === 'unconfirmed' && data.confirmationUrl) {
+    // Customer needs to click email link to confirm
+    headerTitle = 'Buchung eingegangen'
+    confirmButtonHtml = `
+    <div style="text-align: center; margin: 20px 0;">
+      <a href="${data.confirmationUrl}" class="button" style="display: inline-block; background: #3B82F6; color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+        Buchung bestätigen
+      </a>
+    </div>`
+    confirmButtonText = `\nBitte bestätigen Sie Ihre Buchung über folgenden Link:\n${data.confirmationUrl}\n`
+    hintHtml = `
+    <div class="highlight">
+      <strong>Wichtig:</strong> Bitte bestätigen Sie Ihre Buchung, indem Sie auf den Button oben klicken. Ohne Bestätigung wird Ihr Termin nicht reserviert.
+    </div>`
+    hintText = 'Bitte bestätigen Sie Ihre Buchung über den Link oben. Ohne Bestätigung wird Ihr Termin nicht reserviert.'
+  } else if (status === 'pending') {
+    // Admin approval required
+    headerTitle = 'Buchung eingegangen'
+    hintHtml = `
+    <div class="highlight">
+      <strong>Hinweis:</strong> Ihre Buchung wird vom Team geprüft. Sie erhalten eine weitere E-Mail, sobald Ihre Buchung bestätigt wurde.
+    </div>`
+    hintText = 'Ihre Buchung wird vom Team geprüft. Sie erhalten eine weitere E-Mail, sobald Ihre Buchung bestätigt wurde.'
+  } else {
+    // Auto-confirmed
+    headerTitle = 'Buchung bestätigt'
+    hintHtml = `
+    <div class="highlight" style="background: #d1fae5; border-left-color: #10b981;">
+      <strong>Bestätigt!</strong> Ihr Termin ist reserviert. Wir freuen uns auf Ihren Besuch.
+    </div>`
+    hintText = 'Ihr Termin ist bestätigt! Wir freuen uns auf Ihren Besuch.'
+  }
+
+  const subject = status === 'confirmed'
+    ? `Buchungsbestätigung - ${data.serviceName} am ${formatDate(data.startsAt)}`
+    : `Buchung eingegangen - ${data.serviceName} am ${formatDate(data.startsAt)}`
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>${baseStyles}</style>
+</head>
+<body>
+  <div class="header"${status === 'confirmed' ? ' style="background: #10b981;"' : ''}>
+    <h1>${headerTitle}</h1>
+  </div>
+  <div class="content">
+    <p>Hallo ${data.customerName},</p>
+    <p>vielen Dank für Ihre Buchung bei <strong>${data.businessName}</strong>.</p>
+
+    <div class="details">
+      <h3 style="margin-top: 0;">Buchungsdetails</h3>
+      ${buildDetailsTable(data)}
     </div>
 
-    <div class="highlight">
-      <strong>Hinweis:</strong> Sie erhalten eine weitere E-Mail, sobald Ihre Buchung bestätigt wurde.
-    </div>
+    ${confirmButtonHtml}
+    ${hintHtml}
 
     <p>Bei Fragen können Sie diese E-Mail beantworten oder uns direkt kontaktieren.</p>
 
@@ -122,11 +172,11 @@ export function bookingConfirmationEmail(data: BookingEmailData): { subject: str
 `
 
   const text = `
-Buchung eingegangen
+${headerTitle}
 
 Hallo ${data.customerName},
 
-vielen Dank für Ihre Buchung bei ${data.businessName}. Ihre Anfrage wurde erfolgreich übermittelt.
+vielen Dank für Ihre Buchung bei ${data.businessName}.
 
 BUCHUNGSDETAILS
 ---------------
@@ -135,8 +185,8 @@ Datum: ${formatDate(data.startsAt)}
 Uhrzeit: ${formatTime(data.startsAt)} - ${formatTime(data.endsAt)} Uhr
 ${data.staffName ? `Mitarbeiter: ${data.staffName}\n` : ''}${data.price ? `Preis: ${formatPrice(data.price, data.currency)}\n` : ''}${data.notes ? `Anmerkungen: ${data.notes}\n` : ''}
 Buchungsnummer: ${data.confirmationToken}
-
-Sie erhalten eine weitere E-Mail, sobald Ihre Buchung bestätigt wurde.
+${confirmButtonText}
+${hintText}
 
 Mit freundlichen Grüßen,
 ${data.businessName}
@@ -147,6 +197,12 @@ ${data.businessName}
 
 export function bookingNotificationEmail(data: BookingEmailData & { customerPhone?: string }): { subject: string; html: string; text: string } {
   const subject = `Neue Buchung - ${data.serviceName} am ${formatDate(data.startsAt)}`
+
+  const statusLabel = data.bookingStatus === 'unconfirmed'
+    ? 'Wartet auf Kundenbestätigung per E-Mail'
+    : data.bookingStatus === 'pending'
+      ? 'Wartet auf Genehmigung'
+      : 'Automatisch bestätigt'
 
   const html = `
 <!DOCTYPE html>
@@ -184,42 +240,15 @@ export function bookingNotificationEmail(data: BookingEmailData & { customerPhon
 
     <div class="details">
       <h3 style="margin-top: 0;">Termindetails</h3>
-      <table style="width: 100%; border-collapse: collapse;">
-        <tr>
-          <td style="padding: 8px 0; color: #6b7280; width: 140px;">Service:</td>
-          <td style="padding: 8px 0; font-weight: 600;">${data.serviceName}</td>
-        </tr>
-        <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Datum:</td>
-          <td style="padding: 8px 0; font-weight: 600;">${formatDate(data.startsAt)}</td>
-        </tr>
-        <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Uhrzeit:</td>
-          <td style="padding: 8px 0; font-weight: 600;">${formatTime(data.startsAt)} - ${formatTime(data.endsAt)} Uhr</td>
-        </tr>
-        ${data.staffName ? `
-        <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Mitarbeiter:</td>
-          <td style="padding: 8px 0; font-weight: 600;">${data.staffName}</td>
-        </tr>
-        ` : ''}
-        ${data.price ? `
-        <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Preis:</td>
-          <td style="padding: 8px 0; font-weight: 600;">${formatPrice(data.price, data.currency)}</td>
-        </tr>
-        ` : ''}
-        ${data.notes ? `
-        <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Anmerkungen:</td>
-          <td style="padding: 8px 0;">${data.notes}</td>
-        </tr>
-        ` : ''}
-      </table>
+      ${buildDetailsTable(data)}
+    </div>
+
+    <div class="highlight">
+      <strong>Status:</strong> ${statusLabel}
     </div>
 
     <p style="text-align: center;">
-      Bitte überprüfen Sie die Anfrage und bestätigen oder lehnen Sie den Termin ab.
+      ${data.bookingStatus === 'pending' ? 'Bitte überprüfen Sie die Anfrage und bestätigen oder lehnen Sie den Termin ab.' : ''}
     </p>
   </div>
   <div class="footer">
@@ -247,7 +276,7 @@ Uhrzeit: ${formatTime(data.startsAt)} - ${formatTime(data.endsAt)} Uhr
 ${data.staffName ? `Mitarbeiter: ${data.staffName}\n` : ''}${data.price ? `Preis: ${formatPrice(data.price, data.currency)}\n` : ''}${data.notes ? `Anmerkungen: ${data.notes}\n` : ''}
 Buchungsnummer: ${data.confirmationToken}
 
-Bitte überprüfen Sie die Anfrage und bestätigen oder lehnen Sie den Termin ab.
+Status: ${statusLabel}
 `
 
   return { subject, html, text }
@@ -495,6 +524,215 @@ Buchungsnummer: ${data.confirmationToken}
 Falls Sie den Termin nicht wahrnehmen können, bitten wir um rechtzeitige Absage.
 
 Wir freuen uns auf Sie!
+
+Mit freundlichen Grüßen,
+${data.businessName}
+`
+
+  return { subject, html, text }
+}
+
+// ============================================
+// LIVE CHAT EMAIL TEMPLATES
+// ============================================
+
+interface LiveChatRequestEmailData {
+  businessName: string
+  customerName?: string
+  firstMessage: string
+  dashboardUrl: string
+}
+
+export function liveChatRequestEmail(data: LiveChatRequestEmailData): { subject: string; html: string; text: string } {
+  const subject = `Neue Live-Chat-Anfrage - ${data.businessName}`
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><style>${baseStyles}</style></head>
+<body>
+  <div class="header" style="background: #f59e0b;">
+    <h1>Neue Live-Chat-Anfrage</h1>
+  </div>
+  <div class="content">
+    <p>Ein Kunde wartet auf eine Antwort im Live-Chat.</p>
+    <div class="details">
+      <table style="width: 100%; border-collapse: collapse;">
+        ${data.customerName ? `
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280; width: 140px;">Kunde:</td>
+          <td style="padding: 8px 0; font-weight: 600;">${data.customerName}</td>
+        </tr>` : ''}
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280; width: 140px;">Nachricht:</td>
+          <td style="padding: 8px 0;">${data.firstMessage}</td>
+        </tr>
+      </table>
+    </div>
+    <div style="text-align: center; margin: 20px 0;">
+      <a href="${data.dashboardUrl}" class="button" style="display: inline-block; background: #f59e0b; color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+        Zum Live-Chat
+      </a>
+    </div>
+    <p>Mit freundlichen Grüßen,<br><strong>Hebelki</strong></p>
+  </div>
+  <div class="footer"><p>Diese E-Mail wurde automatisch versendet.</p></div>
+</body>
+</html>`
+
+  const text = `Neue Live-Chat-Anfrage - ${data.businessName}
+
+Ein Kunde wartet auf eine Antwort im Live-Chat.
+${data.customerName ? `Kunde: ${data.customerName}\n` : ''}Nachricht: ${data.firstMessage}
+
+Zum Live-Chat: ${data.dashboardUrl}
+`
+
+  return { subject, html, text }
+}
+
+interface ChatEscalatedEmailData {
+  businessName: string
+  customerName?: string
+  customerEmail?: string
+  customerPhone?: string
+  conversationSummary: string
+  dashboardUrl: string
+}
+
+export function chatEscalatedEmail(data: ChatEscalatedEmailData): { subject: string; html: string; text: string } {
+  const subject = `Unbeantwortete Chat-Anfrage - ${data.businessName}`
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><style>${baseStyles}</style></head>
+<body>
+  <div class="header" style="background: #ef4444;">
+    <h1>Unbeantwortete Chat-Anfrage</h1>
+  </div>
+  <div class="content">
+    <p>Ein Kunde hat im Live-Chat keine Antwort erhalten und wurde per E-Mail benachrichtigt.</p>
+    <div class="details">
+      <h3 style="margin-top: 0;">Kundeninformationen</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        ${data.customerName ? `
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280; width: 140px;">Name:</td>
+          <td style="padding: 8px 0; font-weight: 600;">${data.customerName}</td>
+        </tr>` : ''}
+        ${data.customerEmail ? `
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;">E-Mail:</td>
+          <td style="padding: 8px 0;"><a href="mailto:${data.customerEmail}">${data.customerEmail}</a></td>
+        </tr>` : ''}
+        ${data.customerPhone ? `
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;">Telefon:</td>
+          <td style="padding: 8px 0;"><a href="tel:${data.customerPhone}">${data.customerPhone}</a></td>
+        </tr>` : ''}
+      </table>
+    </div>
+    <div class="details">
+      <h3 style="margin-top: 0;">Gesprächszusammenfassung</h3>
+      <p style="white-space: pre-wrap;">${data.conversationSummary}</p>
+    </div>
+    <div style="text-align: center; margin: 20px 0;">
+      <a href="${data.dashboardUrl}" class="button" style="display: inline-block; background: #ef4444; color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+        Gespräch ansehen
+      </a>
+    </div>
+    <p>Bitte kontaktieren Sie den Kunden zeitnah.</p>
+    <p>Mit freundlichen Grüßen,<br><strong>Hebelki</strong></p>
+  </div>
+  <div class="footer"><p>Diese E-Mail wurde automatisch versendet.</p></div>
+</body>
+</html>`
+
+  const text = `Unbeantwortete Chat-Anfrage - ${data.businessName}
+
+Ein Kunde hat im Live-Chat keine Antwort erhalten.
+
+${data.customerName ? `Name: ${data.customerName}\n` : ''}${data.customerEmail ? `E-Mail: ${data.customerEmail}\n` : ''}${data.customerPhone ? `Telefon: ${data.customerPhone}\n` : ''}
+Gesprächszusammenfassung:
+${data.conversationSummary}
+
+Gespräch ansehen: ${data.dashboardUrl}
+
+Bitte kontaktieren Sie den Kunden zeitnah.
+`
+
+  return { subject, html, text }
+}
+
+// ============================================
+// INVOICE SENT EMAIL
+// ============================================
+
+interface InvoiceSentEmailData {
+  customerName: string
+  invoiceNumber: string
+  businessName: string
+  total: string
+  pdfDownloadUrl: string
+  dueDate?: string
+}
+
+export function invoiceSentEmail(data: InvoiceSentEmailData) {
+  const subject = `Rechnung ${data.invoiceNumber} von ${data.businessName}`
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><style>${baseStyles}</style></head>
+<body>
+  <div class="header">
+    <h1>${data.businessName}</h1>
+    <p>Rechnung ${data.invoiceNumber}</p>
+  </div>
+  <div class="content">
+    <p>Guten Tag${data.customerName ? ` ${data.customerName}` : ''},</p>
+    <p>anbei erhalten Sie die Rechnung <strong>${data.invoiceNumber}</strong> über <strong>${data.total}</strong>.</p>
+    <div class="details">
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0; border-bottom: 1px solid #f3f4f6; font-weight: 600; color: #6b7280;">Rechnungsnummer</td>
+          <td style="padding: 8px 0; border-bottom: 1px solid #f3f4f6;">${data.invoiceNumber}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; border-bottom: 1px solid #f3f4f6; font-weight: 600; color: #6b7280;">Betrag</td>
+          <td style="padding: 8px 0; border-bottom: 1px solid #f3f4f6;">${data.total}</td>
+        </tr>
+        ${data.dueDate ? `
+        <tr>
+          <td style="padding: 8px 0; font-weight: 600; color: #6b7280;">Fällig bis</td>
+          <td style="padding: 8px 0;">${data.dueDate}</td>
+        </tr>` : ''}
+      </table>
+    </div>
+    <p>
+      <a href="${data.pdfDownloadUrl}" class="button">Rechnung als PDF herunterladen</a>
+    </p>
+    <p style="font-size: 12px; color: #6b7280;">Der Download-Link ist 7 Tage gültig.</p>
+    <p>Bitte überweisen Sie den Betrag unter Angabe der Rechnungsnummer.</p>
+    <p>Mit freundlichen Grüßen,<br><strong>${data.businessName}</strong></p>
+  </div>
+  <div class="footer">
+    <p>Diese E-Mail wurde automatisch von Hebelki versendet.</p>
+  </div>
+</body>
+</html>`
+
+  const text = `Rechnung ${data.invoiceNumber} von ${data.businessName}
+
+Guten Tag${data.customerName ? ` ${data.customerName}` : ''},
+
+anbei erhalten Sie die Rechnung ${data.invoiceNumber} über ${data.total}.
+
+PDF herunterladen: ${data.pdfDownloadUrl}
+(Link ist 7 Tage gültig)
+
+Bitte überweisen Sie den Betrag unter Angabe der Rechnungsnummer.
 
 Mit freundlichen Grüßen,
 ${data.businessName}

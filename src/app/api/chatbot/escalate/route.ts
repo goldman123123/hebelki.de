@@ -3,14 +3,16 @@
  *
  * POST /api/chatbot/escalate
  *
- * Escalates a conversation to a human agent
- * Changes conversation status to 'escalated'
+ * Escalates a conversation to a human agent.
+ * If liveChatEnabled: sets status to live_queue (skip contact info collection).
+ * Otherwise: collects contact info then marks as escalated.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { chatbotConversations } from '@/lib/db/schema'
+import { chatbotConversations, chatbotMessages, businesses } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { emitEventStandalone } from '@/modules/core/events'
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,7 +42,62 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Update conversation metadata to track awaiting contact info
+    // Fetch business settings
+    const business = await db
+      .select()
+      .from(businesses)
+      .where(eq(businesses.id, conversation.businessId))
+      .limit(1)
+      .then(rows => rows[0])
+
+    const settings = (business?.settings as Record<string, unknown>) || {}
+    const liveChatEnabled = settings.liveChatEnabled === true
+
+    if (liveChatEnabled) {
+      // Live chat mode: skip contact info, queue for staff
+      await db
+        .update(chatbotConversations)
+        .set({
+          status: 'live_queue',
+          metadata: {
+            ...(conversation.metadata as any || {}),
+            liveQueuedAt: new Date().toISOString(),
+          },
+          updatedAt: new Date(),
+        })
+        .where(eq(chatbotConversations.id, conversationId))
+
+      console.log(`[ESCALATION] Conversation ${conversationId} moved to live_queue`)
+
+      // Get first user message for email notification
+      const firstMessage = await db
+        .select({ content: chatbotMessages.content })
+        .from(chatbotMessages)
+        .where(eq(chatbotMessages.conversationId, conversationId))
+        .limit(1)
+        .then(rows => rows[0]?.content || '')
+
+      // Emit event to notify owner
+      if (business?.email) {
+        await emitEventStandalone(conversation.businessId, 'chat.live_requested', {
+          conversationId,
+          businessName: business.name,
+          ownerEmail: business.email,
+          firstMessage,
+          dashboardUrl: `https://www.hebelki.de/support-chat`,
+        })
+      }
+
+      const message = "Einen Moment bitte, ein Mitarbeiter wird sich in Kürze melden..."
+
+      return NextResponse.json({
+        success: true,
+        message,
+        liveChatMode: true,
+      })
+    }
+
+    // Legacy flow: collect contact info
     await db
       .update(chatbotConversations)
       .set({
@@ -55,7 +112,6 @@ export async function POST(request: NextRequest) {
 
     console.log(`[ESCALATION] Requesting contact info for conversation ${conversationId}`)
 
-    // Return message asking for contact info
     const message = "Um Sie zu kontaktieren, benötigen wir Ihre E-Mail-Adresse oder Telefonnummer. Wie können wir Sie erreichen?"
 
     return NextResponse.json({

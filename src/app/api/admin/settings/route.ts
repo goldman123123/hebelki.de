@@ -58,6 +58,7 @@ const policiesSchema = z.object({
   maxAdvanceBookingDays: z.number().min(1).max(365).optional(),
   cancellationPolicyHours: z.number().min(0).max(168).optional(),
   requireApproval: z.boolean().optional(),
+  requireEmailConfirmation: z.boolean().optional(),
   allowWaitlist: z.boolean().optional(),
 })
 

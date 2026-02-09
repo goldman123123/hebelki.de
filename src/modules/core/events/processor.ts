@@ -16,7 +16,11 @@ import {
   bookingConfirmedEmail,
   bookingCancellationEmail,
   bookingReminderEmail,
+  invoiceSentEmail,
+  liveChatRequestEmail,
+  chatEscalatedEmail,
 } from '@/lib/email-templates'
+import { getDownloadUrl } from '@/lib/r2/client'
 import type {
   EventType,
   BookingCreatedPayload,
@@ -24,6 +28,9 @@ import type {
   BookingCancelledPayload,
   BookingRemindedPayload,
   MemberInvitedPayload,
+  InvoiceSentPayload,
+  ChatLiveRequestedPayload,
+  ChatEscalatedPayload,
 } from './index'
 
 // ============================================
@@ -159,6 +166,18 @@ async function handleEvent(eventType: EventType, payload: Record<string, unknown
       await handleMemberInvited(payload as unknown as MemberInvitedPayload)
       break
 
+    case 'invoice.sent':
+      await handleInvoiceSent(payload as unknown as InvoiceSentPayload)
+      break
+
+    case 'chat.live_requested':
+      await handleChatLiveRequested(payload as unknown as ChatLiveRequestedPayload)
+      break
+
+    case 'chat.escalated':
+      await handleChatEscalated(payload as unknown as ChatEscalatedPayload)
+      break
+
     default:
       console.warn(`[EventProcessor] Unknown event type: ${eventType}`)
       // Don't throw - mark as processed to avoid infinite retries
@@ -170,6 +189,11 @@ async function handleEvent(eventType: EventType, payload: Record<string, unknown
  */
 async function handleBookingCreated(payload: BookingCreatedPayload): Promise<void> {
   console.log('[EventProcessor] Handling booking.created event')
+
+  // Build confirmation URL for email confirmation flow
+  const confirmationUrl = payload.requireEmailConfirmation && payload.confirmationToken
+    ? `https://www.hebelki.de/confirm/${payload.confirmationToken}`
+    : undefined
 
   // Send confirmation email to customer
   const customerEmail = bookingConfirmationEmail({
@@ -184,6 +208,8 @@ async function handleBookingCreated(payload: BookingCreatedPayload): Promise<voi
     notes: payload.notes,
     price: payload.price,
     currency: payload.currency,
+    bookingStatus: payload.bookingStatus,
+    confirmationUrl,
   })
 
   await sendEmail({
@@ -210,6 +236,7 @@ async function handleBookingCreated(payload: BookingCreatedPayload): Promise<voi
       notes: payload.notes,
       price: payload.price,
       currency: payload.currency,
+      bookingStatus: payload.bookingStatus,
     })
 
     await sendEmail({
@@ -336,4 +363,119 @@ async function handleMemberInvited(payload: MemberInvitedPayload): Promise<void>
   })
 
   console.log('[EventProcessor] Member invitation email sent')
+}
+
+/**
+ * Handle invoice.sent event: Send invoice PDF to customer via email.
+ */
+async function handleInvoiceSent(payload: InvoiceSentPayload): Promise<void> {
+  console.log('[EventProcessor] Handling invoice.sent event')
+
+  // Load invoice + customer from DB to get email and details
+  const { db } = await import('@/lib/db')
+  const { invoices, customers } = await import('@/lib/db/schema')
+  const { eq } = await import('drizzle-orm')
+
+  const [invoiceData] = await db
+    .select({ invoice: invoices, customer: customers })
+    .from(invoices)
+    .leftJoin(customers, eq(invoices.customerId, customers.id))
+    .where(eq(invoices.id, payload.invoiceId))
+    .limit(1)
+
+  if (!invoiceData?.customer?.email) {
+    console.warn('[EventProcessor] No customer email for invoice', payload.invoiceId)
+    return
+  }
+
+  // Generate 7-day presigned download URL
+  const pdfDownloadUrl = payload.pdfR2Key
+    ? await getDownloadUrl(payload.pdfR2Key, 604800) // 7 days
+    : ''
+
+  if (!pdfDownloadUrl) {
+    console.warn('[EventProcessor] No PDF available for invoice', payload.invoiceId)
+    return
+  }
+
+  // Format total for email
+  const total = new Intl.NumberFormat('de-DE', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(parseFloat(payload.total))
+
+  // Format due date
+  const dueDate = invoiceData.invoice.dueDate
+    ? new Date(invoiceData.invoice.dueDate).toLocaleDateString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })
+    : undefined
+
+  const email = invoiceSentEmail({
+    customerName: invoiceData.customer.name || '',
+    invoiceNumber: payload.invoiceNumber,
+    businessName: payload.businessName,
+    total,
+    pdfDownloadUrl,
+    dueDate,
+  })
+
+  await sendEmail({
+    to: invoiceData.customer.email,
+    subject: email.subject,
+    html: email.html,
+    text: email.text,
+  })
+
+  console.log('[EventProcessor] Invoice sent email delivered to', invoiceData.customer.email)
+}
+
+/**
+ * Handle chat.live_requested event: Notify business owner of new live chat request.
+ */
+async function handleChatLiveRequested(payload: ChatLiveRequestedPayload): Promise<void> {
+  console.log('[EventProcessor] Handling chat.live_requested event')
+
+  const email = liveChatRequestEmail({
+    businessName: payload.businessName,
+    customerName: payload.customerName,
+    firstMessage: payload.firstMessage,
+    dashboardUrl: payload.dashboardUrl,
+  })
+
+  await sendEmail({
+    to: payload.ownerEmail,
+    subject: email.subject,
+    html: email.html,
+    text: email.text,
+  })
+
+  console.log('[EventProcessor] Live chat request email sent to', payload.ownerEmail)
+}
+
+/**
+ * Handle chat.escalated event: Notify business owner of unanswered chat.
+ */
+async function handleChatEscalated(payload: ChatEscalatedPayload): Promise<void> {
+  console.log('[EventProcessor] Handling chat.escalated event')
+
+  const email = chatEscalatedEmail({
+    businessName: payload.businessName,
+    customerName: payload.customerName,
+    customerEmail: payload.customerEmail,
+    customerPhone: payload.customerPhone,
+    conversationSummary: payload.conversationSummary,
+    dashboardUrl: payload.dashboardUrl,
+  })
+
+  await sendEmail({
+    to: payload.ownerEmail,
+    subject: email.subject,
+    html: email.html,
+    text: email.text,
+  })
+
+  console.log('[EventProcessor] Chat escalated email sent to', payload.ownerEmail)
 }

@@ -83,6 +83,7 @@ export const businesses = pgTable('businesses', {
   cancellationPolicyHours: integer('cancellation_policy_hours').default(24),
   allowWaitlist: boolean('allow_waitlist').default(true),
   requireApproval: boolean('require_approval').default(false),
+  requireEmailConfirmation: boolean('require_email_confirmation').default(false),
 
   // Plan & billing
   planId: text('plan_id').default('free'), // free, starter, pro, business
@@ -196,6 +197,7 @@ export const staff = pgTable('staff', {
   avatarUrl: text('avatar_url'),
 
   isActive: boolean('is_active').default(true),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
 
   // Google Calendar integration
   googleCalendarId: text('google_calendar_id'),
@@ -322,7 +324,7 @@ export const bookings = pgTable('bookings', {
   startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
   endsAt: timestamp('ends_at', { withTimezone: true }).notNull(),
 
-  // Status: pending | confirmed | cancelled | completed | no_show
+  // Status: unconfirmed | pending | confirmed | cancelled | completed | no_show
   status: text('status').default('pending'),
 
   // Token for customer actions (cancel/confirm links)
@@ -341,6 +343,10 @@ export const bookings = pgTable('bookings', {
   customerTimezone: text('customer_timezone'), // e.g., 'Europe/Berlin'
   idempotencyKey: text('idempotency_key'), // Unique for retry protection
   holdId: uuid('hold_id').references(() => bookingHolds.id, { onDelete: 'set null' }), // Optional FK to hold (if created from hold)
+
+  // Line items (for Lieferschein / delivery notes)
+  items: jsonb('items').$type<InvoiceLineItem[]>(),
+  lieferscheinR2Key: text('lieferschein_r2_key'),
 
   customFields: jsonb('custom_fields').default({}),
 
@@ -667,6 +673,20 @@ export const chatbotKnowledge = pgTable('chatbot_knowledge', {
   // Embedding vector for semantic search (1536 dimensions for text-embedding-3-small)
   embedding: vector('embedding', { dimensions: 1536 }),
 
+  // ============================================
+  // EMBEDDING PROVENANCE (Split Brain Prevention)
+  // ============================================
+  // Full embedding metadata for compatibility filtering
+  embeddingProvider: text('embedding_provider'),    // 'openrouter' | 'openai'
+  embeddingModel: text('embedding_model'),          // 'openai/text-embedding-3-small'
+  embeddingDim: integer('embedding_dim'),           // 1536
+  preprocessVersion: text('preprocess_version'),   // 'p1', 'p2', etc. ('legacy' for old entries)
+  contentHash: text('content_hash'),               // sha256 of normalized text
+  embeddedAt: timestamp('embedded_at', { withTimezone: true }), // when embedding was generated
+
+  // Authority level for weighting (canonical > high > normal > low > unverified)
+  authorityLevel: text('authority_level').default('normal'),
+
   isActive: boolean('is_active').default(true),
 
   // Link to source document (for traceability - EU AI Act compliance)
@@ -691,6 +711,8 @@ export const chatbotKnowledge = pgTable('chatbot_knowledge', {
   audienceScopeIdx: index('chatbot_knowledge_audience_scope_idx').on(table.businessId, table.audience, table.scopeType, table.scopeId),
   // Index for document traceability
   sourceDocumentIdx: index('chatbot_knowledge_source_document_idx').on(table.sourceDocumentId),
+  // Index for embedding compatibility filtering
+  preprocessVersionIdx: index('chatbot_knowledge_preprocess_version_idx').on(table.preprocessVersion),
 }));
 
 // ============================================
@@ -834,6 +856,17 @@ export const invoices = pgTable('invoices', {
   // Status: draft, sent, paid, overdue, cancelled
   status: text('status').notNull().default('draft'),
 
+  // Invoice type: 'invoice' (normal) or 'storno' (credit note / Stornorechnung)
+  type: text('type').notNull().default('invoice'),
+
+  // Storno chain references
+  originalInvoiceId: uuid('original_invoice_id'),   // storno → points to cancelled invoice
+  stornoInvoiceId: uuid('storno_invoice_id'),        // cancelled invoice → points to its storno
+  replacementInvoiceId: uuid('replacement_invoice_id'), // cancelled → points to replacement draft
+
+  // Cancellation
+  cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+
   // Dates (German invoice requirements)
   issueDate: date('issue_date').notNull(),  // Ausstellungsdatum
   serviceDate: date('service_date'),         // Leistungsdatum (from booking.startsAt)
@@ -872,6 +905,42 @@ export const invoiceSequences = pgTable('invoice_sequences', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 }, (table) => ({
   businessYearIdx: uniqueIndex('invoice_sequences_business_year_idx').on(table.businessId, table.year),
+}));
+
+// ============================================
+// DOCUMENT EVENTS (Audit Trail)
+// ============================================
+
+export const documentEvents = pgTable('document_events', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  businessId: uuid('business_id').notNull().references(() => businesses.id, { onDelete: 'cascade' }),
+  invoiceId: uuid('invoice_id').references(() => invoices.id, { onDelete: 'cascade' }),
+  bookingId: uuid('booking_id').references(() => bookings.id, { onDelete: 'cascade' }),
+  documentType: text('document_type').notNull(),  // 'invoice' | 'storno' | 'lieferschein'
+  action: text('action').notNull(),               // 'created' | 'regenerated' | 'sent' | 'marked_paid' | 'cancelled' | 'storno_created'
+  actorType: text('actor_type').notNull().default('staff'),
+  actorId: text('actor_id'),                      // Clerk userId
+  metadata: jsonb('metadata').default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (table) => ({
+  businessIdx: index('document_events_business_idx').on(table.businessId),
+  invoiceIdx: index('document_events_invoice_idx').on(table.invoiceId),
+  bookingIdx: index('document_events_booking_idx').on(table.bookingId),
+}));
+
+export const documentEventsRelations = relations(documentEvents, ({ one }) => ({
+  business: one(businesses, {
+    fields: [documentEvents.businessId],
+    references: [businesses.id],
+  }),
+  invoice: one(invoices, {
+    fields: [documentEvents.invoiceId],
+    references: [invoices.id],
+  }),
+  booking: one(bookings, {
+    fields: [documentEvents.bookingId],
+    references: [bookings.id],
+  }),
 }));
 
 // ============================================
@@ -983,6 +1052,9 @@ export const documents = pgTable('documents', {
   dataClass: text('data_class').notNull().default('knowledge'),
   // containsPii: True for CSV/log imports with potential sensitive data
   containsPii: boolean('contains_pii').default(false),
+
+  // Authority level for weighting (canonical > high > normal > low > unverified)
+  authorityLevel: text('authority_level').default('normal'),
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -1145,10 +1217,23 @@ export const chunkEmbeddings = pgTable('chunk_embeddings', {
   // Embedding vector (1536 dimensions for text-embedding-3-small)
   embedding: vector('embedding', { dimensions: 1536 }).notNull(),
 
+  // ============================================
+  // EMBEDDING PROVENANCE (Split Brain Prevention)
+  // ============================================
+  // Full embedding metadata for compatibility filtering
+  embeddingProvider: text('embedding_provider'),    // 'openrouter' | 'openai'
+  embeddingModel: text('embedding_model'),          // 'openai/text-embedding-3-small'
+  embeddingDim: integer('embedding_dim'),           // 1536
+  preprocessVersion: text('preprocess_version'),   // 'p1', 'p2', etc. ('legacy' for old entries)
+  contentHash: text('content_hash'),               // sha256 of normalized text
+  embeddedAt: timestamp('embedded_at', { withTimezone: true }), // when embedding was generated
+
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
   businessIdx: index('chunk_embeddings_business_idx').on(table.businessId),
   embeddingIdx: index('chunk_embeddings_hnsw').using('hnsw', table.embedding.op('vector_cosine_ops')),
+  // Index for embedding compatibility filtering
+  preprocessVersionIdx: index('chunk_embeddings_preprocess_version_idx').on(table.preprocessVersion),
 }));
 
 // ============================================

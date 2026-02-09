@@ -14,7 +14,14 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Loader2, Save, ExternalLink, AlertCircle, Bot } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Loader2, Save, ExternalLink, AlertCircle, Bot, Headphones } from 'lucide-react'
 
 interface Business {
   id: string
@@ -27,6 +34,9 @@ interface Business {
     chatbotInstructions?: string
     chatbotWelcomeMessage?: string
     chatbotColor?: string
+    liveChatEnabled?: boolean
+    chatDefaultMode?: 'ai' | 'live'
+    liveChatTimeoutMinutes?: number
   }
 }
 
@@ -40,6 +50,9 @@ export function SettingsTab({ business }: SettingsTabProps) {
     chatbotInstructions: '',
     chatbotWelcomeMessage: '',
     chatbotColor: business.primaryColor || '#3B82F6',
+    liveChatEnabled: false,
+    chatDefaultMode: 'ai' as 'ai' | 'live',
+    liveChatTimeoutMinutes: 5,
   })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -51,6 +64,9 @@ export function SettingsTab({ business }: SettingsTabProps) {
         chatbotInstructions: business.settings.chatbotInstructions || '',
         chatbotWelcomeMessage: business.settings.chatbotWelcomeMessage || '',
         chatbotColor: business.settings.chatbotColor || business.primaryColor || '#3B82F6',
+        liveChatEnabled: business.settings.liveChatEnabled || false,
+        chatDefaultMode: business.settings.chatDefaultMode || 'ai',
+        liveChatTimeoutMinutes: business.settings.liveChatTimeoutMinutes || 5,
       })
     }
   }, [business])
@@ -70,6 +86,9 @@ export function SettingsTab({ business }: SettingsTabProps) {
             chatbotInstructions: formData.chatbotInstructions,
             chatbotWelcomeMessage: formData.chatbotWelcomeMessage,
             chatbotColor: formData.chatbotColor,
+            liveChatEnabled: formData.liveChatEnabled,
+            chatDefaultMode: formData.chatDefaultMode,
+            liveChatTimeoutMinutes: formData.liveChatTimeoutMinutes,
           },
         }),
       })
@@ -164,6 +183,82 @@ export function SettingsTab({ business }: SettingsTabProps) {
             </AlertDescription>
           </Alert>
         )}
+      </Card>
+
+      {/* Live Chat Settings */}
+      <Card className="p-6">
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Headphones className="h-5 w-5 text-gray-700" />
+                <Label htmlFor="live-chat-enabled" className="text-base font-semibold cursor-pointer">
+                  Live-Chat aktivieren
+                </Label>
+              </div>
+              <p className="text-sm text-gray-500">
+                Ermöglicht es Mitarbeitern, direkt mit Kunden im Chat zu sprechen.
+              </p>
+            </div>
+            <Switch
+              id="live-chat-enabled"
+              checked={formData.liveChatEnabled}
+              onCheckedChange={(checked) =>
+                setFormData({ ...formData, liveChatEnabled: checked })
+              }
+            />
+          </div>
+
+          {formData.liveChatEnabled && (
+            <div className="space-y-4 border-t pt-4">
+              {/* Default Mode */}
+              <div className="space-y-2">
+                <Label htmlFor="chat-default-mode">Standard-Modus</Label>
+                <Select
+                  value={formData.chatDefaultMode}
+                  onValueChange={(value: 'ai' | 'live') =>
+                    setFormData({ ...formData, chatDefaultMode: value })
+                  }
+                >
+                  <SelectTrigger id="chat-default-mode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ai">KI-Assistent</SelectItem>
+                    <SelectItem value="live">Live-Chat</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500">
+                  {formData.chatDefaultMode === 'ai'
+                    ? 'Kunden chatten zuerst mit dem KI-Assistenten und können zu einem Mitarbeiter wechseln.'
+                    : 'Kundennachrichten gehen direkt an Mitarbeiter. Bei Timeout übernimmt der KI-Assistent.'}
+                </p>
+              </div>
+
+              {/* Timeout */}
+              <div className="space-y-2">
+                <Label htmlFor="live-chat-timeout">Wartezeit (Minuten)</Label>
+                <Input
+                  id="live-chat-timeout"
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={formData.liveChatTimeoutMinutes}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      liveChatTimeoutMinutes: Math.max(1, Math.min(60, parseInt(e.target.value) || 5)),
+                    })
+                  }
+                  className="w-32"
+                />
+                <p className="text-xs text-gray-500">
+                  Maximale Wartezeit, bevor der Kunde per E-Mail benachrichtigt wird
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
       </Card>
 
       {/* Settings Form */}

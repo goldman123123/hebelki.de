@@ -1,7 +1,93 @@
 /**
  * Embedding Service using OpenRouter
  * Model: openai/text-embedding-3-small (1536 dimensions)
+ *
+ * Split Brain Prevention:
+ * - Full embedding provenance metadata
+ * - NFKC normalization for consistent preprocessing
+ * - Content hashing for change detection
+ * - Preprocess version tracking
  */
+
+import { createHash } from 'crypto'
+
+// ============================================
+// EMBEDDING CONFIGURATION
+// ============================================
+
+/**
+ * Current embedding configuration.
+ * Increment preprocessVersion when normalizeText() changes.
+ */
+export const EMBEDDING_CONFIG = {
+  provider: 'openrouter',
+  model: 'openai/text-embedding-3-small',
+  dim: 1536,
+  preprocessVersion: 'p1',  // Increment when normalizeText changes
+} as const
+
+export type EmbeddingProvider = 'openrouter' | 'openai'
+
+export interface EmbeddingResult {
+  embedding: number[]
+  provider: string
+  model: string
+  dim: number
+  preprocessVersion: string
+  contentHash: string
+}
+
+// ============================================
+// PREPROCESSING
+// ============================================
+
+/**
+ * Normalize text before embedding.
+ * Version: p1
+ *
+ * IMPORTANT: Changes to this function require incrementing
+ * EMBEDDING_CONFIG.preprocessVersion to prevent split brain.
+ */
+export function normalizeText(text: string): string {
+  return text
+    // Unicode normalization (NFKC handles umlauts, smart quotes, ligatures, etc.)
+    .normalize('NFKC')
+    // Normalize line endings (Windows → Unix)
+    .replace(/\r\n/g, '\n')
+    // Collapse 3+ newlines to 2 (preserve paragraph breaks)
+    .replace(/\n{3,}/g, '\n\n')
+    // Collapse horizontal whitespace (tabs, multiple spaces)
+    .replace(/[ \t]+/g, ' ')
+    // Trim each line
+    .split('\n')
+    .map(line => line.trim())
+    .join('\n')
+    // Trim whole string
+    .trim()
+}
+
+/**
+ * Generate SHA-256 hash of content for change detection
+ */
+export function hashContent(text: string): string {
+  return createHash('sha256').update(text).digest('hex')
+}
+
+/**
+ * Check if an embedding is stale (content changed since embedding)
+ */
+export function isStaleEmbedding(
+  currentContent: string,
+  storedHash: string | null
+): boolean {
+  if (!storedHash) return true
+  const currentHash = hashContent(normalizeText(currentContent))
+  return currentHash !== storedHash
+}
+
+// ============================================
+// API KEY HANDLING
+// ============================================
 
 function getApiKey(): string {
   const apiKey = process.env.OPENROUTER_API_KEY
@@ -14,7 +100,44 @@ function getApiKey(): string {
   return apiKey
 }
 
+// ============================================
+// EMBEDDING GENERATION
+// ============================================
+
+/**
+ * Generate embedding with full provenance metadata
+ */
+export async function generateEmbeddingWithMetadata(
+  text: string
+): Promise<EmbeddingResult> {
+  const normalized = normalizeText(text)
+  const contentHash = hashContent(normalized)
+  const embedding = await generateEmbeddingRaw(normalized)
+
+  return {
+    embedding,
+    provider: EMBEDDING_CONFIG.provider,
+    model: EMBEDDING_CONFIG.model,
+    dim: EMBEDDING_CONFIG.dim,
+    preprocessVersion: EMBEDDING_CONFIG.preprocessVersion,
+    contentHash,
+  }
+}
+
+/**
+ * Generate embedding for text (legacy API - returns just the vector)
+ * @deprecated Use generateEmbeddingWithMetadata for new code
+ */
 export async function generateEmbedding(text: string): Promise<number[]> {
+  // For backward compatibility, normalize and embed
+  const normalized = normalizeText(text)
+  return generateEmbeddingRaw(normalized)
+}
+
+/**
+ * Internal: Call OpenRouter API for embeddings
+ */
+async function generateEmbeddingRaw(normalizedText: string): Promise<number[]> {
   const OPENROUTER_SITE_URL = process.env.OPENROUTER_SITE_URL || 'https://www.hebelki.de'
   const OPENROUTER_SITE_NAME = process.env.OPENROUTER_SITE_NAME || 'Hebelki'
 
@@ -28,8 +151,8 @@ export async function generateEmbedding(text: string): Promise<number[]> {
         'X-Title': OPENROUTER_SITE_NAME,
       },
       body: JSON.stringify({
-        model: 'openai/text-embedding-3-small',  // 1536 dimensions
-        input: text,
+        model: EMBEDDING_CONFIG.model,
+        input: normalizedText,
       }),
     })
 
@@ -46,7 +169,47 @@ export async function generateEmbedding(text: string): Promise<number[]> {
   }
 }
 
+/**
+ * Generate embeddings for multiple texts with full metadata
+ */
+export async function generateEmbeddingsWithMetadata(
+  texts: string[]
+): Promise<EmbeddingResult[]> {
+  if (texts.length === 0) return []
+
+  // Normalize all texts and compute hashes
+  const normalized = texts.map(normalizeText)
+  const hashes = normalized.map(hashContent)
+
+  // Batch API call
+  const embeddings = await generateEmbeddingsRaw(normalized)
+
+  // Return with full metadata
+  return embeddings.map((embedding, i) => ({
+    embedding,
+    provider: EMBEDDING_CONFIG.provider,
+    model: EMBEDDING_CONFIG.model,
+    dim: EMBEDDING_CONFIG.dim,
+    preprocessVersion: EMBEDDING_CONFIG.preprocessVersion,
+    contentHash: hashes[i],
+  }))
+}
+
+/**
+ * Generate embeddings for multiple texts (legacy API)
+ * @deprecated Use generateEmbeddingsWithMetadata for new code
+ */
 export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
+  const normalized = texts.map(normalizeText)
+  return generateEmbeddingsRaw(normalized)
+}
+
+/**
+ * Internal: Batch API call for embeddings
+ */
+async function generateEmbeddingsRaw(normalizedTexts: string[]): Promise<number[][]> {
+  if (normalizedTexts.length === 0) return []
+
   const OPENROUTER_SITE_URL = process.env.OPENROUTER_SITE_URL || 'https://www.hebelki.de'
   const OPENROUTER_SITE_NAME = process.env.OPENROUTER_SITE_NAME || 'Hebelki'
 
@@ -60,8 +223,8 @@ export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
         'X-Title': OPENROUTER_SITE_NAME,
       },
       body: JSON.stringify({
-        model: 'openai/text-embedding-3-small',
-        input: texts,  // Batch processing
+        model: EMBEDDING_CONFIG.model,
+        input: normalizedTexts,
       }),
     })
 
@@ -71,9 +234,32 @@ export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
     }
 
     const data = await response.json()
-    return data.data.map((item: any) => item.embedding)
+    return data.data.map((item: { embedding: number[] }) => item.embedding)
   } catch (error) {
     console.error('Error generating embeddings:', error)
     throw error
   }
+}
+
+/**
+ * Generate embeddings in batches with full metadata
+ */
+export async function generateEmbeddingsBatchedWithMetadata(
+  texts: string[],
+  batchSize: number = 50
+): Promise<EmbeddingResult[]> {
+  const allResults: EmbeddingResult[] = []
+
+  for (let i = 0; i < texts.length; i += batchSize) {
+    const batch = texts.slice(i, i + batchSize)
+    const results = await generateEmbeddingsWithMetadata(batch)
+    allResults.push(...results)
+
+    // Small delay between batches to avoid rate limits
+    if (i + batchSize < texts.length) {
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+  }
+
+  return allResults
 }

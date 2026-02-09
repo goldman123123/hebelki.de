@@ -3,20 +3,47 @@
 /**
  * Reusable Chat Interface Component
  *
- * Used for public chat pages and embedded widgets
+ * Used for public chat pages and embedded widgets.
+ * Supports AI mode, live chat mode, and live-first mode.
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
-import { Loader2, Send, Bot, User } from 'lucide-react'
+import { Loader2, Send, Bot, User, UserCheck } from 'lucide-react'
 import { VoiceRecorder } from './VoiceRecorder'
 
+// Renders text with clickable links
+function Linkify({ children, className }: { children: string; className?: string }) {
+  const parts = children.split(/(https?:\/\/[^\s<]+)/g)
+
+  return (
+    <p className={className}>
+      {parts.map((part, i) =>
+        /^https?:\/\//.test(part) ? (
+          <a
+            key={i}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline break-all"
+          >
+            {part}
+          </a>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </p>
+  )
+}
+
 interface Message {
-  role: 'user' | 'assistant'
+  role: 'user' | 'assistant' | 'staff' | 'system'
   content: string
   timestamp: Date
+  metadata?: Record<string, unknown>
 }
 
 interface ChatInterfaceProps {
@@ -24,6 +51,8 @@ interface ChatInterfaceProps {
   businessName: string
   primaryColor?: string
   welcomeMessage?: string
+  liveChatEnabled?: boolean
+  chatDefaultMode?: 'ai' | 'live'
 }
 
 export function ChatInterface({
@@ -31,6 +60,8 @@ export function ChatInterface({
   businessName,
   primaryColor = '#3B82F6',
   welcomeMessage = 'Willkommen! Wie kann ich Ihnen helfen?',
+  liveChatEnabled = false,
+  chatDefaultMode = 'ai',
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -38,6 +69,11 @@ export function ChatInterface({
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [isEscalated, setIsEscalated] = useState(false)
   const [awaitingContact, setAwaitingContact] = useState(false)
+  const [isLiveChatMode, setIsLiveChatMode] = useState(false)
+  const [staffJoined, setStaffJoined] = useState(false)
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const lastPollTime = useRef<string | null>(null)
+  const seenMessageIds = useRef<Set<string>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -47,6 +83,76 @@ export function ChatInterface({
   useEffect(() => {
     scrollToBottom()
   }, [messages])
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current)
+        pollingRef.current = null
+      }
+    }
+  }, [])
+
+  // Start polling for staff messages
+  const startPolling = useCallback((convId: string) => {
+    if (pollingRef.current) clearInterval(pollingRef.current)
+
+    lastPollTime.current = new Date().toISOString()
+
+    pollingRef.current = setInterval(async () => {
+      try {
+        const since = lastPollTime.current || new Date().toISOString()
+        const res = await fetch(
+          `/api/chatbot/poll?conversationId=${convId}&since=${encodeURIComponent(since)}`
+        )
+        const data = await res.json()
+
+        if (data.success) {
+          // Append new staff/system/assistant messages (deduplicate by ID)
+          if (data.messages && data.messages.length > 0) {
+            const unseenMsgs = data.messages.filter((m: any) => !seenMessageIds.current.has(m.id))
+            if (unseenMsgs.length > 0) {
+              const newMsgs: Message[] = unseenMsgs.map((m: any) => ({
+                role: m.role as Message['role'],
+                content: m.content,
+                timestamp: new Date(m.createdAt),
+                metadata: m.metadata,
+              }))
+              unseenMsgs.forEach((m: any) => seenMessageIds.current.add(m.id))
+              setMessages(prev => [...prev, ...newMsgs])
+
+              // If any staff message arrived, staff has joined
+              if (unseenMsgs.some((m: any) => m.role === 'staff')) {
+                setStaffJoined(true)
+              }
+            }
+            lastPollTime.current = data.messages[data.messages.length - 1].createdAt
+          }
+
+          // Handle system messages (timeout, AI fallback)
+          if (data.systemMessage) {
+            setMessages(prev => [...prev, {
+              role: 'system',
+              content: data.systemMessage,
+              timestamp: new Date(),
+            }])
+
+            // If reverted to AI mode, stop polling
+            if (data.status === 'active') {
+              setIsLiveChatMode(false)
+              if (pollingRef.current) {
+                clearInterval(pollingRef.current)
+                pollingRef.current = null
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Polling error:', error)
+      }
+    }, 3000)
+  }, [])
 
   const sendMessage = async () => {
     if (!input.trim()) return
@@ -74,19 +180,13 @@ export function ChatInterface({
       })
 
       if (!response.ok) {
-        // Extract error details from response
         let errorMessage = 'API request failed'
         try {
           const errorData = await response.json()
           errorMessage = errorData.error || errorMessage
-          console.error('[ChatInterface] API error:', {
-            status: response.status,
-            error: errorData,
-          })
-        } catch (e) {
-          console.error('[ChatInterface] Failed to parse error response')
+        } catch {
+          // ignore parse error
         }
-
         throw new Error(errorMessage)
       }
 
@@ -96,19 +196,27 @@ export function ChatInterface({
         setConversationId(data.conversationId)
       }
 
-      // Check if escalation was completed
+      // Check if live chat mode was activated
+      if (data.metadata?.liveChatMode) {
+        setIsLiveChatMode(true)
+        startPolling(data.conversationId || conversationId!)
+      }
+
+      // Check if escalation was completed (legacy flow)
       if (data.metadata?.escalated) {
         setIsEscalated(true)
         setAwaitingContact(false)
       }
 
-      const assistantMessage: Message = {
-        role: 'assistant',
-        content: data.response,
-        timestamp: new Date(),
+      // Add response message (AI or system response)
+      if (data.response) {
+        const assistantMessage: Message = {
+          role: 'assistant',
+          content: data.response,
+          timestamp: new Date(),
+        }
+        setMessages((prev) => [...prev, assistantMessage])
       }
-
-      setMessages((prev) => [...prev, assistantMessage])
     } catch (error) {
       console.error('Chat error:', error)
 
@@ -152,14 +260,20 @@ export function ChatInterface({
       const data = await response.json()
 
       if (response.ok) {
-        // Add the "please provide contact info" message
+        // Add the response message
         setMessages((prev) => [...prev, {
           role: 'assistant',
           content: data.message,
           timestamp: new Date(),
         }])
 
-        // Track that we're awaiting contact
+        // If live chat mode activated, start polling
+        if (data.liveChatMode) {
+          setIsLiveChatMode(true)
+          startPolling(conversationId)
+        }
+
+        // Legacy flow: awaiting contact info
         if (data.awaitingContactInfo) {
           setAwaitingContact(true)
         }
@@ -188,60 +302,98 @@ export function ChatInterface({
                 {welcomeMessage}
               </h3>
               <p className="mt-2 text-sm text-gray-500">
-                Stellen Sie eine Frage oder bitten Sie um einen Termin.
+                {liveChatEnabled && chatDefaultMode === 'live'
+                  ? 'Schreiben Sie uns eine Nachricht, unser Team antwortet in Kürze.'
+                  : 'Stellen Sie eine Frage oder bitten Sie um einen Termin.'}
               </p>
             </div>
           </div>
         ) : (
           <div className="space-y-4">
-            {messages.map((message, index) => (
-              <div
-                key={index}
-                className={`flex gap-3 ${
-                  message.role === 'user' ? 'justify-end' : 'justify-start'
-                }`}
-              >
-                {message.role === 'assistant' && (
-                  <div
-                    className="flex h-8 w-8 items-center justify-center rounded-full"
-                    style={{ backgroundColor: `${primaryColor}20` }}
-                  >
-                    <Bot className="h-5 w-5" style={{ color: primaryColor }} />
+            {messages.map((message, index) => {
+              // System messages: centered
+              if (message.role === 'system') {
+                return (
+                  <div key={index} className="text-center">
+                    <span className="inline-block rounded-full bg-gray-100 px-3 py-1 text-xs italic text-gray-500">
+                      {message.content}
+                    </span>
                   </div>
-                )}
+                )
+              }
 
+              // Staff messages: left-aligned with UserCheck icon
+              if (message.role === 'staff') {
+                const staffName = (message.metadata?.staffName as string) || 'Support'
+                return (
+                  <div key={index} className="flex gap-3 justify-start">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100">
+                      <UserCheck className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-medium text-green-600 mb-0.5">{staffName}</p>
+                      <div className="max-w-[70%] rounded-lg bg-green-50 border border-green-200 px-4 py-2">
+                        <Linkify className="whitespace-pre-wrap text-sm">{message.content}</Linkify>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {message.timestamp.toLocaleTimeString('de-DE', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              }
+
+              // User and assistant messages (existing rendering)
+              return (
                 <div
-                  className={`max-w-[70%] rounded-lg px-4 py-2 ${
-                    message.role === 'user'
-                      ? 'text-white'
-                      : 'bg-gray-100 text-gray-900'
+                  key={index}
+                  className={`flex gap-3 ${
+                    message.role === 'user' ? 'justify-end' : 'justify-start'
                   }`}
-                  style={message.role === 'user' ? { backgroundColor: primaryColor } : {}}
                 >
-                  <p className="whitespace-pre-wrap text-sm">
-                    {message.content}
-                  </p>
-                  <p
-                    className={`mt-1 text-xs ${
-                      message.role === 'user'
-                        ? 'opacity-80'
-                        : 'text-gray-500'
-                    }`}
-                  >
-                    {message.timestamp.toLocaleTimeString('de-DE', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </p>
-                </div>
+                  {message.role === 'assistant' && (
+                    <div
+                      className="flex h-8 w-8 items-center justify-center rounded-full"
+                      style={{ backgroundColor: `${primaryColor}20` }}
+                    >
+                      <Bot className="h-5 w-5" style={{ color: primaryColor }} />
+                    </div>
+                  )}
 
-                {message.role === 'user' && (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200">
-                    <User className="h-5 w-5 text-gray-600" />
+                  <div
+                    className={`max-w-[70%] rounded-lg px-4 py-2 ${
+                      message.role === 'user'
+                        ? 'text-white'
+                        : 'bg-gray-100 text-gray-900'
+                    }`}
+                    style={message.role === 'user' ? { backgroundColor: primaryColor } : {}}
+                  >
+                    <Linkify className="whitespace-pre-wrap text-sm">{message.content}</Linkify>
+                    <p
+                      className={`mt-1 text-xs ${
+                        message.role === 'user'
+                          ? 'opacity-80'
+                          : 'text-gray-500'
+                      }`}
+                    >
+                      {message.timestamp.toLocaleTimeString('de-DE', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </p>
                   </div>
-                )}
-              </div>
-            ))}
+
+                  {message.role === 'user' && (
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200">
+                      <User className="h-5 w-5 text-gray-600" />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
 
             {isLoading && (
               <div className="flex gap-3">
@@ -254,9 +406,25 @@ export function ChatInterface({
                 <div className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2">
                   <Loader2 className="h-4 w-4 animate-spin text-gray-600" />
                   <span className="text-sm text-gray-600">
-                    Denkt nach...
+                    {isLiveChatMode ? 'Wird gesendet...' : 'Denkt nach...'}
                   </span>
                 </div>
+              </div>
+            )}
+
+            {isLiveChatMode && !isLoading && !staffJoined && (
+              <div className="text-center">
+                <span className="inline-block rounded-full bg-yellow-50 border border-yellow-200 px-3 py-1 text-xs text-yellow-700">
+                  Warten auf Mitarbeiter...
+                </span>
+              </div>
+            )}
+
+            {isLiveChatMode && !isLoading && staffJoined && (
+              <div className="text-center">
+                <span className="inline-block rounded-full bg-green-50 border border-green-200 px-3 py-1 text-xs text-green-700">
+                  Mitarbeiter ist verbunden
+                </span>
               </div>
             )}
 
@@ -295,8 +463,8 @@ export function ChatInterface({
           </Button>
         </div>
 
-        {/* Escalation Button */}
-        {!isEscalated && (
+        {/* Escalation Button - only show in AI mode when not already in live chat */}
+        {!isEscalated && !isLiveChatMode && chatDefaultMode !== 'live' && (
           <Button
             variant="outline"
             size="sm"
@@ -309,9 +477,9 @@ export function ChatInterface({
           </Button>
         )}
 
-        {isEscalated && (
+        {isEscalated && !isLiveChatMode && (
           <div className="text-xs text-center text-green-600">
-            ✓ An Team weitergeleitet
+            An Team weitergeleitet
           </div>
         )}
       </div>

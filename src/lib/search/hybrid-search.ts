@@ -14,12 +14,17 @@
  * - Staff/Owner mode: public + internal, with customer-scoped access
  * - Document status filter: only 'active' documents
  *
+ * Split Brain Prevention (2026-02):
+ * - Embedding compatibility filtering by model/dim/preprocessVersion
+ * - Authority-based weighting for trusted sources
+ * - Field-level conflict detection for factual data
+ *
  * Research sources:
  * - https://levelup.gitconnected.com/designing-a-production-grade-rag-architecture-bee5a4e4d9aa
  * - https://arxiv.org/abs/2501.07391
  */
 
-import { generateEmbedding } from '@/lib/embeddings'
+import { generateEmbedding, EMBEDDING_CONFIG, normalizeText, hashContent } from '@/lib/embeddings'
 import { db } from '@/lib/db'
 import {
   chatbotKnowledge,
@@ -87,6 +92,87 @@ export interface HybridSearchOptions {
   documentsOnly?: boolean // Only search documents, not knowledge base
   // Access control (Phase 1)
   accessContext?: AccessContext // If not provided, defaults to public/global only
+  // Split brain prevention (Phase 2)
+  filterIncompatibleEmbeddings?: boolean // Filter out legacy embeddings (default: true)
+  detectConflicts?: boolean // Detect field-level conflicts (default: true)
+}
+
+// ============================================
+// AUTHORITY-BASED WEIGHTING
+// ============================================
+
+/**
+ * Authority levels for knowledge entries and documents
+ */
+export type AuthorityLevel = 'canonical' | 'high' | 'normal' | 'low' | 'unverified'
+
+/**
+ * Weights for authority levels
+ * Higher authority = higher weight in ranking
+ */
+export const AUTHORITY_WEIGHTS: Record<AuthorityLevel, number> = {
+  canonical: 1.5,    // Official policies, verified facts
+  high: 1.3,         // Curated entries, authoritative docs
+  normal: 1.0,       // Default
+  low: 0.85,         // Scraped, may be outdated
+  unverified: 0.7,   // Chat-extracted, needs review
+}
+
+/**
+ * Weights for content categories
+ * Critical categories get higher weight
+ */
+export const CATEGORY_WEIGHTS: Record<string, number> = {
+  policy: 1.3,       // Policies should rank high
+  pricing: 1.2,      // Prices are critical
+  hours: 1.2,        // Hours are factual
+  faq: 1.1,          // FAQs are curated
+  services: 1.0,
+  other: 0.95,
+}
+
+// ============================================
+// CONFLICT DETECTION TYPES
+// ============================================
+
+/**
+ * An extracted fact from content
+ */
+export interface ExtractedFact {
+  field: string
+  value: string | number
+  unit?: string
+  source: string
+  sourceId: string
+}
+
+/**
+ * A detected conflict between sources
+ */
+export interface Conflict {
+  field: string
+  values: Array<{ value: string | number; source: string; sourceId: string }>
+}
+
+/**
+ * Search metadata including conflict detection
+ */
+export interface SearchMetadata {
+  conflictDetected: boolean
+  conflicts: Conflict[]
+  incompatibleEmbeddingsFiltered: number
+  staleEmbeddingsDetected: string[]
+  queryAugmented: boolean
+  queryVariations: string[]
+}
+
+/**
+ * Extended search result with authority and provenance
+ */
+export interface ExtendedSearchResult extends SearchResult {
+  authorityLevel?: AuthorityLevel
+  embeddingCompatible?: boolean
+  preprocessVersion?: string | null
 }
 
 /**
@@ -243,6 +329,210 @@ export async function hybridSearch(
   return finalResults
 }
 
+// ============================================
+// FACT EXTRACTION FOR CONFLICT DETECTION
+// ============================================
+
+/**
+ * Regex patterns for German business facts
+ * Used to detect conflicts between sources
+ */
+const FACT_EXTRACTORS: Array<{
+  field: string
+  pattern: RegExp
+  extract: (match: RegExpMatchArray) => { value: number | string; unit: string }
+}> = [
+  {
+    field: 'cancellationHours',
+    pattern: /(\d+)\s*(h|std|stunden?|hours?)\s*(vorher|vor|im\s*voraus|notice|cancellation)/i,
+    extract: (m) => ({ value: parseInt(m[1]), unit: 'hours' }),
+  },
+  {
+    field: 'minNoticeHours',
+    pattern: /(mindestens|min\.?|minimum)\s*(\d+)\s*(h|std|stunden?|hours?)/i,
+    extract: (m) => ({ value: parseInt(m[2]), unit: 'hours' }),
+  },
+  {
+    field: 'maxAdvanceDays',
+    pattern: /(maximal|max\.?|bis\s*zu)\s*(\d+)\s*(tage?|days?|wochen?|weeks?)/i,
+    extract: (m) => {
+      const val = parseInt(m[2])
+      const unit = m[3].toLowerCase().startsWith('w') ? 'weeks' : 'days'
+      return { value: unit === 'weeks' ? val * 7 : val, unit: 'days' }
+    },
+  },
+  {
+    field: 'vatRate',
+    pattern: /(\d+(?:[,.]\d+)?)\s*%\s*(mwst|ust|vat|mehrwertsteuer)/i,
+    extract: (m) => ({ value: parseFloat(m[1].replace(',', '.')), unit: 'percent' }),
+  },
+  {
+    field: 'openingHours',
+    pattern: /(mo|di|mi|do|fr|sa|so|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag)[^:]*:\s*(\d{1,2})[:.h](\d{2})?\s*[-–]\s*(\d{1,2})[:.h](\d{2})?/i,
+    extract: (m) => ({
+      value: `${m[1]}:${m[2]}:${m[3] || '00'}-${m[4]}:${m[5] || '00'}`,
+      unit: 'schedule',
+    }),
+  },
+  {
+    field: 'price',
+    pattern: /(\d+(?:[,.]\d{2})?)\s*(?:€|eur|euro)/i,
+    extract: (m) => ({ value: parseFloat(m[1].replace(',', '.')), unit: 'EUR' }),
+  },
+  {
+    field: 'duration',
+    pattern: /(\d+)\s*(min(?:uten?)?|minutes?)\s*(?:dauer|session|behandlung|termin)?/i,
+    extract: (m) => ({ value: parseInt(m[1]), unit: 'minutes' }),
+  },
+]
+
+/**
+ * Extract facts from content for conflict detection
+ */
+function extractFacts(
+  content: string,
+  source: string,
+  sourceId: string
+): ExtractedFact[] {
+  const facts: ExtractedFact[] = []
+
+  for (const extractor of FACT_EXTRACTORS) {
+    const match = content.match(extractor.pattern)
+    if (match) {
+      const { value, unit } = extractor.extract(match)
+      facts.push({
+        field: extractor.field,
+        value,
+        unit,
+        source,
+        sourceId,
+      })
+    }
+  }
+
+  return facts
+}
+
+/**
+ * Detect field-level conflicts between search results
+ */
+function detectFieldConflicts(results: SearchResult[]): Conflict[] {
+  // Extract facts from top N results
+  const allFacts: ExtractedFact[] = []
+  for (const result of results.slice(0, 10)) {
+    allFacts.push(...extractFacts(result.content, result.source, result.id))
+  }
+
+  // Group by field
+  const byField = new Map<string, ExtractedFact[]>()
+  for (const fact of allFacts) {
+    const existing = byField.get(fact.field) || []
+    existing.push(fact)
+    byField.set(fact.field, existing)
+  }
+
+  // Detect conflicts (different values for same field)
+  const conflicts: Conflict[] = []
+  for (const [field, facts] of byField) {
+    const uniqueValues = new Set(facts.map(f => String(f.value)))
+    if (uniqueValues.size > 1) {
+      conflicts.push({
+        field,
+        values: facts.map(f => ({
+          value: f.value,
+          source: f.source,
+          sourceId: f.sourceId,
+        })),
+      })
+    }
+  }
+
+  return conflicts
+}
+
+// ============================================
+// AUTHORITY-BASED WEIGHTING
+// ============================================
+
+/**
+ * Get the combined weight for a search result based on authority and category
+ */
+function getSourceWeight(
+  authorityLevel: string | null | undefined,
+  category: string | null | undefined
+): number {
+  const authority = (authorityLevel || 'normal') as AuthorityLevel
+  const authorityWeight = AUTHORITY_WEIGHTS[authority] ?? 1.0
+  const categoryWeight = CATEGORY_WEIGHTS[category || 'other'] ?? 1.0
+  return authorityWeight * categoryWeight
+}
+
+// ============================================
+// EMBEDDING COMPATIBILITY
+// ============================================
+
+interface EmbeddingMetadata {
+  embeddingModel?: string | null
+  embeddingDim?: number | null
+  preprocessVersion?: string | null
+}
+
+/**
+ * Check if an embedding is compatible with the current config
+ */
+function isEmbeddingCompatible(metadata: EmbeddingMetadata): boolean {
+  // If no metadata, treat as compatible (legacy data)
+  if (!metadata.embeddingModel && !metadata.preprocessVersion) {
+    return true
+  }
+
+  // Strict check on critical fields
+  const compatible =
+    metadata.embeddingModel === EMBEDDING_CONFIG.model &&
+    metadata.embeddingDim === EMBEDDING_CONFIG.dim &&
+    (metadata.preprocessVersion === EMBEDDING_CONFIG.preprocessVersion ||
+      metadata.preprocessVersion === 'legacy') // Allow legacy during migration
+
+  return compatible
+}
+
+/**
+ * Filter and log incompatible embeddings
+ */
+function filterCompatibleEmbeddings<T extends { id: string } & EmbeddingMetadata>(
+  results: T[],
+  logPrefix: string = ''
+): { compatible: T[]; filteredCount: number } {
+  const compatible: T[] = []
+  let filteredCount = 0
+
+  for (const r of results) {
+    if (isEmbeddingCompatible(r)) {
+      compatible.push(r)
+    } else {
+      filteredCount++
+      console.warn(`${logPrefix}Incompatible embedding: ${r.id}`, {
+        has: {
+          model: r.embeddingModel,
+          dim: r.embeddingDim,
+          preprocess: r.preprocessVersion,
+        },
+        want: {
+          model: EMBEDDING_CONFIG.model,
+          dim: EMBEDDING_CONFIG.dim,
+          preprocess: EMBEDDING_CONFIG.preprocessVersion,
+        },
+      })
+    }
+  }
+
+  return { compatible, filteredCount }
+}
+
+// ============================================
+// DEDUPLICATION
+// ============================================
+
 /**
  * Deduplicate search results, keeping the highest-ranked instance
  */
@@ -317,6 +607,7 @@ function buildKnowledgeAccessConditions(context: AccessContext) {
 
 /**
  * Perform vector search using embeddings (semantic similarity)
+ * Now includes embedding metadata for compatibility filtering and authority weighting
  */
 async function performVectorSearch(
   businessId: string,
@@ -324,7 +615,7 @@ async function performVectorSearch(
   category: string | undefined,
   limit: number,
   context: AccessContext
-): Promise<Array<SearchResult & { rank: number }>> {
+): Promise<Array<SearchResult & { rank: number; authorityLevel?: string | null; embeddingModel?: string | null; embeddingDim?: number | null; preprocessVersion?: string | null }>> {
   try {
     // Generate embedding for query
     const queryEmbedding = await generateEmbedding(query)
@@ -333,6 +624,7 @@ async function performVectorSearch(
     const accessCondition = buildKnowledgeAccessConditions(context)
 
     // Search using cosine similarity (pgvector operator <=>)
+    // Include embedding metadata for compatibility filtering
     const results = await db
       .select({
         id: chatbotKnowledge.id,
@@ -341,6 +633,12 @@ async function performVectorSearch(
         category: chatbotKnowledge.category,
         source: chatbotKnowledge.source,
         similarity: sql<number>`1 - (${chatbotKnowledge.embedding} <=> ${JSON.stringify(queryEmbedding)}::vector)`,
+        // Embedding metadata for compatibility filtering
+        embeddingModel: chatbotKnowledge.embeddingModel,
+        embeddingDim: chatbotKnowledge.embeddingDim,
+        preprocessVersion: chatbotKnowledge.preprocessVersion,
+        // Authority for weighting
+        authorityLevel: chatbotKnowledge.authorityLevel,
       })
       .from(chatbotKnowledge)
       .where(
@@ -355,16 +653,27 @@ async function performVectorSearch(
       .orderBy(sql`${chatbotKnowledge.embedding} <=> ${JSON.stringify(queryEmbedding)}::vector`)
       .limit(limit)
 
-    return results.map((result, index) => ({
-      id: result.id,
-      title: result.title || '',
-      content: result.content,
-      category: result.category,
-      source: result.source,
-      score: result.similarity,
-      method: 'vector' as const,
-      rank: index + 1,
-    }))
+    // Apply authority-based weighting to similarity scores
+    return results.map((result, index) => {
+      const authorityWeight = getSourceWeight(result.authorityLevel, result.category)
+      const weightedScore = result.similarity * authorityWeight
+
+      return {
+        id: result.id,
+        title: result.title || '',
+        content: result.content,
+        category: result.category,
+        source: result.source,
+        score: weightedScore,
+        method: 'vector' as const,
+        rank: index + 1,
+        // Include metadata for compatibility filtering
+        authorityLevel: result.authorityLevel,
+        embeddingModel: result.embeddingModel,
+        embeddingDim: result.embeddingDim,
+        preprocessVersion: result.preprocessVersion,
+      }
+    })
   } catch (error) {
     console.error('[Vector Search] Error:', error)
     return []
@@ -373,6 +682,7 @@ async function performVectorSearch(
 
 /**
  * Perform keyword search using PostgreSQL full-text search
+ * Now includes authority weighting for ranking
  */
 async function performKeywordSearch(
   businessId: string,
@@ -380,7 +690,7 @@ async function performKeywordSearch(
   category: string | undefined,
   limit: number,
   context: AccessContext
-): Promise<Array<SearchResult & { rank: number }>> {
+): Promise<Array<SearchResult & { rank: number; authorityLevel?: string | null }>> {
   try {
     // Use ILIKE for simple pattern matching (works with German text)
     const searchPattern = `%${query}%`
@@ -395,6 +705,7 @@ async function performKeywordSearch(
         content: chatbotKnowledge.content,
         category: chatbotKnowledge.category,
         source: chatbotKnowledge.source,
+        authorityLevel: chatbotKnowledge.authorityLevel,
       })
       .from(chatbotKnowledge)
       .where(
@@ -411,16 +722,19 @@ async function performKeywordSearch(
       )
       .limit(limit)
 
-    // Calculate simple relevance score based on match position
+    // Calculate relevance score with authority weighting
     return results.map((result, index) => {
       const titleMatch = result.title?.toLowerCase().includes(query.toLowerCase())
-      const contentMatch = result.content.toLowerCase().includes(query.toLowerCase())
 
       // Higher score if query appears in title
       const baseScore = titleMatch ? 0.8 : 0.6
       // Decay score based on rank
       const rankPenalty = index * 0.05
-      const score = Math.max(0.1, baseScore - rankPenalty)
+      const rawScore = Math.max(0.1, baseScore - rankPenalty)
+
+      // Apply authority weighting
+      const authorityWeight = getSourceWeight(result.authorityLevel, result.category)
+      const weightedScore = rawScore * authorityWeight
 
       return {
         id: result.id,
@@ -428,9 +742,10 @@ async function performKeywordSearch(
         content: result.content,
         category: result.category,
         source: result.source,
-        score,
+        score: weightedScore,
         method: 'keyword' as const,
         rank: index + 1,
+        authorityLevel: result.authorityLevel,
       }
     })
   } catch (error) {
@@ -879,4 +1194,117 @@ export async function searchDocuments(
   return results
     .filter(r => r.source === 'document')
     .map(r => r as DocumentSearchResult)
+}
+
+// ============================================
+// ENHANCED SEARCH WITH METADATA
+// ============================================
+
+/**
+ * Extended search options for hybridSearchWithMetadata
+ */
+export interface ExtendedSearchOptions extends HybridSearchOptions {
+  returnMetadata?: boolean
+}
+
+/**
+ * Hybrid search result with full metadata
+ */
+export interface HybridSearchResult {
+  results: SearchResult[]
+  metadata: SearchMetadata
+}
+
+/**
+ * Perform hybrid search with full metadata including conflict detection
+ *
+ * This is the preferred API for chatbot responses as it provides:
+ * - Compatibility-filtered results
+ * - Authority-weighted scoring
+ * - Field-level conflict detection
+ * - Query augmentation info
+ */
+export async function hybridSearchWithMetadata(
+  businessId: string,
+  query: string,
+  options: ExtendedSearchOptions = {}
+): Promise<HybridSearchResult> {
+  const {
+    filterIncompatibleEmbeddings = true,
+    detectConflicts: shouldDetectConflicts = true,
+  } = options
+
+  // Get results from standard hybrid search
+  const results = await hybridSearch(businessId, query, options)
+
+  // Build metadata
+  const metadata: SearchMetadata = {
+    conflictDetected: false,
+    conflicts: [],
+    incompatibleEmbeddingsFiltered: 0,
+    staleEmbeddingsDetected: [],
+    queryAugmented: shouldAugmentQuery(query),
+    queryVariations: shouldAugmentQuery(query) ? augmentQuery(query).augmented.slice(0, 3) : [query],
+  }
+
+  // Detect conflicts in top results
+  if (shouldDetectConflicts && results.length > 1) {
+    const conflicts = detectFieldConflicts(results)
+    if (conflicts.length > 0) {
+      metadata.conflictDetected = true
+      metadata.conflicts = conflicts
+
+      console.warn('[Hybrid Search] Conflicts detected:', conflicts.map(c => ({
+        field: c.field,
+        valueCount: c.values.length,
+        values: c.values.map(v => v.value),
+      })))
+    }
+  }
+
+  return { results, metadata }
+}
+
+/**
+ * Check if stale embeddings exist for a business
+ * Useful for monitoring and triggering re-embedding jobs
+ */
+export async function checkStaleEmbeddings(
+  businessId: string
+): Promise<{ staleCount: number; legacyCount: number; totalCount: number }> {
+  try {
+    // Count knowledge entries by preprocess version
+    const kbCounts = await db
+      .select({
+        preprocessVersion: chatbotKnowledge.preprocessVersion,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(chatbotKnowledge)
+      .where(
+        and(
+          eq(chatbotKnowledge.businessId, businessId),
+          eq(chatbotKnowledge.isActive, true),
+          isNotNull(chatbotKnowledge.embedding)
+        )
+      )
+      .groupBy(chatbotKnowledge.preprocessVersion)
+
+    let legacyCount = 0
+    let staleCount = 0
+    let totalCount = 0
+
+    for (const row of kbCounts) {
+      totalCount += row.count
+      if (row.preprocessVersion === 'legacy' || !row.preprocessVersion) {
+        legacyCount += row.count
+      } else if (row.preprocessVersion !== EMBEDDING_CONFIG.preprocessVersion) {
+        staleCount += row.count
+      }
+    }
+
+    return { staleCount, legacyCount, totalCount }
+  } catch (error) {
+    console.error('[checkStaleEmbeddings] Error:', error)
+    return { staleCount: 0, legacyCount: 0, totalCount: 0 }
+  }
 }

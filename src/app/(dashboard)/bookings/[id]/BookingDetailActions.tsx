@@ -43,6 +43,58 @@ export function BookingDetailActions({ bookingId, status }: BookingDetailActions
     setRejectReason('')
   }
 
+  if (status === 'unconfirmed') {
+    return (
+      <div className="space-y-3">
+        <div className="rounded-md bg-orange-50 border border-orange-200 p-3 text-sm text-orange-800">
+          Wartet auf Kundenbestätigung per E-Mail. Der Kunde hat einen Bestätigungslink per E-Mail erhalten.
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Button
+            onClick={() => handleStatusChange('confirmed')}
+            disabled={isSubmitting}
+            className="bg-green-600 hover:bg-green-700"
+          >
+            {isSubmitting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Check className="mr-2 h-4 w-4" />
+            )}
+            Manuell bestätigen
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => setShowRejectDialog(true)}
+            disabled={isSubmitting}
+          >
+            <X className="mr-2 h-4 w-4" />
+            Ablehnen
+          </Button>
+        </div>
+
+        <FormDialog
+          open={showRejectDialog}
+          onOpenChange={setShowRejectDialog}
+          title="Buchung ablehnen"
+          description="Bitte geben Sie einen Grund für die Ablehnung an. Der Kunde wird benachrichtigt."
+          onSubmit={handleReject}
+          isSubmitting={isSubmitting}
+          submitLabel="Ablehnen"
+          variant="destructive"
+        >
+          <FormTextarea
+            label="Grund"
+            name="reason"
+            placeholder="Grund für die Ablehnung..."
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            rows={3}
+          />
+        </FormDialog>
+      </div>
+    )
+  }
+
   if (status === 'pending') {
     return (
       <div className="flex flex-wrap gap-3">

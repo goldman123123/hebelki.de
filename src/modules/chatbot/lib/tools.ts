@@ -1007,7 +1007,10 @@ export const toolHandlers = {
         }
       }
 
-      console.log('[create_hold] SUCCESS - Hold created:', data.holdId)
+      // Use server-assigned staffId (may differ from args.staffId due to auto-assignment)
+      const assignedStaffId = data.staffId || args.staffId || null
+
+      console.log('[create_hold] SUCCESS - Hold created:', data.holdId, 'staffId:', assignedStaffId)
 
       // Track intent: hold is active, customer needs to provide details
       if (args._conversationId) {
@@ -1019,13 +1022,13 @@ export const toolHandlers = {
           .limit(1)
           .then(rows => rows[0])
 
-        // Get staff name if staffId provided
+        // Get staff name from the assigned staff (server may have auto-assigned)
         let staffName: string | undefined
-        if (args.staffId) {
+        if (assignedStaffId) {
           const staffMember = await db
             .select({ name: staff.name })
             .from(staff)
-            .where(eq(staff.id, args.staffId))
+            .where(eq(staff.id, assignedStaffId))
             .limit(1)
             .then(rows => rows[0])
           staffName = staffMember?.name
@@ -1039,7 +1042,7 @@ export const toolHandlers = {
           serviceName: service?.name,
           selectedSlot: {
             start: args.startsAt,
-            staffId: args.staffId,
+            staffId: assignedStaffId,
             staffName,
           },
         }).catch(err => console.error('[Intent] Failed to update:', err))
@@ -1052,6 +1055,7 @@ export const toolHandlers = {
           expiresAt: data.expiresAt,
           startsAt: data.startsAt,
           endsAt: data.endsAt,
+          staffId: assignedStaffId,
           expiresInMinutes: 5,
         },
       }

@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { handleChatMessage } from '@/modules/chatbot/lib/conversation'
 import { getBusinessMemberRole } from '@/lib/auth-helpers'
 import { db } from '@/lib/db'
-import { businesses, chatbotConversations, businessMembers, customers } from '@/lib/db/schema'
+import { businesses, chatbotConversations, chatbotMessages, businessMembers, customers } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import {
   detectOptOutKeyword,
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
 
     // PHASE 3 FIX: Verify business exists
     const business = await db
-      .select({ id: businesses.id, name: businesses.name, settings: businesses.settings })
+      .select({ id: businesses.id, name: businesses.name, email: businesses.email, settings: businesses.settings })
       .from(businesses)
       .where(eq(businesses.id, businessId))
       .limit(1)
@@ -118,23 +118,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // EU AI Act Compliance: Check if business has acknowledged AI literacy
-    const AI_LITERACY_VERSION = '1.0'
     const businessSettings = business.settings as Record<string, unknown> | null
-    const aiLiteracyAcknowledged = businessSettings?.aiLiteracyAcknowledgedAt &&
-      businessSettings?.aiLiteracyVersion === AI_LITERACY_VERSION
-
-    if (!aiLiteracyAcknowledged) {
-      console.warn('[Chatbot API] AI literacy not acknowledged for business:', businessId)
-      return NextResponse.json(
-        {
-          error: 'KI-Funktionen deaktiviert',
-          message: 'Der Chatbot ist nicht verfügbar, da die KI-Nutzungsbestätigung gemäß EU AI Act noch aussteht. Bitte kontaktieren Sie das Unternehmen direkt.',
-          code: 'AI_LITERACY_NOT_ACKNOWLEDGED',
-        },
-        { status: 403 }
-      )
-    }
+    const liveChatEnabled = (businessSettings?.liveChatEnabled as boolean) || false
 
     // PHASE 3 FIX: Verify conversationId belongs to businessId
     if (conversationId) {
@@ -157,67 +142,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Detect admin context (optional - doesn't throw if not logged in)
-    let adminContext = undefined
-    try {
-      const memberRole = await getBusinessMemberRole(businessId)
-      if (memberRole?.isAdmin) {
-        adminContext = memberRole
-      }
-    } catch (error) {
-      // Not logged in or not a member - treat as customer
-      console.log('[Chatbot API] User not authenticated or not a member')
-    }
-
     // ============================================
-    // WHATSAPP COMPLIANCE: STOP/START DETECTION
-    // CRITICAL: Must be processed BEFORE AI
-    // ============================================
-    if (channel === 'whatsapp' && customerId) {
-      const trimmedMessage = message.trim()
-
-      // Handle STOP keywords (opt-out)
-      if (detectOptOutKeyword(trimmedMessage)) {
-        await handleOptOut(customerId, trimmedMessage)
-        console.log('[WHATSAPP-COMPLIANCE] Opt-out processed for customer:', customerId)
-
-        return NextResponse.json({
-          success: true,
-          conversationId,
-          response: getOptOutConfirmation(),
-          metadata: { optOut: true },
-        })
-      }
-
-      // Handle START keywords (opt-in)
-      if (detectOptInKeyword(trimmedMessage)) {
-        await handleOptIn(customerId, trimmedMessage)
-        console.log('[WHATSAPP-COMPLIANCE] Opt-in processed for customer:', customerId)
-
-        return NextResponse.json({
-          success: true,
-          conversationId,
-          response: getOptInConfirmation(),
-          metadata: { optIn: true },
-        })
-      }
-
-      // Verify customer has opted in before processing message
-      const hasOptedIn = await verifyOptInStatus(customerId)
-
-      if (!hasOptedIn) {
-        // First message - grant implicit opt-in
-        await handleImplicitOptIn(customerId, trimmedMessage)
-        console.log('[WHATSAPP-COMPLIANCE] Implicit opt-in granted for customer:', customerId)
-      }
-    }
-
-    // ============================================
-    // ESCALATION: Contact Info Collection
-    // Process BEFORE AI if awaiting contact info
+    // LIVE CHAT / ESCALATION INTERCEPTION
+    // Must run BEFORE AI literacy check — no AI involved
     // ============================================
     if (conversationId) {
-      // Fetch conversation to check metadata
+      // Fetch conversation to check metadata and status
       const conversation = await db.select()
         .from(chatbotConversations)
         .where(eq(chatbotConversations.id, conversationId))
@@ -228,9 +158,31 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
       }
 
-      // Check if awaiting contact info
       const metadata = conversation.metadata as any || {}
-      if (metadata.awaitingContactInfo) {
+
+      // If conversation is in live_queue or live_active, save message without AI
+      if (conversation.status === 'live_queue' || conversation.status === 'live_active') {
+        // Save user message to DB directly
+        await db.insert(chatbotMessages).values({
+          conversationId,
+          role: 'user',
+          content: message.trim(),
+        })
+
+        await db.update(chatbotConversations)
+          .set({ updatedAt: new Date() })
+          .where(eq(chatbotConversations.id, conversationId))
+
+        return NextResponse.json({
+          success: true,
+          conversationId,
+          response: null, // No AI response — staff will reply
+          metadata: { liveChatMode: true },
+        })
+      }
+
+      // Check if awaiting contact info (legacy escalation flow — only when live chat is OFF)
+      if (metadata.awaitingContactInfo && !liveChatEnabled) {
         const contactInfo = extractContactInfo(message)
 
         if (!contactInfo.email && !contactInfo.phone) {
@@ -290,6 +242,124 @@ export async function POST(request: NextRequest) {
           response: "Vielen Dank! Ein Mitarbeiter wird sich in Kürze bei Ihnen melden.",
           metadata: { escalated: true },
         })
+      }
+    }
+
+    // ============================================
+    // LIVE-FIRST MODE: Route to queue instead of AI
+    // Must run BEFORE AI literacy check — no AI involved
+    // ============================================
+    const chatDefaultMode = (businessSettings?.chatDefaultMode as string) || 'ai'
+
+    if (liveChatEnabled && chatDefaultMode === 'live' && !conversationId) {
+      // First message in live-first mode: save to DB, queue for staff (no AI)
+
+      // Create conversation
+      const [newConv] = await db.insert(chatbotConversations).values({
+        businessId,
+        channel: channel || 'web',
+        status: 'live_queue',
+        metadata: {
+          liveQueuedAt: new Date().toISOString(),
+        },
+      }).returning()
+
+      // Save user message
+      await db.insert(chatbotMessages).values({
+        conversationId: newConv.id,
+        role: 'user',
+        content: message.trim(),
+      })
+
+      // Emit event to notify owner
+      if (business.email) {
+        const { emitEventStandalone } = await import('@/modules/core/events')
+        await emitEventStandalone(businessId, 'chat.live_requested', {
+          conversationId: newConv.id,
+          businessName: business.name,
+          ownerEmail: business.email,
+          firstMessage: message.trim(),
+          dashboardUrl: `https://www.hebelki.de/support-chat`,
+        })
+      }
+
+      return NextResponse.json({
+        success: true,
+        conversationId: newConv.id,
+        response: "Ihre Nachricht wurde empfangen. Ein Mitarbeiter wird sich in Kürze melden.",
+        metadata: { liveChatMode: true },
+      })
+    }
+
+    // ============================================
+    // EU AI Act Compliance: Only needed for AI processing
+    // ============================================
+    const AI_LITERACY_VERSION = '1.0'
+    const aiLiteracyAcknowledged = businessSettings?.aiLiteracyAcknowledgedAt &&
+      businessSettings?.aiLiteracyVersion === AI_LITERACY_VERSION
+
+    if (!aiLiteracyAcknowledged) {
+      console.warn('[Chatbot API] AI literacy not acknowledged for business:', businessId)
+      return NextResponse.json({
+        success: true,
+        conversationId: conversationId || null,
+        response: 'Der KI-Assistent ist derzeit nicht verfügbar. Bitte kontaktieren Sie uns direkt per Telefon oder E-Mail.',
+        metadata: { aiDisabled: true },
+      })
+    }
+
+    // Detect admin context (optional - doesn't throw if not logged in)
+    let adminContext = undefined
+    try {
+      const memberRole = await getBusinessMemberRole(businessId)
+      if (memberRole?.isAdmin) {
+        adminContext = memberRole
+      }
+    } catch (error) {
+      // Not logged in or not a member - treat as customer
+      console.log('[Chatbot API] User not authenticated or not a member')
+    }
+
+    // ============================================
+    // WHATSAPP COMPLIANCE: STOP/START DETECTION
+    // CRITICAL: Must be processed BEFORE AI
+    // ============================================
+    if (channel === 'whatsapp' && customerId) {
+      const trimmedMessage = message.trim()
+
+      // Handle STOP keywords (opt-out)
+      if (detectOptOutKeyword(trimmedMessage)) {
+        await handleOptOut(customerId, trimmedMessage)
+        console.log('[WHATSAPP-COMPLIANCE] Opt-out processed for customer:', customerId)
+
+        return NextResponse.json({
+          success: true,
+          conversationId,
+          response: getOptOutConfirmation(),
+          metadata: { optOut: true },
+        })
+      }
+
+      // Handle START keywords (opt-in)
+      if (detectOptInKeyword(trimmedMessage)) {
+        await handleOptIn(customerId, trimmedMessage)
+        console.log('[WHATSAPP-COMPLIANCE] Opt-in processed for customer:', customerId)
+
+        return NextResponse.json({
+          success: true,
+          conversationId,
+          response: getOptInConfirmation(),
+          metadata: { optIn: true },
+        })
+      }
+
+      // Verify customer has opted in before processing message
+      const hasOptedIn = await verifyOptInStatus(customerId)
+
+      if (!hasOptedIn) {
+        // First message - grant implicit opt-in
+        await handleImplicitOptIn(customerId, trimmedMessage)
+        console.log('[WHATSAPP-COMPLIANCE] Implicit opt-in granted for customer:', customerId)
       }
     }
 
