@@ -140,6 +140,109 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, action: 'opted_in' })
     }
 
+    // 6b. VOICE MESSAGE: Transcribe audio via Whisper
+    const numMedia = parseInt(params.NumMedia as string || '0', 10)
+    const mediaContentType = (params.MediaContentType0 as string || '')
+
+    if (numMedia > 0 && mediaContentType.startsWith('audio/')) {
+      const mediaUrl = params.MediaUrl0 as string
+
+      if (!mediaUrl) {
+        console.error('[WhatsApp Webhook] Voice message with no MediaUrl0')
+        await sendWhatsAppMessage(
+          { to: from, body: 'Entschuldigung, die Sprachnachricht konnte nicht verarbeitet werden.' },
+          businessId
+        )
+        return NextResponse.json({ error: 'Missing media URL' }, { status: 200 })
+      }
+
+      const openaiKey = process.env.OPENAI_API_KEY
+      if (!openaiKey) {
+        console.error('[WhatsApp Webhook] OPENAI_API_KEY not configured')
+        await sendWhatsAppMessage(
+          { to: from, body: 'Entschuldigung, Sprachnachrichten werden derzeit nicht unterstützt.' },
+          businessId
+        )
+        return NextResponse.json({ error: 'Transcription not configured' }, { status: 200 })
+      }
+
+      try {
+        // Download audio from Twilio (requires Basic Auth)
+        const authHeader = Buffer.from(`${creds.accountSid}:${creds.authToken}`).toString('base64')
+        const audioResponse = await fetch(mediaUrl, {
+          headers: { Authorization: `Basic ${authHeader}` },
+        })
+
+        if (!audioResponse.ok) {
+          throw new Error(`Twilio media download failed: ${audioResponse.status}`)
+        }
+
+        const audioBuffer = await audioResponse.arrayBuffer()
+        const audioSize = audioBuffer.byteLength
+
+        // 10MB size check
+        if (audioSize > 10 * 1024 * 1024) {
+          await sendWhatsAppMessage(
+            { to: from, body: 'Entschuldigung, die Sprachnachricht ist zu groß (max 10MB).' },
+            businessId
+          )
+          return NextResponse.json({ error: 'Audio too large' }, { status: 200 })
+        }
+
+        // Determine file extension from content type
+        const ext = mediaContentType.includes('ogg') ? 'ogg'
+          : mediaContentType.includes('mp4') ? 'mp4'
+          : mediaContentType.includes('mpeg') ? 'mp3'
+          : mediaContentType.includes('wav') ? 'wav'
+          : 'ogg'
+
+        // Send to OpenAI Whisper
+        const whisperForm = new FormData()
+        whisperForm.append('file', new Blob([audioBuffer], { type: mediaContentType }), `voice.${ext}`)
+        whisperForm.append('model', 'whisper-1')
+        whisperForm.append('response_format', 'json')
+
+        const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${openaiKey}` },
+          body: whisperForm,
+        })
+
+        if (!whisperResponse.ok) {
+          const errData = await whisperResponse.json().catch(() => ({}))
+          throw new Error(`Whisper API error ${whisperResponse.status}: ${JSON.stringify(errData)}`)
+        }
+
+        const whisperResult = await whisperResponse.json()
+        const transcribedText = (whisperResult.text || '').trim()
+
+        if (!transcribedText) {
+          await sendWhatsAppMessage(
+            { to: from, body: 'Entschuldigung, ich konnte die Sprachnachricht nicht verstehen. Bitte versuchen Sie es erneut oder senden Sie eine Textnachricht.' },
+            businessId
+          )
+          return NextResponse.json({ error: 'Empty transcription' }, { status: 200 })
+        }
+
+        console.log('[WhatsApp Webhook] Voice message transcribed:', {
+          audioSize,
+          textLength: transcribedText.length,
+          preview: transcribedText.slice(0, 80),
+        })
+
+        // Combine: if Body (caption) exists, prepend it
+        message = message ? `${message}\n\n[Sprachnachricht]: ${transcribedText}` : transcribedText
+
+      } catch (transcribeError: any) {
+        console.error('[WhatsApp Webhook] Transcription failed:', transcribeError.message)
+        await sendWhatsAppMessage(
+          { to: from, body: 'Entschuldigung, die Sprachnachricht konnte nicht verarbeitet werden. Bitte senden Sie eine Textnachricht.' },
+          businessId
+        )
+        return NextResponse.json({ error: 'Transcription failed' }, { status: 200 })
+      }
+    }
+
     // 7. FIND/CREATE CUSTOMER (direct DB, no self-fetch)
     const { customerId } = await findOrCreateWhatsAppCustomer(phoneNumber, businessId)
 
