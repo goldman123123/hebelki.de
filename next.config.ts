@@ -12,6 +12,9 @@ const nextConfig: NextConfig = {
   // Better error overlay and strict mode
   reactStrictMode: true,
 
+  // Externalize Puppeteer/Chromium for serverless PDF generation
+  serverExternalPackages: ['@sparticuz/chromium', 'puppeteer-core', 'puppeteer'],
+
   // Optimize package imports for faster builds
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],

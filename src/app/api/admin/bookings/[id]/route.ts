@@ -75,7 +75,7 @@ export async function PATCH(
   if (body.items !== undefined && !body.status) {
     const parsed = itemsUpdateSchema.safeParse(body)
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+      return NextResponse.json({ error: parsed.error.issues.map(e => e.message).join(', ') || 'Ungültige Daten' }, { status: 400 })
     }
 
     const [updated] = await db
@@ -93,7 +93,7 @@ export async function PATCH(
   // Handle status update
   const parsed = bookingStatusSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+    return NextResponse.json({ error: parsed.error.issues.map(e => e.message).join(', ') || 'Ungültige Daten' }, { status: 400 })
   }
 
   const { status, cancellationReason, cancelledBy, internalNotes } = parsed.data

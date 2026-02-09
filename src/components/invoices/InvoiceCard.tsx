@@ -175,7 +175,7 @@ export function InvoiceCard({ bookingId, customer: initialCustomer }: InvoiceCar
       })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error || 'Failed to generate invoice')
+        setError(typeof data.error === 'string' ? data.error : 'Rechnung konnte nicht erstellt werden')
         return
       }
       setInvoice(data.invoice)
@@ -195,7 +195,7 @@ export function InvoiceCard({ bookingId, customer: initialCustomer }: InvoiceCar
       const res = await fetch(`/api/bookings/${bookingId}/invoice`, { method: 'PATCH' })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error || 'Rechnung konnte nicht neu erstellt werden')
+        setError(typeof data.error === 'string' ? data.error : 'Rechnung konnte nicht neu erstellt werden')
         return
       }
       setInvoice(data.invoice)
@@ -214,7 +214,7 @@ export function InvoiceCard({ bookingId, customer: initialCustomer }: InvoiceCar
       const res = await fetch(`/api/bookings/${bookingId}/invoice/send`, { method: 'POST' })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error || 'Rechnung konnte nicht versendet werden')
+        setError(typeof data.error === 'string' ? data.error : 'Rechnung konnte nicht versendet werden')
         return
       }
       setInvoice(data.invoice)
@@ -241,7 +241,7 @@ export function InvoiceCard({ bookingId, customer: initialCustomer }: InvoiceCar
       })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error || 'Stornierung fehlgeschlagen')
+        setError(typeof data.error === 'string' ? data.error : 'Stornierung fehlgeschlagen')
         return
       }
       // If replacement was created, show it; otherwise show cancelled state
@@ -268,7 +268,7 @@ export function InvoiceCard({ bookingId, customer: initialCustomer }: InvoiceCar
       const res = await fetch(`/api/bookings/${bookingId}/invoice/mark-paid`, { method: 'POST' })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error || 'Fehler beim Markieren als bezahlt')
+        setError(typeof data.error === 'string' ? data.error : 'Fehler beim Markieren als bezahlt')
         return
       }
       setInvoice(data.invoice)
