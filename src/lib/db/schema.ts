@@ -839,7 +839,7 @@ export const invoices = pgTable('invoices', {
   customerId: uuid('customer_id').references(() => customers.id),
 
   // Invoice details
-  invoiceNumber: text('invoice_number').notNull().unique(), // Format: RE-2026-00001
+  invoiceNumber: text('invoice_number').notNull(), // Format: RE-2026-00001 (unique per business)
 
   // Line items
   items: jsonb('items').notNull().$type<InvoiceLineItem[]>(), // [{ description, quantity, unitPrice, total }]
@@ -892,7 +892,7 @@ export const invoices = pgTable('invoices', {
   customerIdx: index('invoices_customer_idx').on(table.customerId),
   bookingIdx: index('invoices_booking_idx').on(table.bookingId),
   statusIdx: index('invoices_status_idx').on(table.status),
-  invoiceNumberIdx: uniqueIndex('invoices_invoice_number_idx').on(table.invoiceNumber),
+  invoiceNumberIdx: uniqueIndex('invoices_invoice_number_idx').on(table.businessId, table.invoiceNumber),
 }));
 
 // Invoice number sequence tracking (per business, per year)
