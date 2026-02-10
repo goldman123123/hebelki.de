@@ -1058,6 +1058,7 @@ export const toolHandlers = {
           staffId: assignedStaffId,
           expiresInMinutes: 5,
         },
+        nextStep: 'WICHTIG: Der Termin ist NOCH NICHT gebucht — nur für 5 Minuten reserviert. Du MUSST jetzt Name, E-Mail und Telefon des Kunden erfragen und dann confirm_booking() aufrufen, um die Buchung abzuschließen.',
       }
     } catch (error) {
       console.error('[create_hold] EXCEPTION caught:', error)
