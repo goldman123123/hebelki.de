@@ -44,6 +44,63 @@ interface ConversationContext {
 }
 
 /**
+ * Ensure every assistant message with tool_calls has matching tool responses.
+ * OpenAI returns 400 if tool_call_ids are missing their tool responses.
+ * Drops orphaned assistant+tool_calls at the start (from history truncation)
+ * and strips tool_calls from assistant messages whose tool responses were lost.
+ */
+function sanitizeToolMessages(
+  messages: Array<{ role: string; content: string; metadata?: unknown }>
+): Array<{ role: string; content: string; metadata?: unknown }> {
+  // Collect all tool_call_ids that have a tool response
+  const answeredToolCallIds = new Set<string>()
+  for (const m of messages) {
+    if (m.role === 'tool' && m.metadata && typeof m.metadata === 'object') {
+      const meta = m.metadata as Record<string, unknown>
+      if (meta.tool_call_id) answeredToolCallIds.add(meta.tool_call_id as string)
+    }
+  }
+
+  const result: typeof messages = []
+  for (const m of messages) {
+    if (m.role === 'assistant' && m.metadata && typeof m.metadata === 'object' && 'tool_calls' in m.metadata) {
+      const toolCalls = (m.metadata as Record<string, unknown>).tool_calls as Array<{ id: string }> | undefined
+      if (toolCalls?.length) {
+        const allAnswered = toolCalls.every(tc => answeredToolCallIds.has(tc.id))
+        if (allAnswered) {
+          result.push(m)
+        } else if (m.content) {
+          // Keep the text content but drop tool_calls
+          result.push({ role: m.role, content: m.content, metadata: {} })
+        }
+        // If no content and no answered tool_calls, skip entirely
+        continue
+      }
+    }
+
+    // Drop orphaned tool messages whose assistant is missing
+    if (m.role === 'tool') {
+      const meta = m.metadata as Record<string, unknown> | undefined
+      const toolCallId = meta?.tool_call_id as string | undefined
+      // Only include if the parent assistant message made it into results
+      if (toolCallId) {
+        const hasParent = result.some(r =>
+          r.role === 'assistant' &&
+          r.metadata && typeof r.metadata === 'object' &&
+          'tool_calls' in r.metadata &&
+          ((r.metadata as Record<string, unknown>).tool_calls as Array<{ id: string }>)?.some(tc => tc.id === toolCallId)
+        )
+        if (!hasParent) continue
+      }
+    }
+
+    result.push(m)
+  }
+
+  return result
+}
+
+/**
  * Load optimized conversation context
  * Uses summary + recent messages instead of full history
  */
@@ -87,18 +144,13 @@ async function loadConversationContext(conversationId: string): Promise<Conversa
   // Reverse to chronological order
   const chronological = recentMessages.reverse()
 
-  // If we have a summary, we can be more aggressive about filtering
-  // Keep user/assistant messages, and tool messages that are recent
-  let filteredMessages = chronological
-  if (hasSummary) {
-    // For summarized conversations, prioritize user/assistant but keep some tool context
-    const userAssistant = chronological.filter(m => m.role === 'user' || m.role === 'assistant')
-    filteredMessages = userAssistant.slice(-messageLimit)
-  }
+  // Sanitize: ensure every assistant message with tool_calls has its
+  // matching tool responses, otherwise OpenAI returns 400.
+  const sanitized = sanitizeToolMessages(chronological)
 
   return {
     summary: conversation.summary,
-    messages: filteredMessages,
+    messages: sanitized,
     intent: conversation.currentIntent as ConversationIntent | null,
     messagesSinceSummary: conversation.messagesSinceSummary || 0,
   }
