@@ -21,8 +21,8 @@ import { validateTwilioWebhook, sendWhatsAppMessage, getTwilioCredentials } from
 import { findOrCreateWhatsAppCustomer } from '@/lib/whatsapp-customer'
 import { formatE164Phone } from '@/lib/whatsapp-phone-formatter'
 import { db } from '@/lib/db'
-import { businesses, customers } from '@/lib/db/schema'
-import { eq, sql } from 'drizzle-orm'
+import { businesses, customers, chatbotConversations } from '@/lib/db/schema'
+import { eq, and, ne, sql, desc } from 'drizzle-orm'
 
 // STOP/START keywords for WhatsApp compliance (case-insensitive)
 const STOP_KEYWORDS = ['stop', 'unsubscribe', 'cancel', 'end', 'quit', 'stopp', 'abmelden']
@@ -246,6 +246,23 @@ export async function POST(request: NextRequest) {
     // 7. FIND/CREATE CUSTOMER (direct DB, no self-fetch)
     const { customerId } = await findOrCreateWhatsAppCustomer(phoneNumber, businessId)
 
+    // 7b. FIND EXISTING CONVERSATION for this customer + business (WhatsApp continuity)
+    // Without this, every WhatsApp message creates a new conversation and history is lost.
+    const existingConversation = await db
+      .select({ id: chatbotConversations.id })
+      .from(chatbotConversations)
+      .where(and(
+        eq(chatbotConversations.businessId, businessId),
+        eq(chatbotConversations.customerId, customerId),
+        eq(chatbotConversations.channel, 'whatsapp'),
+        ne(chatbotConversations.status, 'closed'),
+      ))
+      .orderBy(desc(chatbotConversations.updatedAt))
+      .limit(1)
+      .then(rows => rows[0])
+
+    const conversationId = existingConversation?.id
+
     // 8. CHATBOT: Forward to chatbot API
     const chatbotUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.hebelki.de'}/api/chatbot/message`
 
@@ -254,6 +271,7 @@ export async function POST(request: NextRequest) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         businessId,
+        conversationId,
         customerId,
         message,
         channel: 'whatsapp',
