@@ -50,8 +50,8 @@ interface ConversationContext {
  * and strips tool_calls from assistant messages whose tool responses were lost.
  */
 function sanitizeToolMessages(
-  messages: Array<{ role: string; content: string; metadata?: unknown }>
-): Array<{ role: string; content: string; metadata?: unknown }> {
+  messages: Array<{ role: string; content: string; metadata: unknown }>
+): Array<{ role: string; content: string; metadata: unknown }> {
   // Collect all tool_call_ids that have a tool response
   const answeredToolCallIds = new Set<string>()
   for (const m of messages) {
