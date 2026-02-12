@@ -27,6 +27,9 @@ export interface BusinessSettings {
   whatsappEnabled?: boolean
   twilioVerifiedAt?: string
   twilioVerifiedBy?: string
+  // Voice Assistant
+  voiceEnabled?: boolean
+  twilioPhoneNumber?: string
 }
 
 export interface Business {
@@ -65,6 +68,7 @@ export interface Business {
   customDomain: string | null
   stripeCustomerId: string | null
   stripeSubscriptionId: string | null
+  twilioPhoneNumber: string | null
   settings: BusinessSettings | null
 }
 

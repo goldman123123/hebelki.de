@@ -94,6 +94,12 @@ const avvSchema = z.object({
   userId: z.string().optional(), // Clerk user ID for audit trail
 })
 
+// Voice Assistant settings
+const voiceSchema = z.object({
+  voiceEnabled: z.boolean().optional(),
+  twilioPhoneNumber: z.string().regex(/^\+[1-9]\d{7,14}$/).optional().or(z.literal('')),
+})
+
 // WhatsApp / Twilio BYOT settings
 const whatsappSchema = z.object({
   twilioAccountSid: z.string().regex(/^AC[a-f0-9]{32}$/).optional().or(z.literal('')),
@@ -183,6 +189,9 @@ export async function PATCH(request: NextRequest) {
       break
     case 'avv':
       parsed = avvSchema.safeParse(body.data)
+      break
+    case 'voice':
+      parsed = voiceSchema.safeParse(body.data)
       break
     case 'whatsapp':
       parsed = whatsappSchema.safeParse(body.data)
@@ -335,6 +344,35 @@ export async function PATCH(request: NextRequest) {
       .returning()
 
     return NextResponse.json({ business: updated })
+  }
+
+  // Handle Voice Assistant settings
+  if (section === 'voice') {
+    const voiceData = parsed.data as z.infer<typeof voiceSchema>
+    const currentSettings = (authResult.business.settings as Record<string, unknown>) || {}
+
+    const newSettings: Record<string, unknown> = {
+      ...currentSettings,
+      voiceEnabled: voiceData.voiceEnabled ?? currentSettings.voiceEnabled ?? false,
+    }
+
+    // Update twilioPhoneNumber on the business column (not in settings JSONB)
+    const columnUpdates: Record<string, unknown> = {
+      settings: newSettings,
+      updatedAt: new Date(),
+    }
+
+    if (voiceData.twilioPhoneNumber !== undefined) {
+      columnUpdates.twilioPhoneNumber = voiceData.twilioPhoneNumber || null
+    }
+
+    const [updated] = await db
+      .update(businesses)
+      .set(columnUpdates)
+      .where(eq(businesses.id, authResult.business.id))
+      .returning()
+
+    return NextResponse.json({ business: maskWhatsAppCredentials(updated) })
   }
 
   // Handle WhatsApp / Twilio BYOT settings

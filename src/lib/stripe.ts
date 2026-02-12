@@ -1,11 +1,25 @@
 import Stripe from 'stripe'
 import type { PlanId } from '@/modules/core/entitlements'
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('STRIPE_SECRET_KEY is not defined')
+let _stripe: Stripe | null = null
+
+/** Lazy-initialized Stripe client — only throws when actually used, not at import time */
+export function getStripe(): Stripe {
+  if (!_stripe) {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error('STRIPE_SECRET_KEY is not defined')
+    }
+    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+  }
+  return _stripe
 }
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+/** @deprecated Use getStripe() instead — kept for backwards compatibility */
+export const stripe = new Proxy({} as Stripe, {
+  get(_target, prop) {
+    return (getStripe() as unknown as Record<string | symbol, unknown>)[prop]
+  },
+})
 
 /**
  * Map plan IDs to Stripe Price IDs.

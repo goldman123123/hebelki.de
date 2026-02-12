@@ -11,6 +11,7 @@ import { CURRENT_AI_LITERACY_VERSION, CURRENT_AVV_VERSION } from './types'
 import { BusinessProfileCard } from './components/BusinessProfileCard'
 import { ComplianceCard } from './components/ComplianceCard'
 import { WhatsAppCard } from './components/WhatsAppCard'
+import { VoiceCard } from './components/VoiceCard'
 import { BrandingCard } from './components/BrandingCard'
 import { BookingRulesCard } from './components/BookingRulesCard'
 import { BillingCard } from './components/BillingCard'
@@ -187,6 +188,15 @@ export default function UnternehmenPage() {
           onSave={handleSave}
           isSaving={isSaving}
           onRefresh={fetchBusiness}
+        />
+
+        <VoiceCard
+          business={business}
+          editing={editSection === 'voice'}
+          onEdit={() => setEditSection('voice')}
+          onCancel={() => setEditSection(null)}
+          onSave={handleSave}
+          isSaving={isSaving}
         />
 
         <BookingRulesCard

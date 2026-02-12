@@ -8,12 +8,12 @@
  * Supports ?business=<slug> query param to pre-select a business.
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Loader2, CheckCircle, Shield, ArrowLeft } from 'lucide-react'
 
-export default function GdprRequestPage() {
+function GdprRequestContent() {
   const searchParams = useSearchParams()
   const businessSlug = searchParams.get('business')
 
@@ -213,5 +213,20 @@ export default function GdprRequestPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function GdprRequestPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="flex items-center gap-2 text-gray-500">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span>Laden...</span>
+        </div>
+      </div>
+    }>
+      <GdprRequestContent />
+    </Suspense>
   )
 }
