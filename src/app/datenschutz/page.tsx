@@ -211,14 +211,20 @@ export default function PrivacyPage() {
                   Fehlerhafte Daten können korrigiert werden
                 </p>
               </div>
-              <div className="border rounded-lg p-4">
+              <Link
+                href="/gdpr/request"
+                className="block border rounded-lg p-4 hover:border-red-400 hover:bg-red-50 transition-colors"
+              >
                 <h4 className="font-semibold text-gray-800 mb-2">
                   🗑️ Recht auf Löschung
                 </h4>
                 <p className="text-sm text-gray-600">
                   Sie können die Löschung Ihrer Daten verlangen
                 </p>
-              </div>
+                <p className="text-xs text-blue-600 mt-1 font-medium">
+                  Löschanfrage stellen →
+                </p>
+              </Link>
               <div className="border rounded-lg p-4">
                 <h4 className="font-semibold text-gray-800 mb-2">
                   📤 Recht auf Datenportabilität
@@ -365,7 +371,7 @@ export default function PrivacyPage() {
               Daten Ihrer Kunden in Ihrem Auftrag. Hierfür stellen wir folgende Dokumente
               gemäß DSGVO Art. 28 bereit:
             </p>
-            <div className="grid gap-3 md:grid-cols-3 mt-4">
+            <div className="grid gap-3 md:grid-cols-2 mt-4">
               <Link
                 href="/legal/avv"
                 className="block rounded-lg border p-4 hover:border-blue-500 hover:bg-blue-50 transition-colors"
@@ -391,6 +397,24 @@ export default function PrivacyPage() {
                 <h3 className="font-semibold text-gray-800">TOMs</h3>
                 <p className="text-sm text-gray-600 mt-1">
                   Technische und organisatorische Maßnahmen
+                </p>
+              </Link>
+              <Link
+                href="/legal/dpia"
+                className="block rounded-lg border p-4 hover:border-blue-500 hover:bg-blue-50 transition-colors"
+              >
+                <h3 className="font-semibold text-gray-800">DSFA</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Datenschutz-Folgenabschätzung gemäß Art. 35 DSGVO
+                </p>
+              </Link>
+              <Link
+                href="/legal/tia"
+                className="block rounded-lg border p-4 hover:border-blue-500 hover:bg-blue-50 transition-colors"
+              >
+                <h3 className="font-semibold text-gray-800">TIA</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Transfer Impact Assessment für Drittlandübermittlungen
                 </p>
               </Link>
             </div>

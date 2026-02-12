@@ -23,6 +23,7 @@ import {
 import { eq, and, ne, sql, desc } from 'drizzle-orm'
 import { generateInvoiceHtml } from './invoice-templates'
 import { generatePdfFromHtml } from './pdf'
+import { queueDocumentForEmbedding, buildInvoiceDocTitle } from './document-knowledge'
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 
 // R2 client configuration
@@ -332,6 +333,25 @@ export async function generateAndUploadInvoicePdf(invoiceId: string): Promise<st
     .update(invoices)
     .set({ pdfR2Key: r2Key, updatedAt: new Date() })
     .where(eq(invoices.id, invoiceId))
+
+  // Queue PDF for document worker pipeline (parse → chunk → embed → index)
+  try {
+    await queueDocumentForEmbedding({
+      businessId: business.id,
+      title: buildInvoiceDocTitle(invoice.invoiceNumber, customer?.name ?? null, invoice.type),
+      originalFilename: `invoice-${invoice.id}.pdf`,
+      r2Key,
+      pdfBuffer,
+      audience: 'internal',
+      scopeType: 'customer',
+      scopeId: invoice.customerId ?? undefined,
+      dataClass: 'knowledge',
+      containsPii: true,
+      authorityLevel: 'high',
+    })
+  } catch (err) {
+    console.error('[generateAndUploadInvoicePdf] Failed to queue for embedding:', err)
+  }
 
   return r2Key
 }

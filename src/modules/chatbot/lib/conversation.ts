@@ -4,7 +4,7 @@
  * Manages conversation flow, tool calling, and response generation.
  */
 
-import { db } from '@/lib/db'
+import { db, dbRetry } from '@/lib/db'
 import { chatbotConversations, chatbotMessages, businesses, services, type ConversationIntent } from '@/lib/db/schema'
 import { eq, and, desc, or, inArray } from 'drizzle-orm'
 import {
@@ -511,6 +511,7 @@ BOOKING MANAGEMENT TOOLS:
 
 CUSTOMER MANAGEMENT TOOLS:
 - create_customer: Neuen Kunden anlegen
+- update_customer: Bestehenden Kunden aktualisieren (Name, E-Mail, Telefon, Notizen)
 - search_customers: Kunden suchen
 - get_customer_bookings: Kundenhistorie anzeigen
 
@@ -536,6 +537,83 @@ ANALYTICS & REPORTING TOOLS:
 CONVERSATION MANAGEMENT TOOLS:
 - get_escalated_conversations: Eskalierte Chats anzeigen
 - search_customer_conversations: Vergangene Gespräche durchsuchen`
+}
+
+/**
+ * Build standalone assistant prompt for /tools/assistant
+ * NOT layered — replaces getSystemPrompt() entirely
+ */
+function buildAssistantPrompt(businessName: string, businessId: string): string {
+  return `Du bist der interne Geschäftsassistent für ${businessName}.
+Du unterstützt den Inhaber bei allen betrieblichen Aufgaben.
+
+Du hast Zugriff auf:
+- Buchungskalender, Kundendaten, Rechnungen, Lieferscheine
+- Monatsplanung, Wissensdatenbank (öffentlich + intern)
+- Kommunikation (E-Mail, WhatsApp)
+- Tagesübersicht und Statistiken
+- Mitarbeiterverwaltung und Terminplanung
+- Buchungsflexibilität (Dauer anpassen, Mitarbeiter zuweisen)
+- Krankheitsplanung (betroffene Buchungen finden, Zeiträume blockieren)
+- Dienstleistungsverwaltung (erstellen, bearbeiten, deaktivieren)
+
+VERHALTEN:
+- Sei proaktiv und strukturiert
+- Formatiere Daten als übersichtliche Listen
+- Bei Tagesübersicht: get_daily_summary + get_todays_bookings
+- Bei Kundenfragen: search_customers → get_customer_bookings
+- Bei Rechnungsfragen: search_invoices → get_invoice_details
+- Bei Monatsplanung/Verfügbarkeit/Auslastung: get_monthly_schedule (EINMAL aufrufen — enthält Buchungen + freie Kapazität + Zusammenfassung. NICHT check_availability pro Service!)
+- Bei Krankheit: get_affected_bookings → block_staff_period → Kunden benachrichtigen
+- Bei Terminänderung mit anderer Dauer: reschedule_booking mit durationMinutes
+- Bei Mitarbeiterzuweisung: update_booking mit staffId (prüft Service-Qualifikation)
+- Bei neuer Dienstleistung: Frage nach Name und Dauer (Pflicht), dann optional Beschreibung, Kategorie, Preis → create_service
+- Bei Änderung einer Dienstleistung: get_available_services → update_service
+- Bei Löschung: get_available_services → Bestätigung einholen → delete_service
+
+DATEI-UPLOAD:
+- Wenn der Nutzer eine Datei hochlädt, siehst du [HOCHGELADENE DATEIEN] mit documentId und r2Key
+- FRAGE IMMER wie das Dokument verwendet werden soll, falls nicht angegeben:
+  • Öffentlich oder intern?
+  • Kundenspezifisch? Für welchen Kunden?
+  • In Wissensdatenbank indexieren oder nur speichern?
+- Nutze classify_uploaded_document sobald klar ist
+- Wenn "für [Kunde]" → scopeType='customer', suche Kunden mit search_customers
+- Wenn "schick das an [Kunde]" → send_email_with_attachments mit der r2Key
+
+E-MAIL MIT ANHANG:
+- send_email_with_attachments kann R2-Dateien anhängen
+- Für Rechnungen: send_invoice versendet Rechnung direkt per E-Mail
+- Hochgeladene Dateien: r2Key aus dem Upload
+
+RECHNUNGS-WORKFLOW:
+- Rechnung erstellen: get_customer_bookings → create_invoice (Entwurf)
+- Rechnung versenden: send_invoice (PDF + E-Mail, draft → sent)
+- Bezahlt markieren: mark_invoice_paid (sent → paid)
+- Stornierung: cancel_invoice_storno (erstellt Stornorechnung)
+- Ersatzrechnung: update_booking_items → create_replacement_invoice
+- IMMER zuerst get_booking_documents prüfen ob Rechnung existiert
+- IMMER Stornierungsgrund erfragen vor cancel_invoice_storno
+
+LIEFERSCHEIN:
+- generate_lieferschein erstellt PDF aus Buchungspositionen
+- Benötigt Positionen → ggf. erst update_booking_items
+
+POSITIONEN:
+- update_booking_items: action "add"/"replace"/"remove"
+- Beispiel: "2x Seilklettern 50€" → add mit items [{description:"Seilklettern",quantity:2,unitPrice:"50.00"}]
+
+DOWNLOAD — STRENGE REGELN:
+- Für Downloads IMMER get_download_link aufrufen (gibt presigned https:// URL zurück)
+- NIEMALS R2-Keys oder Dateipfade direkt als Download-Link verwenden
+- Ergebnis von get_download_link enthält url und filename
+- Diese EXAKT als [DOWNLOAD:url|dateiname] in Antwort einbauen
+- Nutzer sieht dann automatisch einen Download-Button
+
+WICHTIG:
+- businessId für alle Tools: ${businessId}
+- Antworte IMMER auf Deutsch
+- Erfinde KEINE Daten — verwende NUR Tool-Ergebnisse`
 }
 
 /**
@@ -593,49 +671,69 @@ export async function handleChatMessage(params: {
   adminContext?: { userId: string; role: string; isAdmin: boolean }
   // Phase 1: Access context for search operations
   accessContext?: ChatAccessContext
+  // Virtual Assistant mode
+  isAssistant?: boolean
+  // Uploaded files attached to this message
+  attachedFiles?: Array<{
+    documentId: string
+    versionId: string
+    r2Key: string
+    filename: string
+    contentType: string
+    fileSize: number
+  }>
 }): Promise<{
   conversationId: string
   response: string
   metadata?: Record<string, unknown>
 }> {
-  const { businessId, message, channel = 'web', customerId, adminContext, accessContext } = params
+  const { businessId, message, channel = 'web', customerId, adminContext, accessContext, isAssistant, attachedFiles } = params
 
   // Determine user role
   let userRole: UserRole = 'customer'
-  if (adminContext?.isAdmin) {
+  if (isAssistant) {
+    userRole = 'owner'
+  } else if (adminContext?.isAdmin) {
     userRole = adminContext.role === 'owner' ? 'owner' : 'staff'
   }
 
   // Derive access context if not provided
-  const effectiveAccessContext: ChatAccessContext = accessContext || {
-    actorType: userRole,
-    actorId: userRole !== 'customer' ? adminContext?.userId : customerId,
-  }
+  // For assistant mode, force owner access
+  const effectiveAccessContext: ChatAccessContext = isAssistant
+    ? { actorType: 'owner', actorId: adminContext?.userId }
+    : accessContext || {
+        actorType: userRole,
+        actorId: userRole !== 'customer' ? adminContext?.userId : customerId,
+      }
 
   // 1. Get business info
-  const business = await db
-    .select()
-    .from(businesses)
-    .where(eq(businesses.id, businessId))
-    .limit(1)
-    .then(rows => rows[0])
+  const business = await dbRetry(() =>
+    db
+      .select()
+      .from(businesses)
+      .where(eq(businesses.id, businessId))
+      .limit(1)
+      .then(rows => rows[0])
+  )
 
   if (!business) {
     throw new Error('Business not found')
   }
 
   // 2. Get active services for context
-  const businessServices = await db
-    .select({
-      name: services.name,
-      description: services.description,
-    })
-    .from(services)
-    .where(and(
-      eq(services.businessId, businessId),
-      eq(services.isActive, true)
-    ))
-    .orderBy(services.sortOrder)
+  const businessServices = await dbRetry(() =>
+    db
+      .select({
+        name: services.name,
+        description: services.description,
+      })
+      .from(services)
+      .where(and(
+        eq(services.businessId, businessId),
+        eq(services.isActive, true)
+      ))
+      .orderBy(services.sortOrder)
+  )
 
   // 3. Build business context for dynamic prompt
   const businessContext: BusinessContext = {
@@ -657,25 +755,39 @@ export async function handleChatMessage(params: {
   let conversationId = params.conversationId
 
   if (!conversationId) {
-    const [conversation] = await db
-      .insert(chatbotConversations)
-      .values({
-        businessId,
-        customerId,
-        channel,
-        status: 'active',
-      })
-      .returning()
+    const [conversation] = await dbRetry(() =>
+      db
+        .insert(chatbotConversations)
+        .values({
+          businessId,
+          customerId,
+          channel,
+          status: 'active',
+        })
+        .returning()
+    )
 
     conversationId = conversation.id
   }
 
-  // 5. Save user message
-  await db.insert(chatbotMessages).values({
-    conversationId,
-    role: 'user',
-    content: message,
-  })
+  // 5. Build message with optional file context
+  let augmentedMessage = message
+  if (attachedFiles && attachedFiles.length > 0) {
+    const fileList = attachedFiles
+      .map(f => `- ${f.filename} (documentId: ${f.documentId}, r2Key: ${f.r2Key})`)
+      .join('\n')
+    augmentedMessage = `${message}\n\n[HOCHGELADENE DATEIEN]\n${fileList}`
+  }
+
+  // Save user message
+  await dbRetry(() =>
+    db.insert(chatbotMessages).values({
+      conversationId,
+      role: 'user',
+      content: augmentedMessage,
+      ...(attachedFiles && attachedFiles.length > 0 ? { metadata: { attachedFiles } } : {}),
+    })
+  )
 
   // 6. Load optimized conversation context (summary + recent messages)
   const context = await loadConversationContext(conversationId)
@@ -714,6 +826,7 @@ export async function handleChatMessage(params: {
     'create_booking_admin',
     'cancel_booking_with_notification',
     'create_customer',
+    'update_customer',
     'search_customers',
     'get_customer_bookings',
     'send_email_to_customer',
@@ -728,26 +841,71 @@ export async function handleChatMessage(params: {
     'search_customer_conversations',
   ]
 
+  // Assistant tools (all owner tools + assistant-only tools)
+  const assistantTools = [
+    ...ownerTools,
+    'search_invoices',
+    'get_invoice_details',
+    'get_booking_documents',
+    'get_monthly_schedule',
+    'block_day',
+    'send_whatsapp',
+    'add_knowledge_entry',
+    'update_booking',
+    'get_affected_bookings',
+    'block_staff_period',
+    'create_service',
+    'update_service',
+    'delete_service',
+    'create_staff',
+    'update_staff',
+    'delete_staff',
+    'assign_staff_to_service',
+    'remove_staff_from_service',
+    'get_availability_template',
+    'update_availability_template',
+    'update_business_profile',
+    'update_booking_rules',
+    'update_knowledge_entry',
+    'delete_knowledge_entry',
+    'delete_customer',
+    'update_staff_service_priority',
+    'classify_uploaded_document',
+    'send_email_with_attachments',
+    'create_invoice',
+    'send_invoice',
+    'mark_invoice_paid',
+    'cancel_invoice_storno',
+    'create_replacement_invoice',
+    'generate_lieferschein',
+    'update_booking_items',
+    'get_download_link',
+  ]
+
   // Select tools based on role
   let allowedToolNames: string[]
-  switch (userRole) {
-    case 'owner':
-      allowedToolNames = ownerTools
-      break
-    case 'staff':
-      allowedToolNames = staffTools
-      break
-    default:
-      allowedToolNames = customerTools
+  if (isAssistant) {
+    allowedToolNames = assistantTools
+  } else {
+    switch (userRole) {
+      case 'owner':
+        allowedToolNames = ownerTools
+        break
+      case 'staff':
+        allowedToolNames = staffTools
+        break
+      default:
+        allowedToolNames = customerTools
+    }
   }
 
   const availableTools = tools.filter(t => allowedToolNames.includes(t.function.name))
 
   // 8. Build messages for AI with dynamic system prompt
   // Include summary and intent context for better continuity
-  const systemPromptContent = getSystemPrompt(businessContext, businessId, channel, userRole)
-    + summaryContext
-    + intentContext
+  const systemPromptContent = isAssistant
+    ? buildAssistantPrompt(business.name, businessId) + summaryContext
+    : getSystemPrompt(businessContext, businessId, channel, userRole) + summaryContext + intentContext
 
   const messages: ChatMessage[] = [
     {
@@ -785,11 +943,14 @@ export async function handleChatMessage(params: {
   ]
 
   // 9. Call AI with tool support
+  const completionOpts = isAssistant
+    ? { model: 'openai/gpt-4o', temperature: 0.5, max_tokens: 2000 }
+    : { temperature: 0.7, max_tokens: 1000 }
+
   let response = await createChatCompletion({
     messages,
     tools: availableTools,
-    temperature: 0.7,
-    max_tokens: 1000,
+    ...completionOpts,
   })
 
   // Validate response structure
@@ -811,32 +972,28 @@ export async function handleChatMessage(params: {
   // Increased from 5 to 10 to allow "next available" searches across multiple days
   const maxToolRounds = 10
   let toolRound = 0
+  const allToolNames: string[] = []
 
   while (toolCalls && toolCalls.length > 0 && toolRound < maxToolRounds) {
     toolRound++
 
     // Save assistant message with tool calls
-    await db.insert(chatbotMessages).values({
-      conversationId,
-      role: 'assistant',
-      content: assistantMessage.content || '',
-      metadata: { tool_calls: toolCalls },
-    })
+    await dbRetry(() =>
+      db.insert(chatbotMessages).values({
+        conversationId,
+        role: 'assistant',
+        content: assistantMessage.content || '',
+        metadata: { tool_calls: toolCalls },
+      })
+    )
 
     // Execute each tool call
     const toolResults: ChatMessage[] = []
 
     for (const toolCall of toolCalls) {
       const toolName = toolCall.function.name
+      allToolNames.push(toolName)
       const rawArgs = toolCall.function.arguments
-
-      // DEBUG: Log FULL tool call structure
-      console.log('[TOOL CALL DEBUG]', {
-        tool: toolName,
-        rawArgsType: typeof rawArgs,
-        rawArgsLength: typeof rawArgs === 'string' ? rawArgs.length : 'N/A',
-        rawArgsPreview: typeof rawArgs === 'string' ? rawArgs.substring(0, 100) : rawArgs,
-      })
 
       // PHASE 1 FIX A: Parse arguments with structured result
       const parseResult = parseToolArguments(rawArgs)
@@ -1024,8 +1181,7 @@ export async function handleChatMessage(params: {
     response = await createChatCompletion({
       messages,
       tools: availableTools,
-      temperature: 0.7,
-      max_tokens: 1000,
+      ...completionOpts,
     })
 
     // Validate response structure
@@ -1072,16 +1228,26 @@ export async function handleChatMessage(params: {
     })
   }
 
-  // 11. Save final assistant response
-  await db.insert(chatbotMessages).values({
-    conversationId,
-    role: 'assistant',
-    content: finalResponse || '',
-    metadata: {
-      model: response.model,
-      usage: response.usage,
-    },
-  })
+  // 11. Save final assistant response with decision metadata (EU AI Act traceability)
+  const fallbackTriggered = !response.choices[0]?.message?.content || response.choices[0].message.content.trim() === ''
+  await dbRetry(() =>
+    db.insert(chatbotMessages).values({
+      conversationId,
+      role: 'assistant',
+      content: finalResponse || '',
+      metadata: {
+        model: response.model,
+        usage: response.usage,
+      },
+      decisionMetadata: {
+        toolsUsed: allToolNames,
+        modelName: response.model,
+        promptTokens: response.usage?.prompt_tokens,
+        completionTokens: response.usage?.completion_tokens,
+        fallbackTriggered,
+      },
+    })
+  )
 
   // 12. Update conversation timestamp and check if summary needed
   // Increment message count (user message + assistant response = 2)
@@ -1107,17 +1273,19 @@ export async function handleChatMessage(params: {
  * Get conversation history
  */
 export async function getConversationHistory(conversationId: string) {
-  const messages = await db
-    .select({
-      id: chatbotMessages.id,
-      role: chatbotMessages.role,
-      content: chatbotMessages.content,
-      createdAt: chatbotMessages.createdAt,
-      metadata: chatbotMessages.metadata,
-    })
-    .from(chatbotMessages)
-    .where(eq(chatbotMessages.conversationId, conversationId))
-    .orderBy(chatbotMessages.createdAt)
+  const messages = await dbRetry(() =>
+    db
+      .select({
+        id: chatbotMessages.id,
+        role: chatbotMessages.role,
+        content: chatbotMessages.content,
+        createdAt: chatbotMessages.createdAt,
+        metadata: chatbotMessages.metadata,
+      })
+      .from(chatbotMessages)
+      .where(eq(chatbotMessages.conversationId, conversationId))
+      .orderBy(chatbotMessages.createdAt)
+  )
 
   return messages
 }

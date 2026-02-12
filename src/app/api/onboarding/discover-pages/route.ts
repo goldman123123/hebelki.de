@@ -3,12 +3,22 @@
  * Finds all pages on a website via sitemap or link crawling
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@clerk/nextjs/server'
 import { fetchSitemap } from '@/lib/scraper/sitemap-parser'
 import { crawlHomepageLinks } from '@/lib/scraper/link-crawler'
 import { categorizePages, CategorizedPage } from '@/lib/scraper/page-categorizer'
 
 export async function POST(request: NextRequest) {
   try {
+    // Require authentication to prevent SSRF abuse
+    const { userId } = await auth()
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Please sign in' },
+        { status: 401 }
+      )
+    }
+
     const { websiteUrl } = await request.json()
 
     if (!websiteUrl) {
@@ -21,7 +31,36 @@ export async function POST(request: NextRequest) {
       normalizedUrl = 'https://' + normalizedUrl
     }
 
-    console.log(`🔍 Discovering pages for: ${normalizedUrl}`)
+    // SSRF prevention: validate URL before fetching
+    try {
+      const parsed = new URL(normalizedUrl)
+
+      // Only allow http/https protocols
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        return NextResponse.json({ error: 'Only HTTP/HTTPS URLs are allowed' }, { status: 400 })
+      }
+
+      // Block private/internal hostnames and IP ranges
+      const hostname = parsed.hostname.toLowerCase()
+      if (
+        hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        hostname === '0.0.0.0' ||
+        hostname === '::1' ||
+        hostname.endsWith('.local') ||
+        hostname.endsWith('.internal') ||
+        /^10\./.test(hostname) ||
+        /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
+        /^192\.168\./.test(hostname) ||
+        /^169\.254\./.test(hostname)
+      ) {
+        return NextResponse.json({ error: 'Internal URLs are not allowed' }, { status: 400 })
+      }
+    } catch {
+      return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 })
+    }
+
+    console.log(`Discovering pages for: ${normalizedUrl}`)
 
     // Try sitemap first
     let pages: CategorizedPage[] = []
@@ -52,10 +91,10 @@ export async function POST(request: NextRequest) {
       source: sitemapUrls.length > 0 ? 'sitemap' : 'homepage',
       count: pages.length
     })
-  } catch (error: any) {
-    console.error('❌ Failed to discover pages:', error)
+  } catch (error) {
+    console.error('Failed to discover pages:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to discover pages' },
+      { error: 'Failed to discover pages' },
       { status: 500 }
     )
   }

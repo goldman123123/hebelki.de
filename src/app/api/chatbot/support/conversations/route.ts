@@ -10,7 +10,7 @@
 import { NextResponse } from 'next/server'
 import { requireBusinessAuth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { chatbotConversations, chatbotMessages, customers } from '@/lib/db/schema'
+import { chatbotConversations, chatbotMessages, customers, businessMembers } from '@/lib/db/schema'
 import { eq, and, inArray, desc, sql } from 'drizzle-orm'
 
 export async function GET() {
@@ -20,7 +20,16 @@ export async function GET() {
       return NextResponse.json({ error: authResult.error }, { status: authResult.status })
     }
 
-    const { business } = authResult
+    const { userId, business } = authResult
+
+    // Non-blocking heartbeat: update staffLastSeenAt for online detection
+    db.update(businessMembers)
+      .set({ staffLastSeenAt: new Date() })
+      .where(and(
+        eq(businessMembers.businessId, business.id),
+        eq(businessMembers.clerkUserId, userId),
+      ))
+      .then(() => {}).catch(() => {})
 
     // Fetch conversations that need staff attention
     const conversations = await db

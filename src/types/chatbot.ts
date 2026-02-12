@@ -98,7 +98,7 @@ export interface ToolCall {
 
 export interface ToolResult {
   success: boolean
-  data?: any
+  data?: unknown
   error?: string
   message?: string
 }

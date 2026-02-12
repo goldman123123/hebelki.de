@@ -14,7 +14,7 @@ export class AppError extends Error {
     message: string,
     public code: string,
     public statusCode: number = 500,
-    public details?: any,
+    public details?: unknown,
     public userMessage?: string
   ) {
     super(message)
@@ -42,7 +42,7 @@ export class AppError extends Error {
  * Network/API error
  */
 export class NetworkError extends AppError {
-  constructor(message: string, statusCode: number = 503, details?: any) {
+  constructor(message: string, statusCode: number = 503, details?: unknown) {
     super(
       message,
       'NETWORK_ERROR',
@@ -58,7 +58,7 @@ export class NetworkError extends AppError {
  * Validation error
  */
 export class ValidationError extends AppError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: unknown) {
     super(
       message,
       'VALIDATION_ERROR',
@@ -74,7 +74,7 @@ export class ValidationError extends AppError {
  * Authentication error
  */
 export class AuthError extends AppError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: unknown) {
     super(
       message,
       'AUTH_ERROR',
@@ -90,7 +90,7 @@ export class AuthError extends AppError {
  * Authorization error
  */
 export class ForbiddenError extends AppError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: unknown) {
     super(
       message,
       'FORBIDDEN_ERROR',
@@ -106,7 +106,7 @@ export class ForbiddenError extends AppError {
  * Not found error
  */
 export class NotFoundError extends AppError {
-  constructor(resource: string, details?: any) {
+  constructor(resource: string, details?: unknown) {
     super(
       `${resource} not found`,
       'NOT_FOUND_ERROR',
@@ -122,7 +122,7 @@ export class NotFoundError extends AppError {
  * Rate limit error
  */
 export class RateLimitError extends AppError {
-  constructor(retryAfter?: number, details?: any) {
+  constructor(retryAfter?: number, details?: Record<string, unknown>) {
     super(
       'Rate limit exceeded',
       'RATE_LIMIT_ERROR',
@@ -138,7 +138,7 @@ export class RateLimitError extends AppError {
  * Database error
  */
 export class DatabaseError extends AppError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: unknown) {
     super(
       message,
       'DATABASE_ERROR',
@@ -154,7 +154,7 @@ export class DatabaseError extends AppError {
  * External API error
  */
 export class ExternalAPIError extends AppError {
-  constructor(service: string, message: string, statusCode: number = 503, details?: any) {
+  constructor(service: string, message: string, statusCode: number = 503, details?: Record<string, unknown>) {
     super(
       `${service} API error: ${message}`,
       'EXTERNAL_API_ERROR',
@@ -302,7 +302,7 @@ export async function fetchWithRetry(
     if (!response.ok) {
       // Parse error from response
       let errorMessage = `HTTP ${response.status}: ${response.statusText}`
-      let errorDetails: any = { url, status: response.status }
+      let errorDetails: Record<string, unknown> = { url, status: response.status }
 
       try {
         const data = await response.json()

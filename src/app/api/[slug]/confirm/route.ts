@@ -67,15 +67,16 @@ export async function POST(
       service: bookingDetails?.service,
       staff: bookingDetails?.staff,
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error confirming hold:', error)
+    const message = error instanceof Error ? error.message : String(error)
 
-    if (error.message === 'Hold expired. Please select a new time slot.') {
-      return NextResponse.json({ error: error.message, code: 'HOLD_EXPIRED' }, { status: 410 })
+    if (message === 'Hold expired. Please select a new time slot.') {
+      return NextResponse.json({ error: message, code: 'HOLD_EXPIRED' }, { status: 410 })
     }
 
-    if (error.message === 'Hold not found') {
-      return NextResponse.json({ error: error.message, code: 'HOLD_NOT_FOUND' }, { status: 404 })
+    if (message === 'Hold not found') {
+      return NextResponse.json({ error: message, code: 'HOLD_NOT_FOUND' }, { status: 404 })
     }
 
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

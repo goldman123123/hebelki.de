@@ -20,6 +20,7 @@ interface VoiceRecorderProps {
 }
 
 type RecordingState = 'idle' | 'recording' | 'transcribing'
+type PermissionState = 'checking' | 'prompt' | 'granted' | 'denied' | 'unsupported'
 
 export function VoiceRecorder({
   onTranscription,
@@ -30,11 +31,38 @@ export function VoiceRecorder({
   const [state, setState] = useState<RecordingState>('idle')
   const [duration, setDuration] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [permission, setPermission] = useState<PermissionState>('checking')
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Check mic permission on mount
+  useEffect(() => {
+    if (!navigator.mediaDevices || !window.MediaRecorder) {
+      setPermission('unsupported')
+      return
+    }
+
+    // Use Permissions API if available
+    if (navigator.permissions?.query) {
+      navigator.permissions.query({ name: 'microphone' as PermissionName })
+        .then(result => {
+          setPermission(result.state as PermissionState)
+          // Listen for permission changes
+          result.addEventListener('change', () => {
+            setPermission(result.state as PermissionState)
+          })
+        })
+        .catch(() => {
+          // Permissions API not supported for microphone — assume prompt
+          setPermission('prompt')
+        })
+    } else {
+      setPermission('prompt')
+    }
+  }, [])
 
   // Clean up on unmount
   useEffect(() => {
@@ -142,11 +170,14 @@ export function VoiceRecorder({
       timerRef.current = setInterval(() => {
         setDuration((prev) => prev + 1)
       }, 1000)
+      // Permission was granted if we got here
+      setPermission('granted')
     } catch (err) {
       console.error('[VoiceRecorder] Error starting recording:', err)
 
       if (err instanceof Error) {
         if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          setPermission('denied')
           setError('Mikrofonzugriff verweigert. Bitte erlauben Sie den Zugriff in den Browsereinstellungen.')
         } else if (err.name === 'NotFoundError') {
           setError('Kein Mikrofon gefunden')
@@ -238,6 +269,8 @@ export function VoiceRecorder({
     if (state === 'recording') {
       stopRecording(true)
     } else if (state === 'idle') {
+      // Always attempt — getUserMedia will show the browser permission dialog
+      // if not yet granted, or re-prompt if previously denied and user reset it
       startRecording()
     }
     // Don't do anything while transcribing
@@ -250,6 +283,11 @@ export function VoiceRecorder({
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
+  // Don't render if browser doesn't support recording
+  if (permission === 'unsupported') {
+    return null
   }
 
   return (

@@ -3,17 +3,15 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { CustomerAddressForm } from './CustomerAddressForm'
+import { InvoiceHistory } from './InvoiceHistory'
+import { SendInvoiceDialog, CancelInvoiceDialog } from './InvoiceDialogs'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Checkbox } from '@/components/ui/checkbox'
+  type Invoice,
+  formatCurrency,
+  formatDateGerman,
+  getStatusBadge,
+} from './invoice-utils'
 import {
   FileText,
   Download,
@@ -23,8 +21,6 @@ import {
   Send,
   Ban,
   CheckCircle,
-  ChevronDown,
-  ChevronUp,
 } from 'lucide-react'
 
 interface Customer {
@@ -38,64 +34,9 @@ interface Customer {
   country: string | null
 }
 
-interface Invoice {
-  id: string
-  invoiceNumber: string
-  status: string
-  type: string
-  subtotal: string
-  taxRate: string | null
-  taxAmount: string | null
-  total: string
-  issueDate: string
-  serviceDate: string | null
-  dueDate: string
-  pdfR2Key: string | null
-  stornoInvoiceId: string | null
-  originalInvoiceId: string | null
-  replacementInvoiceId: string | null
-  cancelledAt: string | null
-  createdAt: string
-}
-
 interface InvoiceCardProps {
   bookingId: string
   customer: Customer | null
-}
-
-function formatCurrency(amount: string | number): string {
-  const num = typeof amount === 'string' ? parseFloat(amount) : amount
-  return new Intl.NumberFormat('de-DE', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(num)
-}
-
-function formatDateGerman(dateStr: string): string {
-  const date = new Date(dateStr)
-  return date.toLocaleDateString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
-}
-
-function getStatusBadge(status: string, type: string) {
-  if (type === 'storno') {
-    return <Badge variant="outline" className="border-red-300 bg-red-50 text-red-700">Storno</Badge>
-  }
-  switch (status) {
-    case 'draft':
-      return <Badge variant="outline">Entwurf</Badge>
-    case 'sent':
-      return <Badge variant="outline" className="border-blue-300 bg-blue-50 text-blue-700">Versendet</Badge>
-    case 'paid':
-      return <Badge className="bg-green-600">Bezahlt</Badge>
-    case 'cancelled':
-      return <Badge variant="outline" className="border-red-300 bg-red-50 text-red-700">Storniert</Badge>
-    default:
-      return <Badge variant="outline">{status}</Badge>
-  }
 }
 
 export function InvoiceCard({ bookingId, customer: initialCustomer }: InvoiceCardProps) {
@@ -115,8 +56,6 @@ export function InvoiceCard({ bookingId, customer: initialCustomer }: InvoiceCar
   // Dialog states
   const [sendDialogOpen, setSendDialogOpen] = useState(false)
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
-  const [cancelReason, setCancelReason] = useState('')
-  const [createReplacementOnCancel, setCreateReplacementOnCancel] = useState(false)
 
   const fetchInvoice = useCallback(async () => {
     try {
@@ -227,7 +166,7 @@ export function InvoiceCard({ bookingId, customer: initialCustomer }: InvoiceCar
     }
   }
 
-  async function handleCancelInvoice() {
+  async function handleCancelInvoice(reason: string, createReplacement: boolean) {
     setCancelling(true)
     setError(null)
     try {
@@ -235,8 +174,8 @@ export function InvoiceCard({ bookingId, customer: initialCustomer }: InvoiceCar
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          reason: cancelReason || undefined,
-          createReplacement: createReplacementOnCancel,
+          reason: reason || undefined,
+          createReplacement,
         }),
       })
       const data = await res.json()
@@ -244,7 +183,6 @@ export function InvoiceCard({ bookingId, customer: initialCustomer }: InvoiceCar
         setError(typeof data.error === 'string' ? data.error : 'Stornierung fehlgeschlagen')
         return
       }
-      // If replacement was created, show it; otherwise show cancelled state
       if (data.replacement) {
         setInvoice(data.replacement)
       } else {
@@ -252,8 +190,6 @@ export function InvoiceCard({ bookingId, customer: initialCustomer }: InvoiceCar
       }
       fetchAllInvoices()
       setCancelDialogOpen(false)
-      setCancelReason('')
-      setCreateReplacementOnCancel(false)
     } catch {
       setError('Stornierung fehlgeschlagen')
     } finally {
@@ -290,9 +226,7 @@ export function InvoiceCard({ bookingId, customer: initialCustomer }: InvoiceCar
         body: JSON.stringify({ createReplacement: true }),
       })
       const data = await res.json()
-      // If this was already cancelled, we just need a new invoice
       if (!res.ok) {
-        // Try creating directly
         await handleGenerateInvoice()
         return
       }
@@ -333,7 +267,6 @@ export function InvoiceCard({ bookingId, customer: initialCustomer }: InvoiceCar
     const isPaid = invoice.status === 'paid'
     const isCancelled = invoice.status === 'cancelled'
     const isStorno = invoice.type === 'storno'
-    const hasHistory = allInvoices.length > 1
 
     return (
       <Card>
@@ -384,7 +317,6 @@ export function InvoiceCard({ bookingId, customer: initialCustomer }: InvoiceCar
 
           {/* Action buttons based on status */}
           <div className="flex flex-wrap gap-2">
-            {/* PDF Download — always available */}
             <Button asChild variant={isDraft ? 'default' : 'outline'} className="flex-1 min-w-[140px]">
               <a
                 href={`/api/invoices/${invoice.id}/pdf`}
@@ -396,7 +328,6 @@ export function InvoiceCard({ bookingId, customer: initialCustomer }: InvoiceCar
               </a>
             </Button>
 
-            {/* Draft: Regenerate + Send */}
             {isDraft && (
               <>
                 <Button
@@ -417,7 +348,6 @@ export function InvoiceCard({ bookingId, customer: initialCustomer }: InvoiceCar
               </>
             )}
 
-            {/* Sent: Mark Paid + Stornieren */}
             {isSent && (
               <>
                 <Button
@@ -439,7 +369,6 @@ export function InvoiceCard({ bookingId, customer: initialCustomer }: InvoiceCar
               </>
             )}
 
-            {/* Paid: Stornieren */}
             {isPaid && (
               <Button
                 variant="outline"
@@ -451,7 +380,6 @@ export function InvoiceCard({ bookingId, customer: initialCustomer }: InvoiceCar
               </Button>
             )}
 
-            {/* Cancelled: New invoice */}
             {isCancelled && !isStorno && (
               <Button
                 onClick={handleGenerateInvoice}
@@ -469,124 +397,30 @@ export function InvoiceCard({ bookingId, customer: initialCustomer }: InvoiceCar
             </div>
           )}
 
-          {/* Invoice History (collapsible) */}
-          {hasHistory && (
-            <div className="border-t pt-3">
-              <button
-                onClick={() => setShowHistory(!showHistory)}
-                className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
-              >
-                {showHistory ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                Rechnungsverlauf ({allInvoices.length})
-              </button>
-              {showHistory && (
-                <div className="mt-2 space-y-1">
-                  {allInvoices.map((inv) => {
-                    const isCurrent = inv.id === invoice.id
-                    return (
-                      <div
-                        key={inv.id}
-                        className={`flex items-center justify-between text-sm px-3 py-2 rounded ${
-                          isCurrent ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs">{inv.invoiceNumber}</span>
-                          {getStatusBadge(inv.status, inv.type)}
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-gray-500">{formatDateGerman(inv.createdAt)}</span>
-                          <span className={`font-medium ${parseFloat(inv.total) < 0 ? 'text-red-600' : ''}`}>
-                            {formatCurrency(inv.total)}
-                          </span>
-                          {isCurrent && <span className="text-xs text-blue-600">aktuell</span>}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )}
+          <InvoiceHistory
+            invoices={allInvoices}
+            currentInvoiceId={invoice.id}
+            showHistory={showHistory}
+            onToggle={() => setShowHistory(!showHistory)}
+          />
         </CardContent>
 
-        {/* Send Confirmation Dialog */}
-        <Dialog open={sendDialogOpen} onOpenChange={setSendDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Rechnung versenden</DialogTitle>
-              <DialogDescription>
-                Rechnung {invoice.invoiceNumber} wird an{' '}
-                <strong>{customer?.email || 'den Kunden'}</strong> gesendet.
-                Nach dem Versand kann die Rechnung nicht mehr bearbeitet werden.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setSendDialogOpen(false)}>
-                Abbrechen
-              </Button>
-              <Button
-                onClick={handleSendInvoice}
-                disabled={sending}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {sending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Jetzt senden
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <SendInvoiceDialog
+          open={sendDialogOpen}
+          onOpenChange={setSendDialogOpen}
+          invoiceNumber={invoice.invoiceNumber}
+          customerEmail={customer?.email || null}
+          onSend={handleSendInvoice}
+          sending={sending}
+        />
 
-        {/* Cancel (Storno) Confirmation Dialog */}
-        <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Rechnung stornieren</DialogTitle>
-              <DialogDescription>
-                Es wird eine Stornorechnung zu {invoice.invoiceNumber} erstellt.
-                Dieser Vorgang kann nicht rückgängig gemacht werden.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div>
-                <label htmlFor="cancel-reason" className="text-sm font-medium text-gray-700">
-                  Grund (optional)
-                </label>
-                <input
-                  id="cancel-reason"
-                  type="text"
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  placeholder="z.B. Fehlbuchung, geänderter Leistungsumfang"
-                  value={cancelReason}
-                  onChange={(e) => setCancelReason(e.target.value)}
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="create-replacement"
-                  checked={createReplacementOnCancel}
-                  onCheckedChange={(checked) => setCreateReplacementOnCancel(checked === true)}
-                />
-                <label htmlFor="create-replacement" className="text-sm text-gray-700">
-                  Neue Rechnung direkt erstellen
-                </label>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
-                Abbrechen
-              </Button>
-              <Button
-                onClick={handleCancelInvoice}
-                disabled={cancelling}
-                variant="destructive"
-              >
-                {cancelling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Stornieren
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <CancelInvoiceDialog
+          open={cancelDialogOpen}
+          onOpenChange={setCancelDialogOpen}
+          invoiceNumber={invoice.invoiceNumber}
+          onCancel={handleCancelInvoice}
+          cancelling={cancelling}
+        />
       </Card>
     )
   }
@@ -635,39 +469,11 @@ export function InvoiceCard({ bookingId, customer: initialCustomer }: InvoiceCar
           </div>
         )}
 
-        {/* Show history even when no active invoice */}
-        {allInvoices.length > 0 && (
-          <div className="border-t pt-3">
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
-            >
-              {showHistory ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              Rechnungsverlauf ({allInvoices.length})
-            </button>
-            {showHistory && (
-              <div className="mt-2 space-y-1">
-                {allInvoices.map((inv) => (
-                  <div
-                    key={inv.id}
-                    className="flex items-center justify-between text-sm px-3 py-2 rounded bg-gray-50"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs">{inv.invoiceNumber}</span>
-                      {getStatusBadge(inv.status, inv.type)}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-gray-500">{formatDateGerman(inv.createdAt)}</span>
-                      <span className={`font-medium ${parseFloat(inv.total) < 0 ? 'text-red-600' : ''}`}>
-                        {formatCurrency(inv.total)}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        <InvoiceHistory
+          invoices={allInvoices}
+          showHistory={showHistory}
+          onToggle={() => setShowHistory(!showHistory)}
+        />
       </CardContent>
     </Card>
   )

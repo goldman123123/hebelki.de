@@ -81,7 +81,7 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      onboarding: (business[0].settings as any)?.onboarding || {},
+      onboarding: (business[0].settings as Record<string, unknown>)?.onboarding || {},
     })
   } catch (error) {
     console.error('Error fetching onboarding state:', error)

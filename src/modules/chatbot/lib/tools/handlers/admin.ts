@@ -1,1173 +1,18 @@
 /**
- * Chatbot Tool Definitions
+ * Admin Tool Handlers
  *
- * Defines functions the AI can call to interact with the booking system.
+ * These 15 tools are restricted to staff/owner actors.
  */
 
-import type { Tool } from './openrouter'
 import { db } from '@/lib/db'
-import { services, staff, customers, bookings, businesses, chatbotConversations, chatbotMessages, bookingActions } from '@/lib/db/schema'
-import { eq, and, desc, or, ilike, gte, lte } from 'drizzle-orm'
-import { hybridSearch, searchWithCategoryThreshold, type AccessContext } from '@/lib/search/hybrid-search'
-import { updateConversationIntent } from './conversation'
+import { services, staff, staffServices, customers, bookings, businesses, chatbotConversations, chatbotMessages, bookingActions } from '@/lib/db/schema'
+import { eq, and, ne, desc, or, ilike, gte, lte, isNull, lt, gt } from 'drizzle-orm'
 import { sendEmail, sendCustomEmail } from '@/lib/email'
 
 /**
- * Internal access context passed by conversation handler (Phase 1)
- * This is injected server-side and cannot be overridden by AI
+ * Admin tool handlers
  */
-interface InternalAccessContext {
-  actorType: 'customer' | 'staff' | 'owner'
-  actorId?: string
-  customerScopeId?: string
-}
-
-/**
- * Tool definitions for OpenRouter function calling
- */
-export const tools: Tool[] = [
-  {
-    type: 'function',
-    function: {
-      name: 'get_current_date',
-      description: 'Ruft das aktuelle Datum vom Server ab. IMMER ZUERST AUFRUFEN wenn du Termine prüfen oder "morgen" berechnen musst! Gibt Daten in der Zeitzone des Unternehmens zurück.',
-      parameters: {
-        type: 'object',
-        properties: {
-          businessId: {
-            type: 'string',
-            description: 'Die ID des Unternehmens (für korrekte Zeitzone)',
-          },
-        },
-        required: ['businessId'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_available_services',
-      description: 'Ruft die verfügbaren Dienstleistungen für ein Unternehmen ab. Verwenden Sie dies, um dem Kunden die Behandlungsoptionen zu zeigen.',
-      parameters: {
-        type: 'object',
-        properties: {
-          businessId: {
-            type: 'string',
-            description: 'Die ID des Unternehmens',
-          },
-        },
-        required: ['businessId'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_available_staff',
-      description: 'Ruft die verfügbaren Mitarbeiter für ein Unternehmen ab.',
-      parameters: {
-        type: 'object',
-        properties: {
-          businessId: {
-            type: 'string',
-            description: 'Die ID des Unternehmens',
-          },
-          serviceId: {
-            type: 'string',
-            description: 'Die ID der Dienstleistung (optional, um nur qualifizierte Mitarbeiter anzuzeigen)',
-          },
-        },
-        required: ['businessId'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'check_availability',
-      description: 'Prüft verfügbare Zeitfenster für einen bestimmten Service und optional einen bestimmten Mitarbeiter.',
-      parameters: {
-        type: 'object',
-        properties: {
-          businessId: {
-            type: 'string',
-            description: 'Die ID des Unternehmens',
-          },
-          serviceId: {
-            type: 'string',
-            description: 'Die ID der Dienstleistung',
-          },
-          staffId: {
-            type: 'string',
-            description: 'Die ID des Mitarbeiters (optional)',
-          },
-          date: {
-            type: 'string',
-            description: 'Das gewünschte Datum im Format YYYY-MM-DD',
-          },
-        },
-        required: ['businessId', 'serviceId', 'date'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'create_hold',
-      description: 'Reserviert einen Zeitslot für 5 Minuten. Verwenden Sie dies NUR, wenn der Kunde einen bestimmten Zeitslot ausgewählt hat.',
-      parameters: {
-        type: 'object',
-        properties: {
-          businessId: {
-            type: 'string',
-            description: 'Die ID des Unternehmens',
-          },
-          serviceId: {
-            type: 'string',
-            description: 'Die ID der Dienstleistung',
-          },
-          staffId: {
-            type: 'string',
-            description: 'Die ID des Mitarbeiters (optional)',
-          },
-          startsAt: {
-            type: 'string',
-            description: 'Startzeit im ISO 8601 Format (z.B. "2024-03-15T10:00:00Z")',
-          },
-        },
-        required: ['businessId', 'serviceId', 'startsAt'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'confirm_booking',
-      description: 'Bestätigt die Buchung mit Kundendaten. Verwenden Sie dies NUR NACH create_hold UND nachdem der Kunde die Details bestätigt hat.',
-      parameters: {
-        type: 'object',
-        properties: {
-          businessId: {
-            type: 'string',
-            description: 'Die ID des Unternehmens',
-          },
-          holdId: {
-            type: 'string',
-            description: 'Die Hold-ID aus create_hold',
-          },
-          customerName: {
-            type: 'string',
-            description: 'Der vollständige Name des Kunden',
-          },
-          customerEmail: {
-            type: 'string',
-            description: 'Die E-Mail-Adresse des Kunden',
-          },
-          customerPhone: {
-            type: 'string',
-            description: 'Die Telefonnummer des Kunden (optional)',
-          },
-          customerTimezone: {
-            type: 'string',
-            description: 'Zeitzone des Kunden (z.B. "Europe/Berlin", optional)',
-          },
-          notes: {
-            type: 'string',
-            description: 'Zusätzliche Hinweise vom Kunden (optional)',
-          },
-        },
-        required: ['businessId', 'holdId', 'customerName', 'customerEmail'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'search_bookings',
-      description: '[NUR FÜR ADMINS] Durchsucht Buchungen. Verwenden Sie dies, um Buchungen nach Kundenname, Datum oder Status zu finden.',
-      parameters: {
-        type: 'object',
-        properties: {
-          businessId: {
-            type: 'string',
-            description: 'Die ID des Unternehmens',
-          },
-          customerName: {
-            type: 'string',
-            description: 'Kundenname (optional, Teilsuche)',
-          },
-          customerEmail: {
-            type: 'string',
-            description: 'Kunden-E-Mail (optional)',
-          },
-          status: {
-            type: 'string',
-            description: 'Buchungsstatus (optional): pending, confirmed, cancelled, completed, no_show, all',
-          },
-          dateFrom: {
-            type: 'string',
-            description: 'Startdatum im Format YYYY-MM-DD (optional)',
-          },
-          dateTo: {
-            type: 'string',
-            description: 'Enddatum im Format YYYY-MM-DD (optional)',
-          },
-          limit: {
-            type: 'number',
-            description: 'Maximale Anzahl Ergebnisse (Standard: 10, Max: 50)',
-          },
-        },
-        required: ['businessId'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'update_booking_status',
-      description: '[NUR FÜR ADMINS] Ändert den Status einer Buchung (bestätigen, stornieren, abschließen).',
-      parameters: {
-        type: 'object',
-        properties: {
-          businessId: {
-            type: 'string',
-            description: 'Die ID des Unternehmens',
-          },
-          bookingId: {
-            type: 'string',
-            description: 'Die ID der Buchung',
-          },
-          newStatus: {
-            type: 'string',
-            description: 'Neuer Status: confirmed, cancelled, completed, no_show',
-          },
-          reason: {
-            type: 'string',
-            description: 'Grund für die Änderung (optional, aber empfohlen bei Stornierung)',
-          },
-        },
-        required: ['businessId', 'bookingId', 'newStatus'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'reschedule_booking',
-      description: '[NUR FÜR ADMINS] Verschiebt eine Buchung auf einen neuen Zeitpunkt.',
-      parameters: {
-        type: 'object',
-        properties: {
-          businessId: {
-            type: 'string',
-            description: 'Die ID des Unternehmens',
-          },
-          bookingId: {
-            type: 'string',
-            description: 'Die ID der Buchung',
-          },
-          newStartsAt: {
-            type: 'string',
-            description: 'Neue Startzeit im ISO 8601 Format',
-          },
-          reason: {
-            type: 'string',
-            description: 'Grund für die Verschiebung (optional)',
-          },
-        },
-        required: ['businessId', 'bookingId', 'newStartsAt'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'search_knowledge_base',
-      description: 'Durchsucht die Wissensdatenbank des Unternehmens mit modernster Hybrid-Suche (semantisch + Stichwortsuche). Findet relevante Informationen über FAQs, Richtlinien, Services, Öffnungszeiten, etc.',
-      parameters: {
-        type: 'object',
-        properties: {
-          businessId: {
-            type: 'string',
-            description: 'Die ID des Unternehmens',
-          },
-          query: {
-            type: 'string',
-            description: 'Die Suchanfrage (funktioniert auch mit umgangssprachlichen Formulierungen)',
-          },
-          category: {
-            type: 'string',
-            description: 'Kategorie einschränken (optional): faq, services, pricing, policies, hours, contact, qualifications, other',
-          },
-        },
-        required: ['businessId', 'query'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'search_customer_conversations',
-      description: '[NUR FÜR ADMINS] Durchsucht vergangene Kundengespräche. Findet Konversationen nach Kundenname, E-Mail oder Suchbegriff im Gesprächsinhalt. Beispiel: "Was haben wir mit Tom besprochen?" oder "Zeig mir alle Gespräche von letzter Woche".',
-      parameters: {
-        type: 'object',
-        properties: {
-          businessId: {
-            type: 'string',
-            description: 'Die ID des Unternehmens',
-          },
-          customerName: {
-            type: 'string',
-            description: 'Kundenname (Teilsuche möglich)',
-          },
-          customerEmail: {
-            type: 'string',
-            description: 'Kunden-E-Mail (Teilsuche möglich)',
-          },
-          searchQuery: {
-            type: 'string',
-            description: 'Suchbegriff im Gesprächsinhalt (optional)',
-          },
-          daysBack: {
-            type: 'number',
-            description: 'Suche in den letzten X Tagen (Standard: 30)',
-          },
-          limit: {
-            type: 'number',
-            description: 'Maximale Anzahl Gespräche (Standard: 5, Max: 20)',
-          },
-        },
-        required: ['businessId'],
-        additionalProperties: false,
-      },
-    },
-  },
-  // ============================================
-  // PHASE 1: NEW ADMIN TOOLS (11 total)
-  // ============================================
-  {
-    type: 'function',
-    function: {
-      name: 'get_todays_bookings',
-      description: '[ADMIN] Zeigt alle Buchungen für heute. Gibt eine schnelle Übersicht des Tagesplans.',
-      parameters: {
-        type: 'object',
-        properties: {
-          businessId: {
-            type: 'string',
-            description: 'Die ID des Unternehmens',
-          },
-        },
-        required: ['businessId'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_upcoming_bookings',
-      description: '[ADMIN] Zeigt Buchungen der nächsten 7 Tage (oder angegebene Tage).',
-      parameters: {
-        type: 'object',
-        properties: {
-          businessId: {
-            type: 'string',
-            description: 'Die ID des Unternehmens',
-          },
-          days: {
-            type: 'number',
-            description: 'Anzahl der Tage in die Zukunft (Standard: 7, Max: 30)',
-          },
-        },
-        required: ['businessId'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'create_booking_admin',
-      description: '[ADMIN] Erstellt eine Buchung direkt ohne Hold-Flow. Für Admin-Buchungen, die sofort bestätigt werden.',
-      parameters: {
-        type: 'object',
-        properties: {
-          businessId: {
-            type: 'string',
-            description: 'Die ID des Unternehmens',
-          },
-          serviceId: {
-            type: 'string',
-            description: 'Die ID der Dienstleistung',
-          },
-          staffId: {
-            type: 'string',
-            description: 'Die ID des Mitarbeiters (optional)',
-          },
-          startsAt: {
-            type: 'string',
-            description: 'Startzeit im ISO 8601 Format',
-          },
-          customerName: {
-            type: 'string',
-            description: 'Name des Kunden',
-          },
-          customerEmail: {
-            type: 'string',
-            description: 'E-Mail des Kunden',
-          },
-          customerPhone: {
-            type: 'string',
-            description: 'Telefonnummer des Kunden (optional)',
-          },
-          notes: {
-            type: 'string',
-            description: 'Zusätzliche Notizen (optional)',
-          },
-          sendConfirmation: {
-            type: 'boolean',
-            description: 'Bestätigungs-E-Mail senden (Standard: true)',
-          },
-        },
-        required: ['businessId', 'serviceId', 'startsAt', 'customerName', 'customerEmail'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'cancel_booking_with_notification',
-      description: '[ADMIN] Storniert eine Buchung und benachrichtigt den Kunden per E-Mail.',
-      parameters: {
-        type: 'object',
-        properties: {
-          businessId: {
-            type: 'string',
-            description: 'Die ID des Unternehmens',
-          },
-          bookingId: {
-            type: 'string',
-            description: 'Die ID der Buchung',
-          },
-          reason: {
-            type: 'string',
-            description: 'Grund für die Stornierung',
-          },
-          notifyCustomer: {
-            type: 'boolean',
-            description: 'Kunden per E-Mail benachrichtigen (Standard: true)',
-          },
-        },
-        required: ['businessId', 'bookingId', 'reason'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'create_customer',
-      description: '[ADMIN] Erstellt einen neuen Kundendatensatz.',
-      parameters: {
-        type: 'object',
-        properties: {
-          businessId: {
-            type: 'string',
-            description: 'Die ID des Unternehmens',
-          },
-          name: {
-            type: 'string',
-            description: 'Name des Kunden',
-          },
-          email: {
-            type: 'string',
-            description: 'E-Mail des Kunden (optional)',
-          },
-          phone: {
-            type: 'string',
-            description: 'Telefonnummer des Kunden (optional)',
-          },
-          notes: {
-            type: 'string',
-            description: 'Interne Notizen (optional)',
-          },
-        },
-        required: ['businessId', 'name'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'search_customers',
-      description: '[ADMIN] Sucht Kunden nach Name, E-Mail oder Telefon.',
-      parameters: {
-        type: 'object',
-        properties: {
-          businessId: {
-            type: 'string',
-            description: 'Die ID des Unternehmens',
-          },
-          query: {
-            type: 'string',
-            description: 'Suchbegriff (Name, E-Mail oder Telefon)',
-          },
-          limit: {
-            type: 'number',
-            description: 'Maximale Anzahl Ergebnisse (Standard: 10)',
-          },
-        },
-        required: ['businessId', 'query'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_customer_bookings',
-      description: '[ADMIN] Zeigt alle Buchungen eines Kunden.',
-      parameters: {
-        type: 'object',
-        properties: {
-          businessId: {
-            type: 'string',
-            description: 'Die ID des Unternehmens',
-          },
-          customerId: {
-            type: 'string',
-            description: 'Die ID des Kunden',
-          },
-          includeCompleted: {
-            type: 'boolean',
-            description: 'Abgeschlossene Buchungen einschließen (Standard: true)',
-          },
-        },
-        required: ['businessId', 'customerId'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'send_email_to_customer',
-      description: '[ADMIN] Sendet eine benutzerdefinierte E-Mail an einen Kunden.',
-      parameters: {
-        type: 'object',
-        properties: {
-          businessId: {
-            type: 'string',
-            description: 'Die ID des Unternehmens',
-          },
-          customerId: {
-            type: 'string',
-            description: 'Die ID des Kunden',
-          },
-          subject: {
-            type: 'string',
-            description: 'Betreff der E-Mail',
-          },
-          body: {
-            type: 'string',
-            description: 'Text der E-Mail',
-          },
-        },
-        required: ['businessId', 'customerId', 'subject', 'body'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'resend_booking_confirmation',
-      description: '[ADMIN] Sendet die Buchungsbestätigung erneut an den Kunden.',
-      parameters: {
-        type: 'object',
-        properties: {
-          businessId: {
-            type: 'string',
-            description: 'Die ID des Unternehmens',
-          },
-          bookingId: {
-            type: 'string',
-            description: 'Die ID der Buchung',
-          },
-        },
-        required: ['businessId', 'bookingId'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_daily_summary',
-      description: '[ADMIN/OWNER] Zeigt Tagesübersicht mit Statistiken: Buchungen, Umsatz, No-Shows.',
-      parameters: {
-        type: 'object',
-        properties: {
-          businessId: {
-            type: 'string',
-            description: 'Die ID des Unternehmens',
-          },
-          date: {
-            type: 'string',
-            description: 'Datum im Format YYYY-MM-DD (Standard: heute)',
-          },
-        },
-        required: ['businessId'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_escalated_conversations',
-      description: '[ADMIN/OWNER] Zeigt eskalierte Gespräche, die menschliche Aufmerksamkeit brauchen.',
-      parameters: {
-        type: 'object',
-        properties: {
-          businessId: {
-            type: 'string',
-            description: 'Die ID des Unternehmens',
-          },
-          limit: {
-            type: 'number',
-            description: 'Maximale Anzahl Ergebnisse (Standard: 10)',
-          },
-        },
-        required: ['businessId'],
-        additionalProperties: false,
-      },
-    },
-  },
-]
-
-/**
- * Tool execution handlers
- */
-export const toolHandlers = {
-  /**
-   * Get current date from server in business timezone
-   */
-  async get_current_date(args: { businessId: string }) {
-    try {
-      // Fetch business to get timezone
-      const business = await db
-        .select({ timezone: businesses.timezone })
-        .from(businesses)
-        .where(eq(businesses.id, args.businessId))
-        .limit(1)
-        .then(rows => rows[0])
-
-      if (!business) {
-        return { success: false, error: 'Business not found' }
-      }
-
-      const timezone = business.timezone
-
-      // Get current time in business timezone
-      const now = new Date()
-      const businessNow = new Date(now.toLocaleString('en-US', { timeZone: timezone }))
-
-      // Calculate tomorrow in business timezone
-      const tomorrow = new Date(businessNow)
-      tomorrow.setDate(tomorrow.getDate() + 1)
-
-      // Calculate next 7 days in business timezone
-      const next7Days = []
-      for (let i = 1; i <= 7; i++) {
-        const futureDate = new Date(businessNow)
-        futureDate.setDate(futureDate.getDate() + i)
-        next7Days.push(futureDate.toISOString().split('T')[0])
-      }
-
-      return {
-        success: true,
-        data: {
-          // Current date/time (UTC)
-          nowUtc: now.toISOString(),
-
-          // Business local time
-          businessTimezoneNow: businessNow.toISOString(),
-          businessDate: businessNow.toISOString().split('T')[0], // YYYY-MM-DD in business TZ
-          businessTime: businessNow.toTimeString().split(' ')[0], // HH:MM:SS
-
-          // Tomorrow in business timezone
-          tomorrow: tomorrow.toISOString().split('T')[0],
-
-          // Next 7 days (for "next available" searches) in business TZ
-          next7Days,
-
-          // Day of week info (in business timezone)
-          dayOfWeek: businessNow.getDay(), // 0=Sunday, 6=Saturday
-          dayName: ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'][businessNow.getDay()],
-
-          // Timezone
-          timezone,
-        },
-      }
-    } catch (error) {
-      console.error('[get_current_date] Error:', error)
-      return { success: false, error: 'Fehler beim Abrufen des Datums' }
-    }
-  },
-
-  /**
-   * Get available services for a business
-   */
-  async get_available_services(args: { businessId: string; _conversationId?: string }) {
-    const servicesList = await db
-      .select({
-        id: services.id,
-        name: services.name,
-        description: services.description,
-        durationMinutes: services.durationMinutes,
-        price: services.price,
-        category: services.category,
-      })
-      .from(services)
-      .where(and(
-        eq(services.businessId, args.businessId),
-        eq(services.isActive, true)
-      ))
-      .orderBy(services.sortOrder)
-
-    // Track intent: customer is browsing services
-    if (args._conversationId) {
-      updateConversationIntent(args._conversationId, {
-        state: 'browsing_services',
-      }).catch(err => console.error('[Intent] Failed to update:', err))
-    }
-
-    return {
-      success: true,
-      data: servicesList,
-    }
-  },
-
-  /**
-   * Get available staff for a business
-   */
-  async get_available_staff(args: { businessId: string; serviceId?: string }) {
-    const staffList = await db
-      .select({
-        id: staff.id,
-        name: staff.name,
-        title: staff.title,
-      })
-      .from(staff)
-      .where(and(
-        eq(staff.businessId, args.businessId),
-        eq(staff.isActive, true)
-      ))
-
-    // TODO: Filter by serviceId if provided (requires join with staff_services)
-
-    return {
-      success: true,
-      data: staffList,
-    }
-  },
-
-  /**
-   * Check availability for a service on a specific date
-   */
-  async check_availability(args: {
-    businessId: string
-    serviceId: string
-    staffId?: string
-    date: string
-    _conversationId?: string
-  }) {
-    try {
-      // Get business slug
-      const business = await db
-        .select({ slug: businesses.slug })
-        .from(businesses)
-        .where(eq(businesses.id, args.businessId))
-        .limit(1)
-        .then(rows => rows[0])
-
-      if (!business) return { success: false, error: 'Business not found' }
-
-      // Call availability API
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3005'
-      const url = `${baseUrl}/api/${business.slug}/availability?serviceId=${args.serviceId}&date=${args.date}${args.staffId ? `&staffId=${args.staffId}` : ''}`
-
-      const response = await fetch(url)
-      const data = await response.json()
-
-      if (!response.ok) {
-        return { success: false, error: data.error || 'Failed to fetch availability' }
-      }
-
-      // Get business timezone for display
-      const businessInfo = await db
-        .select({ timezone: businesses.timezone })
-        .from(businesses)
-        .where(eq(businesses.id, args.businessId))
-        .limit(1)
-        .then(rows => rows[0])
-
-      const timezone = businessInfo?.timezone || 'Europe/Berlin'
-
-      // Define slot type for availability API response
-      interface AvailabilitySlot {
-        available: boolean
-        start: string
-        end: string
-        recommendedStaffId?: string
-        recommendedStaffName?: string
-      }
-
-      // Format slots (show all available slots, limit to first 20 for performance) WITH INDICES
-      // IMPORTANT: Include serviceId and staffId so AI can directly call create_hold
-      const slots = (data.slots || []) as AvailabilitySlot[]
-      const availableSlots = slots
-        .filter((s) => s.available)
-        .slice(0, 20)  // Increased from 6 to 20 to show more options
-        .map((s, index: number) => ({
-          slotIndex: index + 1,  // Add numbered index (1, 2, 3, etc.)
-          start: s.start,        // Keep full ISO timestamp (UTC)
-          end: s.end,
-          timeLabel: new Date(s.start).toLocaleString('de-DE', {
-            hour: '2-digit',
-            minute: '2-digit',
-            timeZone: timezone,
-          }),
-          timezone, // Include timezone for reference
-          serviceId: args.serviceId, // Include serviceId for easy create_hold calls
-          staffId: s.recommendedStaffId || args.staffId || null, // Use recommended staff or specified staff
-          staffName: s.recommendedStaffName || null,            // Include staff name for display
-        }))
-
-      // Track intent: customer is checking availability
-      if (args._conversationId) {
-        // Get service name for context
-        const service = await db
-          .select({ name: services.name })
-          .from(services)
-          .where(eq(services.id, args.serviceId))
-          .limit(1)
-          .then(rows => rows[0])
-
-        updateConversationIntent(args._conversationId, {
-          state: 'checking_availability',
-          serviceId: args.serviceId,
-          serviceName: service?.name,
-          selectedDate: args.date,
-        }).catch(err => console.error('[Intent] Failed to update:', err))
-      }
-
-      const totalAvailable = slots.filter((s) => s.available).length
-
-      return {
-        success: true,
-        data: {
-          date: args.date,
-          timezone,
-          slotsFound: availableSlots.length,
-          totalSlotsAvailable: totalAvailable,
-          slots: availableSlots,
-          message: availableSlots.length > 0
-            ? `${availableSlots.length} freie Termine angezeigt${totalAvailable > availableSlots.length ? ` (von insgesamt ${totalAvailable} verfügbaren)` : ''} (Zeiten in ${timezone}). Zeigen Sie die Slots mit Nummern an (z.B. "Slot 1: 07:00 Uhr").`
-            : 'Keine freien Termine an diesem Tag',
-        },
-      }
-    } catch (error) {
-      console.error('[check_availability] Error:', error)
-      return { success: false, error: 'Fehler beim Abrufen der Verfügbarkeit' }
-    }
-  },
-
-  /**
-   * Create a hold on a time slot
-   */
-  async create_hold(args: {
-    businessId: string
-    serviceId: string
-    staffId?: string
-    startsAt: string
-    _conversationId?: string
-  }) {
-    try {
-      console.log('[create_hold] Called with args:', JSON.stringify(args, null, 2))
-
-      // VALIDATE PAYLOAD - Check required parameters
-      if (!args.businessId || !args.serviceId || !args.startsAt) {
-        console.log('[create_hold] Validation failed - missing parameters')
-        return {
-          success: false,
-          error: 'Fehlende Parameter für die Reservierung.',
-          code: 'INVALID_PAYLOAD',
-          details: {
-            hasBusinessId: !!args.businessId,
-            hasServiceId: !!args.serviceId,
-            hasStartsAt: !!args.startsAt,
-          },
-        }
-      }
-
-      // VALIDATE TIMESTAMP FORMAT
-      try {
-        const timestamp = new Date(args.startsAt)
-        if (isNaN(timestamp.getTime())) {
-          return {
-            success: false,
-            error: 'Ungültiges Zeitformat. Bitte prüfen Sie erneut die Verfügbarkeit.',
-            code: 'INVALID_TIMESTAMP',
-          }
-        }
-      } catch {
-        return {
-          success: false,
-          error: 'Zeitformat konnte nicht verarbeitet werden.',
-          code: 'INVALID_TIMESTAMP',
-        }
-      }
-
-      // Get business slug
-      const business = await db
-        .select({ slug: businesses.slug })
-        .from(businesses)
-        .where(eq(businesses.id, args.businessId))
-        .limit(1)
-        .then(rows => rows[0])
-
-      if (!business) return { success: false, error: 'Business not found' }
-
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3005'
-      const url = `${baseUrl}/api/${business.slug}/holds`
-
-      console.log('[create_hold] Calling API:', url)
-      console.log('[create_hold] Request body:', JSON.stringify({
-        serviceId: args.serviceId,
-        staffId: args.staffId,
-        startsAt: args.startsAt,
-        holdDurationMinutes: 5,
-      }, null, 2))
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          serviceId: args.serviceId,
-          staffId: args.staffId,
-          startsAt: args.startsAt,
-          holdDurationMinutes: 5,
-        }),
-      })
-
-      const data = await response.json()
-
-      console.log('[create_hold] API response status:', response.status)
-      console.log('[create_hold] API response data:', JSON.stringify(data, null, 2))
-
-      if (!response.ok) {
-        // CATEGORIZE API ERRORS
-        if (response.status === 409) {
-          return {
-            success: false,
-            error: 'Dieser Zeitslot ist leider nicht mehr verfügbar. Möchten Sie einen anderen Termin wählen?',
-            code: 'SLOT_UNAVAILABLE',
-            details: data.details || {},
-          }
-        }
-
-        if (response.status === 400) {
-          return {
-            success: false,
-            error: 'Ungültige Anfrage. Bitte versuchen Sie es erneut.',
-            code: 'INVALID_REQUEST',
-            details: data,
-          }
-        }
-
-        return {
-          success: false,
-          error: data.error || 'Fehler beim Erstellen der Reservierung.',
-          code: data.code || 'UNKNOWN_ERROR',
-        }
-      }
-
-      // Use server-assigned staffId (may differ from args.staffId due to auto-assignment)
-      const assignedStaffId = data.staffId || args.staffId || null
-
-      console.log('[create_hold] SUCCESS - Hold created:', data.holdId, 'staffId:', assignedStaffId)
-
-      // Track intent: hold is active, customer needs to provide details
-      if (args._conversationId) {
-        // Get service name for context
-        const service = await db
-          .select({ name: services.name })
-          .from(services)
-          .where(eq(services.id, args.serviceId))
-          .limit(1)
-          .then(rows => rows[0])
-
-        // Get staff name from the assigned staff (server may have auto-assigned)
-        let staffName: string | undefined
-        if (assignedStaffId) {
-          const staffMember = await db
-            .select({ name: staff.name })
-            .from(staff)
-            .where(eq(staff.id, assignedStaffId))
-            .limit(1)
-            .then(rows => rows[0])
-          staffName = staffMember?.name
-        }
-
-        updateConversationIntent(args._conversationId, {
-          state: 'hold_active',
-          holdId: data.holdId,
-          holdExpiresAt: data.expiresAt,
-          serviceId: args.serviceId,
-          serviceName: service?.name,
-          selectedSlot: {
-            start: args.startsAt,
-            staffId: assignedStaffId,
-            staffName,
-          },
-        }).catch(err => console.error('[Intent] Failed to update:', err))
-      }
-
-      return {
-        success: true,
-        data: {
-          holdId: data.holdId,
-          expiresAt: data.expiresAt,
-          startsAt: data.startsAt,
-          endsAt: data.endsAt,
-          staffId: assignedStaffId,
-          expiresInMinutes: 5,
-        },
-        nextStep: 'WICHTIG: Der Termin ist NOCH NICHT gebucht — nur für 5 Minuten reserviert. Du MUSST jetzt Name, E-Mail und Telefon des Kunden erfragen und dann confirm_booking() aufrufen, um die Buchung abzuschließen.',
-      }
-    } catch (error) {
-      console.error('[create_hold] EXCEPTION caught:', error)
-      console.error('[create_hold] Error details:', error instanceof Error ? error.message : String(error))
-      return {
-        success: false,
-        error: 'Fehler beim Erstellen der Reservierung. Bitte versuchen Sie es erneut.',
-        code: 'INTERNAL_ERROR',
-      }
-    }
-  },
-
-  /**
-   * Confirm a booking with customer details
-   */
-  async confirm_booking(args: {
-    businessId: string
-    holdId: string
-    customerName: string
-    customerEmail: string
-    customerPhone?: string
-    customerTimezone?: string
-    notes?: string
-    _conversationId?: string
-  }) {
-    try {
-      // Get business slug
-      const business = await db
-        .select({ slug: businesses.slug })
-        .from(businesses)
-        .where(eq(businesses.id, args.businessId))
-        .limit(1)
-        .then(rows => rows[0])
-
-      if (!business) return { success: false, error: 'Business not found' }
-
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3005'
-      const url = `${baseUrl}/api/${business.slug}/confirm`
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          holdId: args.holdId,
-          customerName: args.customerName,
-          customerEmail: args.customerEmail,
-          customerPhone: args.customerPhone,
-          customerTimezone: args.customerTimezone || 'Europe/Berlin',
-          notes: args.notes,
-          idempotencyKey: `${args.holdId}-${args.customerEmail}`,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        if (data.code === 'HOLD_EXPIRED') {
-          // Reset intent on hold expiry
-          if (args._conversationId) {
-            updateConversationIntent(args._conversationId, {
-              state: 'idle',
-              holdId: undefined,
-              holdExpiresAt: undefined,
-            }).catch(err => console.error('[Intent] Failed to update:', err))
-          }
-          return {
-            success: false,
-            error: 'Reservierung abgelaufen. Bitte wählen Sie einen neuen Termin.',
-            code: 'HOLD_EXPIRED',
-          }
-        }
-        return { success: false, error: data.error || 'Failed to confirm booking' }
-      }
-
-      // Track intent: booking completed, reset to idle
-      if (args._conversationId) {
-        updateConversationIntent(args._conversationId, {
-          state: 'idle',
-          holdId: undefined,
-          holdExpiresAt: undefined,
-          serviceId: undefined,
-          serviceName: undefined,
-          selectedDate: undefined,
-          selectedSlot: undefined,
-          customerData: undefined,
-        }).catch(err => console.error('[Intent] Failed to update:', err))
-      }
-
-      return {
-        success: true,
-        data: {
-          bookingId: data.bookingId,
-          confirmationToken: data.confirmationToken,
-          message: 'Buchung erfolgreich! Bestätigungs-E-Mail wurde gesendet.',
-          // Include booking details for reference
-          startsAt: data.booking?.startsAt,
-          endsAt: data.booking?.endsAt,
-          serviceName: data.service?.name,
-          servicePrice: data.service?.price,
-          staffName: data.staff?.name || null,
-          staffEmail: data.staff?.email || null,
-        },
-      }
-    } catch (error) {
-      console.error('[confirm_booking] Error:', error)
-      return { success: false, error: 'Fehler beim Bestätigen der Buchung' }
-    }
-  },
-
+export const adminHandlers = {
   /**
    * Search bookings (ADMIN ONLY)
    */
@@ -1200,8 +45,18 @@ export const toolHandlers = {
         conditions.push(lte(bookings.startsAt, endDate))
       }
 
+      // Add customer name/email filters at SQL level (not in-memory)
+      // Uses LEFT JOIN so filters must reference the joined customers table
+      if (args.customerName) {
+        conditions.push(ilike(customers.name, `%${args.customerName}%`))
+      }
+
+      if (args.customerEmail) {
+        conditions.push(ilike(customers.email, `%${args.customerEmail}%`))
+      }
+
       // Query bookings with customer data
-      let results = await db
+      const results = await db
         .select({
           id: bookings.id,
           serviceId: bookings.serviceId,
@@ -1223,17 +78,6 @@ export const toolHandlers = {
         .where(and(...conditions))
         .orderBy(desc(bookings.startsAt))
         .limit(limit)
-
-      // Filter by customer name/email in memory (if needed)
-      if (args.customerName) {
-        const searchTerm = args.customerName.toLowerCase()
-        results = results.filter(b => b.customerName?.toLowerCase().includes(searchTerm))
-      }
-
-      if (args.customerEmail) {
-        const searchTerm = args.customerEmail.toLowerCase()
-        results = results.filter(b => b.customerEmail?.toLowerCase().includes(searchTerm))
-      }
 
       return {
         success: true,
@@ -1338,6 +182,7 @@ export const toolHandlers = {
     businessId: string
     bookingId: string
     newStartsAt: string
+    durationMinutes?: number
     reason?: string
   }) {
     try {
@@ -1357,9 +202,9 @@ export const toolHandlers = {
         return { success: false, error: 'Buchung nicht gefunden' }
       }
 
-      // Calculate new end time
+      // Calculate new end time (args.durationMinutes overrides service default)
       const newStartsAt = new Date(args.newStartsAt)
-      const durationMinutes = booking.service?.durationMinutes || 60
+      const durationMinutes = args.durationMinutes || booking.service?.durationMinutes || 60
       const newEndsAt = new Date(newStartsAt.getTime() + durationMinutes * 60000)
 
       // Update booking
@@ -1386,6 +231,7 @@ export const toolHandlers = {
           oldStartsAt: booking.booking.startsAt?.toISOString(),
           newStartsAt: newStartsAt.toISOString(),
           reason: args.reason,
+          durationOverride: args.durationMinutes || null,
         },
       })
 
@@ -1401,76 +247,6 @@ export const toolHandlers = {
     } catch (error) {
       console.error('[reschedule_booking] Error:', error)
       return { success: false, error: 'Fehler beim Verschieben der Buchung' }
-    }
-  },
-
-  /**
-   * Search knowledge base using modern hybrid search (vector + keyword)
-   * Combines semantic understanding with exact keyword matching for best results
-   *
-   * Phase 1: Now respects access context for audience/scope filtering
-   * - Customer mode: only public + global documents
-   * - Staff/Owner mode: public + internal, with customer-scoped access
-   */
-  async search_knowledge_base(args: {
-    businessId: string
-    query: string
-    category?: string
-    limit?: number
-    // Internal: injected by conversation handler (not from AI)
-    _accessContext?: InternalAccessContext
-  }) {
-    const { businessId, query, category, limit = 5, _accessContext } = args
-
-    try {
-      // Build access context for search (Phase 1)
-      const accessContext: AccessContext | undefined = _accessContext ? {
-        businessId,
-        actorType: _accessContext.actorType,
-        actorId: _accessContext.actorId,
-        customerScopeId: _accessContext.customerScopeId,
-      } : undefined
-
-      console.log(`[TOOL] Hybrid search: "${query}" (category: ${category || 'all'}, actorType: ${_accessContext?.actorType || 'customer'})`)
-
-      // Use category-specific thresholds if category is provided
-      const results = category
-        ? await searchWithCategoryThreshold(businessId, query, category, accessContext)
-        : await hybridSearch(businessId, query, {
-            limit,
-            minScore: 0.5,
-            accessContext,
-          })
-
-      console.log(`[TOOL] Found ${results.length} results (method: ${results[0]?.method || 'none'})`)
-
-      return {
-        success: true,
-        data: {
-          results: results.map(r => ({
-            id: r.id,
-            title: r.title,
-            content: r.content,
-            category: r.category,
-            source: r.source,
-            score: r.score,
-          })),
-          count: results.length,
-          message: results.length > 0
-            ? `${results.length} relevante Einträge gefunden (Hybrid-Suche: semantisch + Stichwortsuche)`
-            : 'Keine passenden Einträge in der Wissensdatenbank gefunden. Bitte informieren Sie den Kunden, dass diese Information derzeit nicht verfügbar ist.',
-        },
-      }
-    } catch (error) {
-      console.error('[TOOL] Knowledge base search error:', error)
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Suchfehler',
-        data: {
-          results: [],
-          count: 0,
-        },
-      }
     }
   },
 
@@ -1896,6 +672,59 @@ export const toolHandlers = {
       const startsAt = new Date(args.startsAt)
       const endsAt = new Date(startsAt.getTime() + (service.durationMinutes || 60) * 60000)
 
+      // Validate staff if provided
+      if (args.staffId) {
+        const staffMember = await db
+          .select({ id: staff.id })
+          .from(staff)
+          .where(and(
+            eq(staff.id, args.staffId),
+            eq(staff.businessId, args.businessId),
+            eq(staff.isActive, true),
+            isNull(staff.deletedAt)
+          ))
+          .limit(1)
+          .then(rows => rows[0])
+
+        if (!staffMember) {
+          return { success: false, error: 'Mitarbeiter nicht gefunden oder inaktiv' }
+        }
+
+        // Check staff-service qualification
+        const qualification = await db
+          .select({ staffId: staffServices.staffId })
+          .from(staffServices)
+          .where(and(
+            eq(staffServices.staffId, args.staffId),
+            eq(staffServices.serviceId, args.serviceId),
+            eq(staffServices.isActive, true)
+          ))
+          .limit(1)
+          .then(rows => rows[0])
+
+        if (!qualification) {
+          return { success: false, error: 'Mitarbeiter ist für diesen Service nicht qualifiziert' }
+        }
+
+        // Check for overlapping bookings for this staff
+        const overlapping = await db
+          .select({ id: bookings.id })
+          .from(bookings)
+          .where(and(
+            eq(bookings.staffId, args.staffId),
+            eq(bookings.businessId, args.businessId),
+            ne(bookings.status, 'cancelled'),
+            lt(bookings.startsAt, endsAt),
+            gt(bookings.endsAt, startsAt)
+          ))
+          .limit(1)
+          .then(rows => rows[0])
+
+        if (overlapping) {
+          return { success: false, error: 'Mitarbeiter hat bereits einen Termin in diesem Zeitraum' }
+        }
+      }
+
       // Find or create customer
       let customer = await db
         .select()
@@ -2208,6 +1037,100 @@ export const toolHandlers = {
     } catch (error) {
       console.error('[create_customer] Error:', error)
       return { success: false, error: 'Fehler beim Erstellen des Kunden' }
+    }
+  },
+
+  /**
+   * Update customer (ADMIN)
+   */
+  async update_customer(args: {
+    businessId: string
+    customerId: string
+    name?: string
+    email?: string
+    phone?: string
+    notes?: string
+    street?: string
+    city?: string
+    postalCode?: string
+    country?: string
+  }) {
+    try {
+      // Verify customer exists and belongs to business
+      const existing = await db
+        .select({ id: customers.id, name: customers.name, email: customers.email, phone: customers.phone, notes: customers.notes, street: customers.street, city: customers.city, postalCode: customers.postalCode, country: customers.country })
+        .from(customers)
+        .where(and(
+          eq(customers.id, args.customerId),
+          eq(customers.businessId, args.businessId)
+        ))
+        .limit(1)
+        .then(rows => rows[0])
+
+      if (!existing) {
+        return { success: false, error: 'Kunde nicht gefunden' }
+      }
+
+      // If email is changing, check uniqueness within the business
+      if (args.email && args.email !== existing.email) {
+        const emailTaken = await db
+          .select({ id: customers.id })
+          .from(customers)
+          .where(and(
+            eq(customers.businessId, args.businessId),
+            eq(customers.email, args.email),
+            ne(customers.id, args.customerId)
+          ))
+          .limit(1)
+          .then(rows => rows[0])
+
+        if (emailTaken) {
+          return {
+            success: false,
+            error: `Ein anderer Kunde mit der E-Mail ${args.email} existiert bereits`,
+            data: { existingCustomerId: emailTaken.id },
+          }
+        }
+      }
+
+      // Build update object from provided fields only
+      const updates: Record<string, string> = {}
+      if (args.name !== undefined) updates.name = args.name
+      if (args.email !== undefined) updates.email = args.email
+      if (args.phone !== undefined) updates.phone = args.phone
+      if (args.notes !== undefined) updates.notes = args.notes
+      if (args.street !== undefined) updates.street = args.street
+      if (args.city !== undefined) updates.city = args.city
+      if (args.postalCode !== undefined) updates.postalCode = args.postalCode
+      if (args.country !== undefined) updates.country = args.country
+
+      if (Object.keys(updates).length === 0) {
+        return { success: false, error: 'Keine Felder zum Aktualisieren angegeben' }
+      }
+
+      const [updated] = await db
+        .update(customers)
+        .set(updates)
+        .where(eq(customers.id, args.customerId))
+        .returning()
+
+      return {
+        success: true,
+        data: {
+          customerId: updated.id,
+          name: updated.name,
+          email: updated.email,
+          phone: updated.phone,
+          street: updated.street,
+          city: updated.city,
+          postalCode: updated.postalCode,
+          country: updated.country,
+          message: `Kunde "${updated.name}" aktualisiert`,
+        },
+      }
+    } catch (error) {
+      console.error('[update_customer] Error:', error)
+      return { success: false, error: 'Fehler beim Aktualisieren des Kunden' }
     }
   },
 
@@ -2751,21 +1674,4 @@ export const toolHandlers = {
       return { success: false, error: 'Fehler beim Abrufen der eskalierten Gespräche' }
     }
   },
-}
-
-/**
- * Execute a tool call
- */
-export async function executeTool(
-  toolName: string,
-  args: Record<string, unknown>
-): Promise<unknown> {
-  const handler = toolHandlers[toolName as keyof typeof toolHandlers]
-
-  if (!handler) {
-    throw new Error(`Unknown tool: ${toolName}`)
-  }
-
-  // @ts-expect-error - Dynamic tool execution
-  return handler(args)
 }

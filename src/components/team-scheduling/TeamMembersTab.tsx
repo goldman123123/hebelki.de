@@ -177,7 +177,7 @@ export function TeamMembersTab({
         // Update schedule
         const templatesRes = await fetch(`/api/admin/availability/templates?staffId=${editingStaff.id}`)
         const templatesData = await templatesRes.json()
-        const staffTemplate = templatesData.templates?.find((t: any) => t.isDefault)
+        const staffTemplate = templatesData.templates?.find((t: { isDefault: boolean; id: string }) => t.isDefault)
 
         if (data.useDefaultHours) {
           // Delete staff-specific template if exists

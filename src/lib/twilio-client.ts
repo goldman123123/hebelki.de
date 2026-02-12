@@ -144,17 +144,19 @@ export async function sendWhatsAppMessage(
       success: true,
       sid: message.sid,
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error))
+    const twilioErr = error as { code?: string; moreInfo?: string }
     console.error('[Twilio] Error sending WhatsApp message:', {
-      error: error.message,
-      code: error.code,
-      moreInfo: error.moreInfo,
+      error: err.message,
+      code: twilioErr.code,
+      moreInfo: twilioErr.moreInfo,
     })
 
     return {
       success: false,
-      error: error.message,
-      errorCode: error.code,
+      error: err.message,
+      errorCode: twilioErr.code,
     }
   }
 }

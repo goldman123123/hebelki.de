@@ -13,6 +13,7 @@ import { db } from '@/lib/db'
 import { chatbotConversations, chatbotMessages, businesses } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { emitEventStandalone } from '@/modules/core/events'
+import { escalationLimiter } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,6 +25,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'conversationId ist erforderlich' },
         { status: 400 }
+      )
+    }
+
+    // Rate limiting: 5 escalations per minute per conversationId
+    try {
+      await escalationLimiter.check(conversationId, 5)
+    } catch {
+      return NextResponse.json(
+        { error: 'Zu viele Anfragen. Bitte versuchen Sie es später erneut.' },
+        { status: 429 }
       )
     }
 
@@ -60,7 +71,7 @@ export async function POST(request: NextRequest) {
         .set({
           status: 'live_queue',
           metadata: {
-            ...(conversation.metadata as any || {}),
+            ...((conversation.metadata as Record<string, unknown>) || {}),
             liveQueuedAt: new Date().toISOString(),
           },
           updatedAt: new Date(),
@@ -102,7 +113,7 @@ export async function POST(request: NextRequest) {
       .update(chatbotConversations)
       .set({
         metadata: {
-          ...(conversation.metadata as any || {}),
+          ...((conversation.metadata as Record<string, unknown>) || {}),
           awaitingContactInfo: true,
           contactInfoRequestedAt: new Date().toISOString(),
         },
@@ -123,10 +134,7 @@ export async function POST(request: NextRequest) {
     console.error('[Escalation API] Error:', error)
 
     return NextResponse.json(
-      {
-        error: 'Eskalierungs-Fehler',
-        message: error instanceof Error ? error.message : 'Unbekannter Fehler',
-      },
+      { error: 'Eskalierungs-Fehler' },
       { status: 500 }
     )
   }

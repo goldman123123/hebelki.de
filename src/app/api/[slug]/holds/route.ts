@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getBusinessBySlug, getServiceById } from '@/lib/db/queries'
 import { createHold, cancelHold } from '@/lib/db/holds'
 import { isSlotAvailable, getAvailableSlotsWithStaff } from '@/lib/availability'
+import { db } from '@/lib/db'
+import { staff, staffServices } from '@/lib/db/schema'
+import { eq, and, isNull } from 'drizzle-orm'
 
 /**
  * POST /api/{slug}/holds - Create a hold
@@ -24,6 +27,40 @@ export async function POST(
 
     const service = await getServiceById(serviceId, business.id)
     if (!service) return NextResponse.json({ error: 'Service not found' }, { status: 404 })
+
+    // Validate staff qualification if staffId provided
+    if (staffId) {
+      const staffMember = await db
+        .select({ id: staff.id })
+        .from(staff)
+        .where(and(
+          eq(staff.id, staffId),
+          eq(staff.businessId, business.id),
+          eq(staff.isActive, true),
+          isNull(staff.deletedAt)
+        ))
+        .limit(1)
+        .then(rows => rows[0])
+
+      if (!staffMember) {
+        return NextResponse.json({ error: 'Staff member not found or inactive' }, { status: 400 })
+      }
+
+      const qualification = await db
+        .select({ staffId: staffServices.staffId })
+        .from(staffServices)
+        .where(and(
+          eq(staffServices.staffId, staffId),
+          eq(staffServices.serviceId, serviceId),
+          eq(staffServices.isActive, true)
+        ))
+        .limit(1)
+        .then(rows => rows[0])
+
+      if (!qualification) {
+        return NextResponse.json({ error: 'Staff member is not qualified for this service' }, { status: 400 })
+      }
+    }
 
     // Verify slot available
     const slotStart = new Date(startsAt)

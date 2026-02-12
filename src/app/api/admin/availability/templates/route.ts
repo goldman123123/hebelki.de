@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireBusinessAuth } from '@/lib/auth'
 import { getAvailabilityTemplatesWithSlots, createAvailabilityTemplate } from '@/lib/db/queries'
+import { parseBody } from '@/lib/api-response'
 
 export async function GET(request: NextRequest) {
   const authResult = await requireBusinessAuth()
@@ -22,7 +23,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: authResult.error }, { status: authResult.status })
   }
 
-  const body = await request.json()
+  const { data: body, error: parseError } = await parseBody<{ staffId?: string; name?: string; isDefault?: boolean }>(request)
+  if (parseError) return parseError
 
   const template = await createAvailabilityTemplate({
     businessId: authResult.business.id,

@@ -26,6 +26,15 @@ export async function getBusinessBySlug(slug: string) {
   return results[0] || null
 }
 
+export async function getBusinessByCustomDomain(domain: string) {
+  const results = await db
+    .select()
+    .from(businesses)
+    .where(eq(businesses.customDomain, domain))
+    .limit(1)
+  return results[0] || null
+}
+
 export async function getBusinessById(id: string) {
   const results = await db
     .select()
@@ -235,7 +244,7 @@ export async function getStaffById(staffId: string, businessId: string) {
   return results[0] || null
 }
 
-export async function getStaffForService(serviceId: string) {
+export async function getStaffForService(serviceId: string, businessId: string) {
   return db
     .select({
       id: staff.id,
@@ -248,7 +257,9 @@ export async function getStaffForService(serviceId: string) {
     .innerJoin(staffServices, eq(staff.id, staffServices.staffId))
     .where(and(
       eq(staffServices.serviceId, serviceId),
-      eq(staff.isActive, true)
+      eq(staff.businessId, businessId),
+      eq(staff.isActive, true),
+      isNull(staff.deletedAt)
     ))
     .orderBy(asc(staff.name))
 }
@@ -448,32 +459,7 @@ export async function getOrCreateCustomer(
   name?: string,
   phone?: string
 ) {
-  // Try to find existing customer
-  const existing = await db
-    .select()
-    .from(customers)
-    .where(and(
-      eq(customers.businessId, businessId),
-      eq(customers.email, email)
-    ))
-    .limit(1)
-
-  if (existing[0]) {
-    // Update name/phone if provided and different
-    if ((name && name !== existing[0].name) || (phone && phone !== existing[0].phone)) {
-      await db
-        .update(customers)
-        .set({
-          ...(name && { name }),
-          ...(phone && { phone }),
-        })
-        .where(eq(customers.id, existing[0].id))
-    }
-    return existing[0]
-  }
-
-  // Create new customer
-  const inserted = await db
+  const result = await db
     .insert(customers)
     .values({
       businessId,
@@ -481,9 +467,16 @@ export async function getOrCreateCustomer(
       name,
       phone,
     })
+    .onConflictDoUpdate({
+      target: [customers.businessId, customers.email],
+      set: {
+        ...(name ? { name } : {}),
+        ...(phone ? { phone } : {}),
+      },
+    })
     .returning()
 
-  return inserted[0]
+  return result[0]
 }
 
 // ============================================
@@ -872,14 +865,26 @@ export async function getAvailabilityTemplatesWithSlots(businessId: string, staf
 
   if (templates.length === 0) return []
 
-  const templatesWithSlots = await Promise.all(
-    templates.map(async (template) => {
-      const slots = await getAvailabilitySlots(template.id)
-      return { ...template, slots }
-    })
-  )
+  // Fetch all slots in one query instead of N+1
+  const templateIds = templates.map(t => t.id)
+  const allSlots = await db
+    .select()
+    .from(availabilitySlots)
+    .where(inArray(availabilitySlots.templateId, templateIds))
+    .orderBy(asc(availabilitySlots.dayOfWeek), asc(availabilitySlots.startTime))
 
-  return templatesWithSlots
+  // Group slots by templateId
+  const slotsByTemplate = new Map<string, typeof allSlots>()
+  for (const slot of allSlots) {
+    const existing = slotsByTemplate.get(slot.templateId) || []
+    existing.push(slot)
+    slotsByTemplate.set(slot.templateId, existing)
+  }
+
+  return templates.map(template => ({
+    ...template,
+    slots: slotsByTemplate.get(template.id) || [],
+  }))
 }
 
 export async function createAvailabilityTemplate(data: {

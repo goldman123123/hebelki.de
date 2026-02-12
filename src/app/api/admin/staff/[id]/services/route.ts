@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireBusinessAuth } from '@/lib/auth'
 import { updateStaffServices, getStaffWithServices, verifyStaffOwnership } from '@/lib/db/queries'
+import { parseBody } from '@/lib/api-response'
 import { z } from 'zod'
 
 const serviceIdsSchema = z.object({
@@ -24,7 +25,8 @@ export async function PUT(
     return NextResponse.json({ error: 'Staff not found' }, { status: 404 })
   }
 
-  const body = await request.json()
+  const { data: body, error: parseError } = await parseBody(request)
+  if (parseError) return parseError
 
   const parsed = serviceIdsSchema.safeParse(body)
   if (!parsed.success) {

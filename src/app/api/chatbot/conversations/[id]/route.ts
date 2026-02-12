@@ -21,23 +21,45 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const conversationId = id
 
-    const messages = await getConversationHistory(conversationId)
+    // Look up conversation to get businessId for auth check
+    const conversation = await db
+      .select({ businessId: chatbotConversations.businessId })
+      .from(chatbotConversations)
+      .where(eq(chatbotConversations.id, id))
+      .limit(1)
+      .then(rows => rows[0])
+
+    if (!conversation) {
+      return NextResponse.json(
+        { error: 'Konversation nicht gefunden' },
+        { status: 404 }
+      )
+    }
+
+    // Verify authenticated user has access to this business
+    await requireBusinessAccess(conversation.businessId)
+
+    const messages = await getConversationHistory(id)
 
     return NextResponse.json({
       success: true,
-      conversationId,
+      conversationId: id,
       messages,
     })
   } catch (error) {
     console.error('[Chatbot API] Error:', error)
 
+    const message = error instanceof Error ? error.message : ''
+    if (message.includes('Unauthorized') || message.includes('Access denied')) {
+      return NextResponse.json(
+        { error: 'Nicht autorisiert' },
+        { status: 401 }
+      )
+    }
+
     return NextResponse.json(
-      {
-        error: 'Fehler beim Abrufen des Verlaufs',
-        message: error instanceof Error ? error.message : 'Unbekannter Fehler',
-      },
+      { error: 'Fehler beim Abrufen des Verlaufs' },
       { status: 500 }
     )
   }
@@ -89,10 +111,7 @@ export async function DELETE(
     console.error('[Conversation Delete API] Error:', error)
 
     return NextResponse.json(
-      {
-        error: 'Löschen fehlgeschlagen',
-        message: error instanceof Error ? error.message : 'Unbekannter Fehler',
-      },
+      { error: 'Löschen fehlgeschlagen' },
       { status: 500 }
     )
   }

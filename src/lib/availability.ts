@@ -69,7 +69,8 @@ export async function getAvailableSlots(
   )
 
   // If there's an override marking this day as unavailable, return empty
-  const dateStr = date.toISOString().split('T')[0]
+  // Use UTC getters to avoid timezone off-by-one on DST boundaries
+  const dateStr = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`
   const override = overrides.find(o => o.date === dateStr)
   if (override && !override.isAvailable) {
     return []
@@ -262,7 +263,7 @@ export async function getAvailableDates(
 
   while (currentDate <= monthEnd && currentDate <= maxDate) {
     const dayOfWeek = currentDate.getDay()
-    const dateStr = currentDate.toISOString().split('T')[0]
+    const dateStr = `${currentDate.getUTCFullYear()}-${String(currentDate.getUTCMonth() + 1).padStart(2, '0')}-${String(currentDate.getUTCDate()).padStart(2, '0')}`
 
     // Check override
     const override = overrides.find(o => o.date === dateStr)
@@ -325,7 +326,7 @@ export async function getAvailableSlotsWithStaff(
 ): Promise<TimeSlotWithStaff[]> {
   const { db } = await import('./db')
   const { staffServices, staff } = await import('./db/schema')
-  const { eq, and, asc } = await import('drizzle-orm')
+  const { eq, and, asc, isNull } = await import('drizzle-orm')
 
   // Get base available slots (no staff filter)
   const baseSlots = await getAvailableSlots(
@@ -346,7 +347,8 @@ export async function getAvailableSlotsWithStaff(
       eq(staffServices.serviceId, config.serviceId),
       eq(staffServices.isActive, true),
       eq(staff.isActive, true),
-      eq(staff.businessId, config.businessId)
+      eq(staff.businessId, config.businessId),
+      isNull(staff.deletedAt)
     ))
     .orderBy(asc(staffServices.sortOrder), asc(staff.name))
 

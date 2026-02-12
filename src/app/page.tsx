@@ -689,6 +689,12 @@ export default async function Home() {
                 <li>
                   <Link href="/agb" className="hover:text-gray-900">AGB</Link>
                 </li>
+                <li>
+                  <Link href="/legal/dpia" className="hover:text-gray-900">DSFA</Link>
+                </li>
+                <li>
+                  <Link href="/legal/ai-usage" className="hover:text-gray-900">KI-Nutzung</Link>
+                </li>
               </ul>
             </div>
 

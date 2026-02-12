@@ -72,14 +72,15 @@ export async function POST() {
         accountName: account.friendlyName,
         accountStatus: account.status,
       })
-    } catch (twilioError: any) {
-      console.error('[WhatsApp Test] Twilio API error:', twilioError.message)
+    } catch (twilioError: unknown) {
+      const msg = twilioError instanceof Error ? twilioError.message : String(twilioError)
+      console.error('[WhatsApp Test] Twilio API error:', msg)
       return NextResponse.json({
         success: false,
-        error: `Twilio-Verbindung fehlgeschlagen: ${twilioError.message}`,
+        error: `Twilio-Verbindung fehlgeschlagen: ${msg}`,
       })
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[WhatsApp Test] Error:', error)
     return NextResponse.json(
       { success: false, error: 'Interner Serverfehler' },

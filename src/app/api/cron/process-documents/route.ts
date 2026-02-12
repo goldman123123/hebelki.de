@@ -15,9 +15,6 @@ import { db } from '@/lib/db'
 import { ingestionJobs, documents, documentVersions } from '@/lib/db/schema'
 import { eq, and, lt, sql, inArray } from 'drizzle-orm'
 
-// Verify cron secret to prevent unauthorized calls
-const CRON_SECRET = process.env.CRON_SECRET
-
 // Thresholds
 const STUCK_JOB_THRESHOLD_MINUTES = 10
 const FAILURE_ALERT_THRESHOLD = 5 // Alert if > 5 failed jobs
@@ -26,7 +23,14 @@ export async function GET(request: NextRequest) {
   try {
     // Verify cron secret
     const authHeader = request.headers.get('authorization')
-    if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
+    const cronSecret = process.env.CRON_SECRET
+
+    if (!cronSecret) {
+      console.error('[Cron] CRON_SECRET not configured')
+      return NextResponse.json({ error: 'Cron not configured' }, { status: 500 })
+    }
+
+    if (authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

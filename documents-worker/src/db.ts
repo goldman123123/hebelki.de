@@ -261,14 +261,19 @@ export async function savePages(
   documentVersionId: string,
   pages: Array<{ pageNumber: number; content: string; metadata?: Record<string, unknown> }>
 ): Promise<void> {
-  for (const page of pages) {
-    await sql`
-      INSERT INTO document_pages (document_version_id, page_number, content, metadata)
-      VALUES (${documentVersionId}, ${page.pageNumber}, ${page.content}, ${JSON.stringify(page.metadata || {})}::jsonb)
-      ON CONFLICT (document_version_id, page_number) DO UPDATE
-      SET content = ${page.content}, metadata = ${JSON.stringify(page.metadata || {})}::jsonb
-    `
-  }
+  if (pages.length === 0) return
+
+  // Batch insert all pages in one query
+  const values = pages.map(page =>
+    sql`(${documentVersionId}, ${page.pageNumber}, ${page.content}, ${JSON.stringify(page.metadata || {})}::jsonb)`
+  )
+
+  await sql`
+    INSERT INTO document_pages (document_version_id, page_number, content, metadata)
+    VALUES ${sql.join(values, sql`, `)}
+    ON CONFLICT (document_version_id, page_number) DO UPDATE
+    SET content = EXCLUDED.content, metadata = EXCLUDED.metadata
+  `
 }
 
 /**
@@ -296,55 +301,58 @@ export async function saveChunksWithEmbeddings(
     pageEnd: number
     metadata?: Record<string, unknown>
     embedding: number[]
-    // Full embedding metadata (optional for backward compatibility)
     embeddingMetadata?: EmbeddingMetadata
   }>
 ): Promise<void> {
-  for (const chunk of chunks) {
-    // Insert chunk
-    const chunkResult = await sql`
-      INSERT INTO document_chunks (document_version_id, business_id, chunk_index, content, page_start, page_end, metadata)
-      VALUES (${documentVersionId}, ${businessId}, ${chunk.chunkIndex}, ${chunk.content}, ${chunk.pageStart}, ${chunk.pageEnd}, ${JSON.stringify(chunk.metadata || {})}::jsonb)
-      ON CONFLICT (document_version_id, chunk_index) DO UPDATE
-      SET content = ${chunk.content}, page_start = ${chunk.pageStart}, page_end = ${chunk.pageEnd}, metadata = ${JSON.stringify(chunk.metadata || {})}::jsonb
-      RETURNING id
+  if (chunks.length === 0) return
+
+  // Batch insert all chunks in one query
+  const chunkValues = chunks.map(chunk =>
+    sql`(${documentVersionId}, ${businessId}, ${chunk.chunkIndex}, ${chunk.content}, ${chunk.pageStart}, ${chunk.pageEnd}, ${JSON.stringify(chunk.metadata || {})}::jsonb)`
+  )
+
+  const chunkResults = await sql`
+    INSERT INTO document_chunks (document_version_id, business_id, chunk_index, content, page_start, page_end, metadata)
+    VALUES ${sql.join(chunkValues, sql`, `)}
+    ON CONFLICT (document_version_id, chunk_index) DO UPDATE
+    SET content = EXCLUDED.content, page_start = EXCLUDED.page_start, page_end = EXCLUDED.page_end, metadata = EXCLUDED.metadata
+    RETURNING id, chunk_index
+  `
+
+  // Map chunk_index → id for embedding inserts
+  const chunkIdMap = new Map<number, string>()
+  for (const row of chunkResults) {
+    chunkIdMap.set(row.chunk_index, row.id)
+  }
+
+  // Batch insert all embeddings in one query
+  const hasMetadata = chunks.some(c => c.embeddingMetadata)
+
+  if (hasMetadata) {
+    const embValues = chunks.map(chunk => {
+      const chunkId = chunkIdMap.get(chunk.chunkIndex)!
+      const meta = chunk.embeddingMetadata
+      return sql`(${chunkId}, ${businessId}, ${JSON.stringify(chunk.embedding)}::vector, ${meta?.provider ?? null}, ${meta?.model ?? null}, ${meta?.dim ?? null}, ${meta?.preprocessVersion ?? null}, ${meta?.contentHash ?? null}, NOW())`
+    })
+
+    await sql`
+      INSERT INTO chunk_embeddings (chunk_id, business_id, embedding, embedding_provider, embedding_model, embedding_dim, preprocess_version, content_hash, embedded_at)
+      VALUES ${sql.join(embValues, sql`, `)}
+      ON CONFLICT (chunk_id) DO UPDATE
+      SET embedding = EXCLUDED.embedding, embedding_provider = EXCLUDED.embedding_provider, embedding_model = EXCLUDED.embedding_model, embedding_dim = EXCLUDED.embedding_dim, preprocess_version = EXCLUDED.preprocess_version, content_hash = EXCLUDED.content_hash, embedded_at = NOW()
     `
+  } else {
+    const embValues = chunks.map(chunk => {
+      const chunkId = chunkIdMap.get(chunk.chunkIndex)!
+      return sql`(${chunkId}, ${businessId}, ${JSON.stringify(chunk.embedding)}::vector)`
+    })
 
-    const chunkId = chunkResult[0].id
-
-    // Insert embedding with full metadata if provided
-    if (chunk.embeddingMetadata) {
-      await sql`
-        INSERT INTO chunk_embeddings (
-          chunk_id, business_id, embedding,
-          embedding_provider, embedding_model, embedding_dim,
-          preprocess_version, content_hash, embedded_at
-        )
-        VALUES (
-          ${chunkId}, ${businessId}, ${JSON.stringify(chunk.embedding)}::vector,
-          ${chunk.embeddingMetadata.provider}, ${chunk.embeddingMetadata.model},
-          ${chunk.embeddingMetadata.dim}, ${chunk.embeddingMetadata.preprocessVersion},
-          ${chunk.embeddingMetadata.contentHash}, NOW()
-        )
-        ON CONFLICT (chunk_id) DO UPDATE
-        SET
-          embedding = ${JSON.stringify(chunk.embedding)}::vector,
-          embedding_provider = ${chunk.embeddingMetadata.provider},
-          embedding_model = ${chunk.embeddingMetadata.model},
-          embedding_dim = ${chunk.embeddingMetadata.dim},
-          preprocess_version = ${chunk.embeddingMetadata.preprocessVersion},
-          content_hash = ${chunk.embeddingMetadata.contentHash},
-          embedded_at = NOW()
-      `
-    } else {
-      // Legacy: just embedding vector
-      await sql`
-        INSERT INTO chunk_embeddings (chunk_id, business_id, embedding)
-        VALUES (${chunkId}, ${businessId}, ${JSON.stringify(chunk.embedding)}::vector)
-        ON CONFLICT (chunk_id) DO UPDATE
-        SET embedding = ${JSON.stringify(chunk.embedding)}::vector
-      `
-    }
+    await sql`
+      INSERT INTO chunk_embeddings (chunk_id, business_id, embedding)
+      VALUES ${sql.join(embValues, sql`, `)}
+      ON CONFLICT (chunk_id) DO UPDATE
+      SET embedding = EXCLUDED.embedding
+    `
   }
 }
 

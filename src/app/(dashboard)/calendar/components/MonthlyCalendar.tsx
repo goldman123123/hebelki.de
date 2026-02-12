@@ -1,11 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Calendar } from '@/components/ui/calendar'
 import { format } from 'date-fns'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Clock, User, Mail, Phone, CheckCircle, XCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { cn, formatTime } from '@/lib/utils'
 
@@ -35,11 +37,34 @@ interface MonthlyCalendarProps {
   bookingsByDay: Record<string, Booking[]>
   businessId: string
   timezone: string
+  year: number
+  month: number
+  staffId?: string
+  staffList: Array<{ id: string; name: string }>
 }
 
-export function MonthlyCalendar({ bookingsByDay, businessId, timezone }: MonthlyCalendarProps) {
+export function MonthlyCalendar({ bookingsByDay, businessId, timezone, year, month, staffId, staffList }: MonthlyCalendarProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>()
   const [updatingBookingId, setUpdatingBookingId] = useState<string | null>(null)
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  const handleMonthChange = (newMonth: Date) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('year', String(newMonth.getFullYear()))
+    params.set('month', String(newMonth.getMonth() + 1))
+    router.push(`/calendar?${params.toString()}`)
+  }
+
+  const handleStaffChange = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (value === 'all') {
+      params.delete('staffId')
+    } else {
+      params.set('staffId', value)
+    }
+    router.push(`/calendar?${params.toString()}`)
+  }
 
   const getBookingCount = (date: Date) => {
     const key = format(date, 'yyyy-MM-dd')
@@ -134,7 +159,7 @@ export function MonthlyCalendar({ bookingsByDay, businessId, timezone }: Monthly
     }
     acc[key].bookings.push(booking)
     return acc
-  }, {} as Record<string, { time: string; service: any; bookings: Booking[] }>)
+  }, {} as Record<string, { time: string; service: Booking['service']; bookings: Booking[] }>)
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -142,7 +167,22 @@ export function MonthlyCalendar({ bookingsByDay, businessId, timezone }: Monthly
       <div className="lg:col-span-1">
         <Card>
           <CardHeader>
-            <CardTitle>Select Date</CardTitle>
+            <div className="flex items-center justify-between gap-4">
+              <CardTitle>Select Date</CardTitle>
+              {staffList.length > 0 && (
+                <Select value={staffId || 'all'} onValueChange={handleStaffChange}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Alle Mitarbeiter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle Mitarbeiter</SelectItem>
+                    {staffList.map(s => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap items-center gap-4 mb-4 p-3 bg-gray-50 rounded-lg border">
@@ -169,6 +209,8 @@ export function MonthlyCalendar({ bookingsByDay, businessId, timezone }: Monthly
               mode="single"
               selected={selectedDate}
               onSelect={handleDayClick}
+              defaultMonth={new Date(year, month - 1)}
+              onMonthChange={handleMonthChange}
               className="rounded-md border"
               modifiers={{
                 light: (date) => getDayStatus(date) === 'light',

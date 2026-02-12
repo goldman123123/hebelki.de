@@ -12,6 +12,7 @@ import { db } from '@/lib/db'
 import { chatbotConversations, chatbotMessages, businesses } from '@/lib/db/schema'
 import { eq, and, gt, ne } from 'drizzle-orm'
 import { emitEventStandalone } from '@/modules/core/events'
+import { pollLimiter } from '@/lib/rate-limit'
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,6 +22,16 @@ export async function GET(request: NextRequest) {
 
     if (!conversationId) {
       return NextResponse.json({ error: 'conversationId required' }, { status: 400 })
+    }
+
+    // Rate limiting: 30 polls per minute per conversationId
+    try {
+      await pollLimiter.check(conversationId, 30)
+    } catch {
+      return NextResponse.json(
+        { error: 'Zu viele Anfragen' },
+        { status: 429 }
+      )
     }
 
     // Fetch conversation
@@ -151,7 +162,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('[Poll API] Error:', error)
     return NextResponse.json(
-      { error: 'Poll-Fehler', message: error instanceof Error ? error.message : 'Unbekannter Fehler' },
+      { error: 'Poll-Fehler' },
       { status: 500 }
     )
   }

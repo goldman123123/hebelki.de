@@ -1,14 +1,25 @@
 import { notFound } from 'next/navigation'
-import { getBusinessBySlug, getServicesByBusiness, getStaffByBusiness } from '@/lib/db/queries'
+import Link from 'next/link'
+import { getBusinessBySlug, getBusinessByCustomDomain, getServicesByBusiness, getStaffByBusiness } from '@/lib/db/queries'
 import { BookingWidget } from '@/components/booking/BookingWidget'
 
 interface BookingPageProps {
   params: Promise<{ slug: string }>
+  searchParams: Promise<{ domain?: string }>
 }
 
-export async function generateMetadata({ params }: BookingPageProps) {
+async function resolveBusinessBySlugOrDomain(slug: string, domain?: string) {
+  // Custom domain rewrite: middleware sets slug to "_custom" with domain query param
+  if (slug === '_custom' && domain) {
+    return getBusinessByCustomDomain(domain)
+  }
+  return getBusinessBySlug(slug)
+}
+
+export async function generateMetadata({ params, searchParams }: BookingPageProps) {
   const { slug } = await params
-  const business = await getBusinessBySlug(slug)
+  const { domain } = await searchParams
+  const business = await resolveBusinessBySlugOrDomain(slug, domain)
 
   if (!business) {
     return { title: 'Business Not Found' }
@@ -20,9 +31,10 @@ export async function generateMetadata({ params }: BookingPageProps) {
   }
 }
 
-export default async function BookingPage({ params }: BookingPageProps) {
+export default async function BookingPage({ params, searchParams }: BookingPageProps) {
   const { slug } = await params
-  const business = await getBusinessBySlug(slug)
+  const { domain } = await searchParams
+  const business = await resolveBusinessBySlugOrDomain(slug, domain)
 
   if (!business) {
     notFound()
@@ -32,6 +44,8 @@ export default async function BookingPage({ params }: BookingPageProps) {
     getServicesByBusiness(business.id),
     getStaffByBusiness(business.id),
   ])
+
+  const settings = (business.settings || {}) as Record<string, string>
 
   return (
     <div
@@ -81,6 +95,23 @@ export default async function BookingPage({ params }: BookingPageProps) {
             avatarUrl: s.avatarUrl,
           }))}
         />
+
+        {/* Legal footer */}
+        <div className="mt-8 border-t pt-6 text-center text-xs text-gray-500 space-y-2">
+          {settings.dpoName && (
+            <p>
+              Datenschutzbeauftragte/r: {settings.dpoName as string}
+              {settings.dpoEmail && (
+                <> &ndash; <a href={`mailto:${settings.dpoEmail}`} className="underline hover:text-gray-700">{settings.dpoEmail as string}</a></>
+              )}
+            </p>
+          )}
+          <p>
+            <Link href="/datenschutz" className="underline hover:text-gray-700">Datenschutz</Link>
+            {' | '}
+            <Link href="/impressum" className="underline hover:text-gray-700">Impressum</Link>
+          </p>
+        </div>
       </div>
     </div>
   )

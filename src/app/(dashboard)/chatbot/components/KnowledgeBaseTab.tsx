@@ -191,7 +191,7 @@ export function KnowledgeBaseTab({ businessId }: KnowledgeBaseTabProps) {
       } else {
         // Handle validation errors from backend
         if (data.code === 'VALIDATION_ERROR' && data.details) {
-          const errorMessages = data.details.map((issue: any) => issue.message).join(', ')
+          const errorMessages = data.details.map((issue: { message: string }) => issue.message).join(', ')
           toast.error(`Validierungsfehler: ${errorMessages}`)
         } else {
           toast.error(data.error || 'Fehler beim Speichern')

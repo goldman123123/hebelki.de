@@ -53,6 +53,7 @@ interface ChatInterfaceProps {
   welcomeMessage?: string
   liveChatEnabled?: boolean
   chatDefaultMode?: 'ai' | 'live'
+  onNewMessage?: (role: string) => void
 }
 
 export function ChatInterface({
@@ -62,6 +63,7 @@ export function ChatInterface({
   welcomeMessage = 'Willkommen! Wie kann ich Ihnen helfen?',
   liveChatEnabled = false,
   chatDefaultMode = 'ai',
+  onNewMessage,
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -111,19 +113,20 @@ export function ChatInterface({
         if (data.success) {
           // Append new staff/system/assistant messages (deduplicate by ID)
           if (data.messages && data.messages.length > 0) {
-            const unseenMsgs = data.messages.filter((m: any) => !seenMessageIds.current.has(m.id))
+            const unseenMsgs = data.messages.filter((m: { id: string }) => !seenMessageIds.current.has(m.id))
             if (unseenMsgs.length > 0) {
-              const newMsgs: Message[] = unseenMsgs.map((m: any) => ({
+              const newMsgs: Message[] = unseenMsgs.map((m: { role: string; content: string; createdAt: string; metadata?: Record<string, unknown> }) => ({
                 role: m.role as Message['role'],
                 content: m.content,
                 timestamp: new Date(m.createdAt),
                 metadata: m.metadata,
               }))
-              unseenMsgs.forEach((m: any) => seenMessageIds.current.add(m.id))
+              unseenMsgs.forEach((m: { id: string }) => seenMessageIds.current.add(m.id))
               setMessages(prev => [...prev, ...newMsgs])
+              newMsgs.forEach((m: Message) => onNewMessage?.(m.role))
 
               // If any staff message arrived, staff has joined
-              if (unseenMsgs.some((m: any) => m.role === 'staff')) {
+              if (unseenMsgs.some((m: { role: string }) => m.role === 'staff')) {
                 setStaffJoined(true)
               }
             }
@@ -216,6 +219,7 @@ export function ChatInterface({
           timestamp: new Date(),
         }
         setMessages((prev) => [...prev, assistantMessage])
+        onNewMessage?.('assistant')
       }
     } catch (error) {
       console.error('Chat error:', error)

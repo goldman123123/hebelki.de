@@ -102,7 +102,7 @@ export function Step4ServiceSetup({ onNext, onBack, onSkip }: StepProps) {
         const servicesForReview = onboardingState.servicesForReview || []
 
         // Convert to ReviewableService format
-        const reviewableServices: ReviewableService[] = servicesForReview.map((s: any) => ({
+        const reviewableServices: ReviewableService[] = servicesForReview.map((s: Omit<ReviewableService, 'approved'>) => ({
           name: s.name,
           description: s.description,
           durationMinutes: s.durationMinutes,
@@ -131,7 +131,7 @@ export function Step4ServiceSetup({ onNext, onBack, onSkip }: StepProps) {
     ))
   }
 
-  const handleEdit = (index: number, field: string, value: any) => {
+  const handleEdit = (index: number, field: string, value: string | number | boolean | null | string[]) => {
     setServices(prev => prev.map((s, i) =>
       i === index ? { ...s, [field]: value } : s
     ))

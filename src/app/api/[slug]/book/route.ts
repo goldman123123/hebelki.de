@@ -10,12 +10,25 @@ import { db } from '@/lib/db'
 import { bookings } from '@/lib/db/schema'
 import { emitEventStandalone } from '@/modules/core/events'
 import { processEvents } from '@/modules/core/events/processor'
+import { bookingLimiter } from '@/lib/rate-limit'
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
+    // Rate limiting: 5 bookings per minute per IP
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] ||
+      request.headers.get('x-real-ip') || 'unknown'
+    try {
+      await bookingLimiter.check(ip, 5)
+    } catch {
+      return NextResponse.json(
+        { error: 'Zu viele Buchungen. Bitte versuchen Sie es später erneut.' },
+        { status: 429 }
+      )
+    }
+
     const { slug } = await params
     const body = await request.json()
 

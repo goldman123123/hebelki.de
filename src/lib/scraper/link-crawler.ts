@@ -78,8 +78,9 @@ export async function crawlHomepageLinks(baseUrl: string): Promise<CrawledLink[]
 
     console.log(`✅ Found ${links.length} unique links on homepage`)
     return links
-  } catch (error: any) {
-    console.error(`❌ Failed to crawl homepage: ${error.message}`)
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.error(`❌ Failed to crawl homepage: ${message}`)
     return []
   }
 }

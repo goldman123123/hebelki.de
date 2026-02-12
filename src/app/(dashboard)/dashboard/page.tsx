@@ -34,6 +34,13 @@ export default async function DashboardPage() {
     completed: 'bg-blue-100 text-blue-800',
   }
 
+  const statusLabels: Record<string, string> = {
+    pending: 'Ausstehend',
+    confirmed: 'Bestätigt',
+    cancelled: 'Storniert',
+    completed: 'Abgeschlossen',
+  }
+
   return (
     <div>
       {/* Header */}
@@ -120,10 +127,10 @@ export default async function DashboardPage() {
               {todaysBookings.map(({ booking, service, staffMember, customer }) => (
                 <div
                   key={booking.id}
-                  className="flex items-center justify-between rounded-lg border p-4"
+                  className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-lg border p-4"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="text-center">
+                    <div className="text-center shrink-0">
                       <div className="text-lg font-semibold">
                         {formatTime(booking.startsAt, timezone)}
                       </div>
@@ -131,18 +138,18 @@ export default async function DashboardPage() {
                         {service?.durationMinutes || 0} min
                       </div>
                     </div>
-                    <div>
-                      <div className="font-medium">
+                    <div className="min-w-0">
+                      <div className="font-medium truncate">
                         {customer?.name || 'Unbekannter Kunde'}
                       </div>
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-gray-500 truncate">
                         {service?.name || 'Unbekannte Dienstleistung'}
                         {staffMember && ` mit ${staffMember.name}`}
                       </div>
                     </div>
                   </div>
-                  <Badge className={statusColors[booking.status || 'pending']}>
-                    {booking.status}
+                  <Badge className={`shrink-0 ${statusColors[booking.status || 'pending']}`}>
+                    {statusLabels[booking.status || 'pending'] || booking.status}
                   </Badge>
                 </div>
               ))}

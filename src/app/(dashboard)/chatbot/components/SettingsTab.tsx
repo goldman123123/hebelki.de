@@ -3,10 +3,10 @@
 /**
  * Settings Tab
  *
- * Customize chatbot behavior, branding, and channels
+ * Customize chatbot behavior, branding, channels, smart routing, and WhatsApp handoff
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, Save, ExternalLink, AlertCircle, Bot, Headphones } from 'lucide-react'
+import { Loader2, Save, ExternalLink, AlertCircle, Bot, Headphones, MessageSquare, Phone } from 'lucide-react'
 
 interface Business {
   id: string
@@ -29,15 +29,7 @@ interface Business {
   slug: string
   type: string | null
   primaryColor?: string | null
-  settings?: {
-    chatbotEnabled?: boolean
-    chatbotInstructions?: string
-    chatbotWelcomeMessage?: string
-    chatbotColor?: string
-    liveChatEnabled?: boolean
-    chatDefaultMode?: 'ai' | 'live'
-    liveChatTimeoutMinutes?: number
-  }
+  settings?: Record<string, unknown>
 }
 
 interface SettingsTabProps {
@@ -53,23 +45,55 @@ export function SettingsTab({ business }: SettingsTabProps) {
     liveChatEnabled: false,
     chatDefaultMode: 'ai' as 'ai' | 'live',
     liveChatTimeoutMinutes: 5,
+    whatsappHandoffEnabled: false,
+    whatsappRoutingMode: 'owner' as 'owner' | 'live',
+    ownerWhatsappNumber: '',
+    ownerHandoffTimeoutSeconds: 120,
   })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [staffOnline, setStaffOnline] = useState<number | null>(null)
 
   useEffect(() => {
-    if (business.settings) {
-      setFormData({
-        chatbotEnabled: business.settings.chatbotEnabled !== false, // Default to true
-        chatbotInstructions: business.settings.chatbotInstructions || '',
-        chatbotWelcomeMessage: business.settings.chatbotWelcomeMessage || '',
-        chatbotColor: business.settings.chatbotColor || business.primaryColor || '#3B82F6',
-        liveChatEnabled: business.settings.liveChatEnabled || false,
-        chatDefaultMode: business.settings.chatDefaultMode || 'ai',
-        liveChatTimeoutMinutes: business.settings.liveChatTimeoutMinutes || 5,
-      })
-    }
+    const s = business.settings || {}
+    setFormData({
+      chatbotEnabled: s.chatbotEnabled !== false,
+      chatbotInstructions: (s.chatbotInstructions as string) || '',
+      chatbotWelcomeMessage: (s.chatbotWelcomeMessage as string) || '',
+      chatbotColor: (s.chatbotColor as string) || business.primaryColor || '#3B82F6',
+      liveChatEnabled: (s.liveChatEnabled as boolean) || false,
+      chatDefaultMode: (s.chatDefaultMode as 'ai' | 'live') || 'ai',
+      liveChatTimeoutMinutes: (s.liveChatTimeoutMinutes as number) || 5,
+      whatsappHandoffEnabled: (s.whatsappHandoffEnabled as boolean) || false,
+      whatsappRoutingMode: (s.whatsappRoutingMode as 'owner' | 'live') || 'owner',
+      ownerWhatsappNumber: (s.ownerWhatsappNumber as string) || '',
+      ownerHandoffTimeoutSeconds: (s.ownerHandoffTimeoutSeconds as number) || 120,
+    })
   }, [business])
+
+  // Poll staff online status every 10 seconds when live chat is enabled
+  const fetchStaffStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/chatbot/support/status')
+      if (res.ok) {
+        const data = await res.json()
+        setStaffOnline(data.staffOnline ?? 0)
+      }
+    } catch {
+      // Ignore errors silently
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!formData.liveChatEnabled) {
+      setStaffOnline(null)
+      return
+    }
+
+    fetchStaffStatus()
+    const interval = setInterval(fetchStaffStatus, 10_000)
+    return () => clearInterval(interval)
+  }, [formData.liveChatEnabled, fetchStaffStatus])
 
   const handleSave = async () => {
     setSaving(true)
@@ -89,6 +113,10 @@ export function SettingsTab({ business }: SettingsTabProps) {
             liveChatEnabled: formData.liveChatEnabled,
             chatDefaultMode: formData.chatDefaultMode,
             liveChatTimeoutMinutes: formData.liveChatTimeoutMinutes,
+            whatsappHandoffEnabled: formData.whatsappHandoffEnabled,
+            whatsappRoutingMode: formData.whatsappRoutingMode,
+            ownerWhatsappNumber: formData.ownerWhatsappNumber,
+            ownerHandoffTimeoutSeconds: formData.ownerHandoffTimeoutSeconds,
           },
         }),
       })
@@ -110,6 +138,7 @@ export function SettingsTab({ business }: SettingsTabProps) {
   }
 
   const chatUrl = `${window.location.origin}/${business.slug}/chat`
+  const whatsappEnabled = (business.settings?.whatsappEnabled as boolean) || false
 
   return (
     <div className="space-y-6">
@@ -188,6 +217,7 @@ export function SettingsTab({ business }: SettingsTabProps) {
       {/* Live Chat Settings */}
       <Card className="p-6">
         <div className="space-y-6">
+          {/* a) Allgemein */}
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
@@ -210,7 +240,7 @@ export function SettingsTab({ business }: SettingsTabProps) {
           </div>
 
           {formData.liveChatEnabled && (
-            <div className="space-y-4 border-t pt-4">
+            <div className="space-y-6 border-t pt-4">
               {/* Default Mode */}
               <div className="space-y-2">
                 <Label htmlFor="chat-default-mode">Standard-Modus</Label>
@@ -225,13 +255,13 @@ export function SettingsTab({ business }: SettingsTabProps) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ai">KI-Assistent</SelectItem>
-                    <SelectItem value="live">Live-Chat</SelectItem>
+                    <SelectItem value="live">Mitarbeiter-zuerst</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-gray-500">
                   {formData.chatDefaultMode === 'ai'
                     ? 'Kunden chatten zuerst mit dem KI-Assistenten und können zu einem Mitarbeiter wechseln.'
-                    : 'Kundennachrichten gehen direkt an Mitarbeiter. Bei Timeout übernimmt der KI-Assistent.'}
+                    : 'Kundennachrichten gehen direkt an Mitarbeiter. Wenn kein Mitarbeiter online ist, antwortet der KI-Assistent.'}
                 </p>
               </div>
 
@@ -256,6 +286,124 @@ export function SettingsTab({ business }: SettingsTabProps) {
                   Maximale Wartezeit, bevor der Kunde per E-Mail benachrichtigt wird
                 </p>
               </div>
+
+              {/* b) Smart-Routing */}
+              <div className="border-t pt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <MessageSquare className="h-5 w-5 text-gray-700" />
+                  <h4 className="font-semibold text-gray-900">Smart-Routing</h4>
+                </div>
+
+                {/* Staff online indicator */}
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
+                  <div className={`h-3 w-3 rounded-full ${
+                    staffOnline === null ? 'bg-gray-300' :
+                    staffOnline > 0 ? 'bg-green-500' : 'bg-red-400'
+                  }`} />
+                  <span className="text-sm text-gray-700">
+                    {staffOnline === null
+                      ? 'Status wird geladen...'
+                      : staffOnline > 0
+                        ? `${staffOnline} Mitarbeiter online`
+                        : 'Kein Mitarbeiter online'}
+                  </span>
+                </div>
+
+                <p className="mt-2 text-xs text-gray-500">
+                  Wenn kein Mitarbeiter online ist, antwortet automatisch der KI-Assistent.
+                  Mitarbeiter gelten als online, wenn sie das Support-Dashboard geöffnet haben.
+                </p>
+              </div>
+
+              {/* c) WhatsApp-Weiterleitung (only when WhatsApp is configured) */}
+              {whatsappEnabled && (
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-5 w-5 text-gray-700" />
+                      <h4 className="font-semibold text-gray-900">WhatsApp-Weiterleitung</h4>
+                    </div>
+                    <Switch
+                      id="whatsapp-handoff-enabled"
+                      checked={formData.whatsappHandoffEnabled}
+                      onCheckedChange={(checked) =>
+                        setFormData({ ...formData, whatsappHandoffEnabled: checked })
+                      }
+                    />
+                  </div>
+
+                  {formData.whatsappHandoffEnabled && (
+                    <div className="space-y-4 pl-1">
+                      {/* Routing mode */}
+                      <div className="space-y-2">
+                        <Label htmlFor="whatsapp-routing-mode">Routing-Modus</Label>
+                        <Select
+                          value={formData.whatsappRoutingMode}
+                          onValueChange={(value: 'owner' | 'live') =>
+                            setFormData({ ...formData, whatsappRoutingMode: value })
+                          }
+                        >
+                          <SelectTrigger id="whatsapp-routing-mode">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="owner">An Inhaber weiterleiten</SelectItem>
+                            <SelectItem value="live">Live-Chat (Mitarbeiter-Dashboard)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Owner WhatsApp number (only when mode is 'owner') */}
+                      {formData.whatsappRoutingMode === 'owner' && (
+                        <div className="space-y-2">
+                          <Label htmlFor="owner-whatsapp-number">Inhaber WhatsApp-Nummer</Label>
+                          <Input
+                            id="owner-whatsapp-number"
+                            type="tel"
+                            value={formData.ownerWhatsappNumber}
+                            onChange={(e) =>
+                              setFormData({ ...formData, ownerWhatsappNumber: e.target.value })
+                            }
+                            placeholder="+49151..."
+                            className="max-w-xs"
+                          />
+                          <p className="text-xs text-gray-500">
+                            E.164-Format (z.B. +4915123456789)
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Handoff timeout */}
+                      <div className="space-y-2">
+                        <Label htmlFor="handoff-timeout">Wartezeit (Sekunden)</Label>
+                        <Input
+                          id="handoff-timeout"
+                          type="number"
+                          min={30}
+                          max={600}
+                          value={formData.ownerHandoffTimeoutSeconds}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              ownerHandoffTimeoutSeconds: Math.max(30, Math.min(600, parseInt(e.target.value) || 120)),
+                            })
+                          }
+                          className="w-32"
+                        />
+                        <p className="text-xs text-gray-500">
+                          Nach Ablauf dieser Zeit übernimmt der KI-Assistent
+                        </p>
+                      </div>
+
+                      <p className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
+                        Kundennachrichten werden an Ihre WhatsApp-Nummer weitergeleitet.
+                        Antworten Sie direkt oder senden Sie &quot;KI&quot; um den Assistenten zu aktivieren.
+                        Nach Ablauf der Wartezeit übernimmt der KI-Assistent.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -367,7 +515,7 @@ export function SettingsTab({ business }: SettingsTabProps) {
           <div className="flex items-center justify-between border-t pt-4">
             {saved && (
               <span className="text-sm text-green-600">
-                ✓ Änderungen gespeichert
+                Änderungen gespeichert
               </span>
             )}
             <div className="ml-auto">

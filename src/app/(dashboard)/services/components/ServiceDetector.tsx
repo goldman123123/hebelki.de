@@ -283,7 +283,7 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
       }
 
       // Convert to reviewable format with approved=true by default
-      const reviewableServices: DetectedService[] = (data.services || []).map((s: any) => ({
+      const reviewableServices: DetectedService[] = (data.services || []).map((s: Omit<DetectedService, 'approved'>) => ({
         ...s,
         approved: true,
       }))
@@ -333,7 +333,7 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
       }
 
       // Convert to reviewable format
-      const reviewableServices: DetectedService[] = (data.services || []).map((s: any) => ({
+      const reviewableServices: DetectedService[] = (data.services || []).map((s: Omit<DetectedService, 'approved'>) => ({
         ...s,
         approved: true,
       }))
@@ -363,7 +363,7 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
     ))
   }
 
-  const handleEdit = (index: number, field: string, value: any) => {
+  const handleEdit = (index: number, field: string, value: string | number | boolean | null) => {
     setServices(prev => prev.map((s, i) =>
       i === index ? { ...s, [field]: value } : s
     ))

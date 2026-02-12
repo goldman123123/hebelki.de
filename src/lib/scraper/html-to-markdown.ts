@@ -146,7 +146,8 @@ export async function scrapePageToMarkdown(url: string): Promise<ScrapedPage> {
       description,
       size: html.length
     }
-  } catch (error: any) {
-    throw new Error(`Failed to scrape ${url}: ${error.message}`)
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error)
+    throw new Error(`Failed to scrape ${url}: ${message}`)
   }
 }

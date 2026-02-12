@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { ConversationList } from './ConversationList'
 import { ChatThread } from './ChatThread'
 import { Headphones } from 'lucide-react'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 interface SupportChatDashboardProps {
   businessId: string
@@ -12,7 +13,50 @@ interface SupportChatDashboardProps {
 
 export function SupportChatDashboard({ businessId, businessName }: SupportChatDashboardProps) {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
+  const isMobile = useIsMobile()
 
+  // Mobile: show either list or thread
+  if (isMobile) {
+    if (selectedConversationId) {
+      return (
+        <div className="space-y-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Live-Chat</h1>
+            <p className="text-sm text-gray-500">
+              Beantworten Sie Kundenanfragen in Echtzeit
+            </p>
+          </div>
+          <div className="h-[calc(100vh-180px)] min-h-[400px]">
+            <ChatThread
+              conversationId={selectedConversationId}
+              onClose={() => setSelectedConversationId(null)}
+              showBackButton
+              onBack={() => setSelectedConversationId(null)}
+            />
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Live-Chat</h1>
+          <p className="text-sm text-gray-500">
+            Beantworten Sie Kundenanfragen in Echtzeit
+          </p>
+        </div>
+        <div className="h-[calc(100vh-180px)] min-h-[400px]">
+          <ConversationList
+            selectedId={selectedConversationId}
+            onSelect={setSelectedConversationId}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  // Desktop: side-by-side layout
   return (
     <div className="space-y-6">
       <div>
@@ -24,7 +68,7 @@ export function SupportChatDashboard({ businessId, businessName }: SupportChatDa
 
       <div className="flex gap-4 h-[calc(100vh-200px)] min-h-[500px]">
         {/* Left panel: conversation list */}
-        <div className="w-1/3 min-w-[300px]">
+        <div className="w-80 shrink-0">
           <ConversationList
             selectedId={selectedConversationId}
             onSelect={setSelectedConversationId}
@@ -32,7 +76,7 @@ export function SupportChatDashboard({ businessId, businessName }: SupportChatDa
         </div>
 
         {/* Right panel: chat thread */}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           {selectedConversationId ? (
             <ChatThread
               conversationId={selectedConversationId}

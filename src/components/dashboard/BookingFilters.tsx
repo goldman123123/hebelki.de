@@ -23,33 +23,35 @@ export function BookingFilters({
   counts,
 }: BookingFiltersProps) {
   return (
-    <div className="flex gap-1 rounded-lg border bg-gray-50 p-1">
-      {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          onClick={() => onFilterChange(tab.id)}
-          className={cn(
-            'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-            activeFilter === tab.id
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-          )}
-        >
-          {tab.label}
-          {counts && counts[tab.id] !== undefined && (
-            <span
-              className={cn(
-                'rounded-full px-1.5 py-0.5 text-xs',
-                activeFilter === tab.id
-                  ? 'bg-gray-100'
-                  : 'bg-gray-200'
-              )}
-            >
-              {counts[tab.id]}
-            </span>
-          )}
-        </button>
-      ))}
+    <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+      <div className="flex gap-1 rounded-lg border bg-gray-50 p-1 w-max md:w-auto md:flex-wrap">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => onFilterChange(tab.id)}
+            className={cn(
+              'flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+              activeFilter === tab.id
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            )}
+          >
+            {tab.label}
+            {counts && counts[tab.id] !== undefined && (
+              <span
+                className={cn(
+                  'rounded-full px-1.5 py-0.5 text-xs',
+                  activeFilter === tab.id
+                    ? 'bg-gray-100'
+                    : 'bg-gray-200'
+                )}
+              >
+                {counts[tab.id]}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

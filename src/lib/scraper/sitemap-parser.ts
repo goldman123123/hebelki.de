@@ -49,8 +49,9 @@ export async function fetchSitemap(baseUrl: string): Promise<SitemapUrl[]> {
 
     console.log(`✅ Found ${urls.length} URLs in sitemap`)
     return urls
-  } catch (error: any) {
-    console.log(`⚠️ No sitemap.xml found: ${error.message}`)
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.log(`⚠️ No sitemap.xml found: ${message}`)
     return []
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireBusinessAuth } from '@/lib/auth'
 import { getServiceById, updateService, deleteService, verifyServiceOwnership } from '@/lib/db/queries'
 import { serviceSchema } from '@/lib/validations/schemas'
+import { parseBody } from '@/lib/api-response'
 
 export async function GET(
   request: NextRequest,
@@ -46,7 +47,8 @@ export async function PATCH(
     return NextResponse.json({ error: 'Service not found' }, { status: 404 })
   }
 
-  const body = await request.json()
+  const { data: body, error: parseError } = await parseBody(request)
+  if (parseError) return parseError
 
   const parsed = serviceSchema.partial().safeParse(body)
   if (!parsed.success) {

@@ -85,12 +85,12 @@ export function InlineStaffForm({
       async function loadStaffSchedule() {
         const res = await fetch(`/api/admin/availability/templates?staffId=${staffId}`)
         const data = await res.json()
-        const staffTpl = data.templates?.find((t: any) => t.isDefault)
+        const staffTpl = data.templates?.find((t: { isDefault: boolean }) => t.isDefault)
 
         if (staffTpl && staffTpl.slots.length > 0) {
           // Has custom schedule
           const schedule: WeeklySchedule = {}
-          staffTpl.slots.forEach((slot: any) => {
+          staffTpl.slots.forEach((slot: { dayOfWeek: number; startTime: string; endTime: string }) => {
             if (!schedule[slot.dayOfWeek]) {
               schedule[slot.dayOfWeek] = []
             }

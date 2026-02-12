@@ -18,12 +18,15 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card } from '@/components/ui/card'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Book, MessageSquare, Settings, Loader2, AlertCircle, FileText, Building2, User, Database } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Separator } from '@/components/ui/separator'
+import { Book, MessageSquare, Settings, Loader2, FileText, Building2, User, Database, Code, Shield } from 'lucide-react'
 import { KnowledgeBaseTab } from './components/KnowledgeBaseTab'
 import { ConversationsTab } from './components/ConversationsTab'
 import { SettingsTab } from './components/SettingsTab'
+import { EmbedCodeTab } from './components/EmbedCodeTab'
+import { DeletionRequestsTab } from './components/DeletionRequestsTab'
 import { DataSection } from './components/data/DataSection'
 import { AiLiteracyBanner } from '@/components/dashboard/AiLiteracyBanner'
 import Link from 'next/link'
@@ -33,6 +36,9 @@ interface Business {
   name: string
   slug: string
   type: string | null
+  primaryColor: string
+  chatbotColor?: string
+  settings?: Record<string, unknown>
 }
 
 interface TabCounts {
@@ -42,10 +48,28 @@ interface TabCounts {
   archiv: number
 }
 
+const chatbotTabs = [
+  { value: 'knowledge', label: 'Wissensdatenbank', shortLabel: 'Wissen', icon: Book, group: 'main' },
+  { value: 'conversations', label: 'Gespräche', shortLabel: 'Chats', icon: MessageSquare, group: 'main' },
+  { value: 'settings', label: 'Einstellungen', shortLabel: 'Einstell.', icon: Settings, group: 'main' },
+  { value: 'dokumente', label: 'Dokumente', shortLabel: 'Doku.', icon: FileText, group: 'data' },
+  { value: 'intern', label: 'Intern', shortLabel: 'Intern', icon: Building2, group: 'data' },
+  { value: 'kunden', label: 'Kunden', shortLabel: 'Kunden', icon: User, group: 'data' },
+  { value: 'archiv', label: 'Archiv', shortLabel: 'Archiv', icon: Database, group: 'data' },
+  { value: 'integration', label: 'Integration', shortLabel: 'Embed', icon: Code, group: 'data' },
+  { value: 'gdpr', label: 'Löschanfragen', shortLabel: 'DSGVO', icon: Shield, group: 'data' },
+] as const
+
+const countBadgeColors: Record<string, string> = {
+  dokumente: 'bg-green-100 text-green-700',
+  intern: 'bg-blue-100 text-blue-700',
+  kunden: 'bg-purple-100 text-purple-700',
+  archiv: 'bg-amber-100 text-amber-700',
+}
+
 export default function ChatbotDashboardPage() {
   const [business, setBusiness] = useState<Business | null>(null)
   const [loading, setLoading] = useState(true)
-  const [knowledgeCount, setKnowledgeCount] = useState<number | null>(null)
   const [counts, setCounts] = useState<TabCounts>({ dokumente: 0, intern: 0, kunden: 0, archiv: 0 })
   const [refreshKey, setRefreshKey] = useState(0)
   const [activeTab, setActiveTab] = useState('knowledge')
@@ -53,18 +77,21 @@ export default function ChatbotDashboardPage() {
   useEffect(() => {
     const fetchBusiness = async () => {
       try {
-        // Fetch the user's businesses from the new endpoint
         const response = await fetch('/api/businesses/my')
         const data = await response.json()
 
         if (data.success && data.businesses.length > 0) {
-          // Use the first business the user has access to
           const firstBusiness = data.businesses[0]
+          const biz = firstBusiness.business
+          const bizSettings = typeof biz.settings === 'object' && biz.settings !== null ? biz.settings : {}
           setBusiness({
-            id: firstBusiness.business.id,
-            name: firstBusiness.business.name,
-            slug: firstBusiness.business.slug,
-            type: firstBusiness.business.type,
+            id: biz.id,
+            name: biz.name,
+            slug: biz.slug,
+            type: biz.type,
+            primaryColor: biz.primaryColor || '#3B82F6',
+            chatbotColor: (bizSettings as Record<string, string>).chatbotColor,
+            settings: bizSettings as Record<string, unknown>,
           })
         }
       } catch (error) {
@@ -77,29 +104,11 @@ export default function ChatbotDashboardPage() {
     fetchBusiness()
   }, [])
 
-  // Check knowledge base count
-  useEffect(() => {
-    if (!business) return
-
-    const checkKnowledge = async () => {
-      try {
-        const response = await fetch(`/api/chatbot/knowledge?businessId=${business.id}`)
-        const data = await response.json()
-        setKnowledgeCount(data.entries?.length || 0)
-      } catch (error) {
-        console.error('Failed to fetch knowledge count:', error)
-      }
-    }
-
-    checkKnowledge()
-  }, [business])
-
   // Fetch document counts for all 4 document tabs
   const fetchCounts = useCallback(async () => {
     if (!business?.id) return
 
     try {
-      // Fetch counts for all 4 categories in parallel
       const [dokumenteRes, internRes, kundenRes, archivRes] = await Promise.all([
         fetch(`/api/documents?businessId=${business.id}&dataClass=knowledge&audience=public&scopeType=global&countOnly=true`),
         fetch(`/api/documents?businessId=${business.id}&dataClass=knowledge&audience=internal&scopeType=global&countOnly=true`),
@@ -129,7 +138,6 @@ export default function ChatbotDashboardPage() {
     fetchCounts()
   }, [fetchCounts, refreshKey])
 
-  // Handle refresh from child components
   const handleRefresh = useCallback(() => {
     setRefreshKey(prev => prev + 1)
   }, [])
@@ -167,85 +175,61 @@ export default function ChatbotDashboardPage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Chatbot & Daten</h1>
-        <p className="mt-2 text-gray-600">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Chatbot & Daten</h1>
+        <p className="mt-1 text-sm md:text-base text-gray-600">
           Verwalten Sie Ihre Wissensdatenbank, Gespräche, Einstellungen und Dokumente
+        </p>
+        <p className="mt-1 text-sm text-gray-600">
+          Chatbot-URL:{' '}
+          <Link
+            href={`/${business.slug}/chat`}
+            className="text-primary hover:underline"
+            target="_blank"
+          >
+            /{business.slug}/chat
+          </Link>
         </p>
       </div>
 
-      {/* Setup Banner */}
-      {knowledgeCount === 0 && (
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Complete Chatbot Setup</AlertTitle>
-          <AlertDescription>
-            Your chatbot has no knowledge yet. Add knowledge entries or test the chatbot to get started.
-          </AlertDescription>
-          <Button asChild className="mt-4">
-            <Link href={`/${business.slug}/chat`}>
-              Test Chatbot
-            </Link>
-          </Button>
-        </Alert>
-      )}
-
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-7 lg:w-auto">
-          {/* Original 3 tabs */}
-          <TabsTrigger value="knowledge" className="flex items-center gap-2">
-            <Book className="h-4 w-4" />
-            <span className="hidden sm:inline">Wissensdatenbank</span>
-            <span className="sm:hidden">Wissen</span>
-          </TabsTrigger>
-          <TabsTrigger value="conversations" className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
-            <span className="hidden sm:inline">Gespräche</span>
-            <span className="sm:hidden">Chats</span>
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            <span>Einstellungen</span>
-          </TabsTrigger>
+        <TooltipProvider delayDuration={0}>
+          <div className="relative">
+            {/* Scroll fade indicators */}
+            <div className="pointer-events-none absolute right-0 top-0 bottom-0 z-10 w-8 bg-gradient-to-l from-gray-50 to-transparent sm:hidden" />
+            <TabsList className="flex w-full overflow-x-auto gap-0.5 justify-start no-scrollbar">
+              {chatbotTabs.map((tab, index) => {
+                const Icon = tab.icon
+                const count = tab.value in counts ? counts[tab.value as keyof TabCounts] : undefined
+                const showSeparator = index === 2 // After "Einstellungen", before data tabs
 
-          {/* 4 new data tabs */}
-          <TabsTrigger value="dokumente" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            <span>Dokumente</span>
-            {counts.dokumente > 0 && (
-              <span className="ml-1 text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">
-                {counts.dokumente}
-              </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="intern" className="flex items-center gap-2">
-            <Building2 className="h-4 w-4" />
-            <span>Intern</span>
-            {counts.intern > 0 && (
-              <span className="ml-1 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
-                {counts.intern}
-              </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="kunden" className="flex items-center gap-2">
-            <User className="h-4 w-4" />
-            <span>Kunden</span>
-            {counts.kunden > 0 && (
-              <span className="ml-1 text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full">
-                {counts.kunden}
-              </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="archiv" className="flex items-center gap-2">
-            <Database className="h-4 w-4" />
-            <span>Archiv</span>
-            {counts.archiv > 0 && (
-              <span className="ml-1 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">
-                {counts.archiv}
-              </span>
-            )}
-          </TabsTrigger>
-        </TabsList>
+                return (
+                  <div key={tab.value} className="flex items-center shrink-0">
+                    {showSeparator && (
+                      <Separator orientation="vertical" className="mx-1 h-5" />
+                    )}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <TabsTrigger value={tab.value} className="flex shrink-0 items-center gap-1.5 px-2.5 sm:px-3">
+                          <Icon className="h-4 w-4 shrink-0" />
+                          <span className="hidden sm:inline text-xs lg:text-sm">{tab.label}</span>
+                          {count !== undefined && count > 0 && (
+                            <span className={`ml-0.5 text-[10px] px-1.5 py-0 rounded-full ${countBadgeColors[tab.value] || 'bg-gray-100 text-gray-700'}`}>
+                              {count}
+                            </span>
+                          )}
+                        </TabsTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="sm:hidden">
+                        {tab.label}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                )
+              })}
+            </TabsList>
+          </div>
+        </TooltipProvider>
 
         {/* Original 3 tab contents */}
         <TabsContent value="knowledge">
@@ -260,7 +244,7 @@ export default function ChatbotDashboardPage() {
           <SettingsTab business={business} />
         </TabsContent>
 
-        {/* 4 new data tab contents */}
+        {/* 4 data tab contents */}
         <TabsContent value="dokumente">
           <DataSection
             businessId={business.id}
@@ -295,6 +279,18 @@ export default function ChatbotDashboardPage() {
             refreshKey={refreshKey}
             onRefresh={handleRefresh}
           />
+        </TabsContent>
+
+        <TabsContent value="integration">
+          <EmbedCodeTab
+            businessSlug={business.slug}
+            businessName={business.name}
+            defaultColor={business.chatbotColor || business.primaryColor}
+          />
+        </TabsContent>
+
+        <TabsContent value="gdpr">
+          <DeletionRequestsTab businessId={business.id} />
         </TabsContent>
       </Tabs>
     </div>

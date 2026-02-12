@@ -1,0 +1,33 @@
+app = 'hebelki-voice-relay'
+primary_region = 'fra'
+
+[build]
+  dockerfile = "Dockerfile.voice-relay"
+
+[env]
+  NODE_ENV = "production"
+  VOICE_RELAY_PORT = "3006"
+
+[http_service]
+  internal_port = 3006
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+[checks]
+  [checks.health]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    path = "/health"
+    port = 3006
+    protocol = "http"
+    timeout = "5s"
+    type = "http"
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1

@@ -46,7 +46,7 @@ export function CustomerForm({
 
     if (!email.trim()) {
       newErrors.email = 'E-Mail ist erforderlich'
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
       newErrors.email = 'Bitte geben Sie eine gültige E-Mail-Adresse ein'
     }
 

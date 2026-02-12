@@ -15,7 +15,9 @@ import { StatusBadge } from '@/components/dashboard/StatusBadge'
 import { BookingFilters } from '@/components/dashboard/BookingFilters'
 import { BookingActions } from '@/components/dashboard/BookingActions'
 import { CreateBookingDialog } from '@/components/dashboard/CreateBookingDialog'
+import { BookingCard } from './components/BookingCard'
 import { formatDate, formatTime, formatCurrency } from '@/lib/utils'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { Loader2, Plus } from 'lucide-react'
 
 interface Booking {
@@ -39,6 +41,7 @@ export default function BookingsPage() {
   const [timezone, setTimezone] = useState('Europe/Berlin')
   const [slug, setSlug] = useState<string | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const isMobile = useIsMobile()
 
   const fetchBookings = useCallback(async () => {
     setLoading(true)
@@ -79,7 +82,7 @@ export default function BookingsPage() {
 
   return (
     <div>
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-6 md:mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Buchungen</h1>
           <p className="text-gray-600">Verwalten Sie alle Ihre Termine</p>
@@ -96,7 +99,7 @@ export default function BookingsPage() {
             </p>
           )}
         </div>
-        <Button onClick={() => setShowCreateDialog(true)}>
+        <Button onClick={() => setShowCreateDialog(true)} className="self-start sm:self-auto">
           <Plus className="mr-2 h-4 w-4" />
           Neue Buchung
         </Button>
@@ -133,7 +136,20 @@ export default function BookingsPage() {
             <p className="py-8 text-center text-gray-500">
               Keine Buchungen gefunden.
             </p>
+          ) : isMobile ? (
+            /* Mobile: Card list */
+            <div className="space-y-3">
+              {bookings.map((b) => (
+                <BookingCard
+                  key={b.booking.id}
+                  booking={b}
+                  timezone={timezone}
+                  onStatusChange={fetchBookings}
+                />
+              ))}
+            </div>
           ) : (
+            /* Desktop: Table */
             <Table>
               <TableHeader>
                 <TableRow>

@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   // Create a new Svix instance with your secret
   const wh = new Webhook(WEBHOOK_SECRET)
 
-  let evt: any
+  let evt: { type: string; data: { id: string; [key: string]: unknown } }
 
   // Verify the payload with the headers
   try {
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
       'svix-id': svix_id,
       'svix-timestamp': svix_timestamp,
       'svix-signature': svix_signature,
-    })
+    }) as typeof evt
   } catch (err) {
     console.error('[Clerk Webhook] Error verifying webhook:', err)
     return new Response('Invalid signature', { status: 400 })
@@ -83,9 +83,8 @@ export async function POST(req: NextRequest) {
   // Handle user.updated event (future: update email for invitations)
   if (eventType === 'user.updated') {
     const userId = evt.data.id
-    const userEmail = evt.data.email_addresses?.[0]?.email_address
 
-    console.log(`[Clerk Webhook] User ${userId} updated, email: ${userEmail}`)
+    console.log(`[Clerk Webhook] User ${userId} updated`)
 
     // Future: Update pending invitations if email changed
     // This would be useful for matching invited users by email

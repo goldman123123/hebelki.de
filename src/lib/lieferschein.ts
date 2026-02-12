@@ -10,6 +10,7 @@ import { bookings, businesses, customers, services, documentEvents, type Invoice
 import { eq } from 'drizzle-orm'
 import { generateLieferscheinHtml } from './lieferschein-templates'
 import { generatePdfFromHtml } from './pdf'
+import { queueDocumentForEmbedding, buildLieferscheinDocTitle } from './document-knowledge'
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID
@@ -127,6 +128,25 @@ export async function generateAndUploadLieferschein(bookingId: string, actorId?:
       updatedAt: new Date(),
     })
     .where(eq(bookings.id, bookingId))
+
+  // Queue PDF for document worker pipeline (parse → chunk → embed → index)
+  try {
+    await queueDocumentForEmbedding({
+      businessId: business.id,
+      title: buildLieferscheinDocTitle(customer.name || 'Kunde', booking.startsAt.toISOString().split('T')[0]),
+      originalFilename: `lieferschein-${booking.id}.pdf`,
+      r2Key,
+      pdfBuffer,
+      audience: 'internal',
+      scopeType: 'customer',
+      scopeId: customer.id,
+      dataClass: 'knowledge',
+      containsPii: true,
+      authorityLevel: 'high',
+    })
+  } catch (err) {
+    console.error('[generateAndUploadLieferschein] Failed to queue for embedding:', err)
+  }
 
   // Log audit event
   await db.insert(documentEvents).values({

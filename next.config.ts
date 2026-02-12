@@ -22,6 +22,36 @@ const nextConfig: NextConfig = {
 
   // Turbopack is enabled by default in Next.js 16
   // but we can configure it further if needed
+
+  // Security headers
+  async headers() {
+    const sharedHeaders = [
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+      { key: 'Permissions-Policy', value: 'camera=(), microphone=(self), geolocation=()' },
+      { key: 'X-DNS-Prefetch-Control', value: 'on' },
+    ]
+
+    return [
+      // Embed routes — allow framing from any site
+      {
+        source: '/embed/:path*',
+        headers: [
+          ...sharedHeaders,
+          { key: 'Content-Security-Policy', value: 'frame-ancestors *' },
+        ],
+      },
+      // All other routes — block framing
+      {
+        source: '/((?!embed/).*)',
+        headers: [
+          ...sharedHeaders,
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+        ],
+      },
+    ]
+  },
 }
 
 export default nextConfig;

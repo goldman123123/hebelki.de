@@ -9,7 +9,9 @@ const transporter = nodemailer.createTransport({
     pass: process.env.SMTP_PASS,
   },
   tls: {
-    rejectUnauthorized: false, // Allow self-signed/mismatched certs (shared hosting)
+    // Namecheap shared hosting uses a wildcard cert for *.web-hosting.com,
+    // not a cert for mail.hebelki.de — so we must match their actual cert
+    servername: 'web-hosting.com',
   },
 })
 
@@ -21,9 +23,8 @@ interface SendEmailOptions {
 }
 
 export async function sendEmail(options: SendEmailOptions) {
-  console.log('[Email] Attempting to send email to:', options.to)
-  console.log('[Email] SMTP_HOST:', process.env.SMTP_HOST ? 'SET' : 'NOT SET')
-  console.log('[Email] SMTP_USER:', process.env.SMTP_USER ? 'SET' : 'NOT SET')
+  console.log('[Email] Sending email...')
+  console.log('[Email] SMTP configured:', !!process.env.SMTP_HOST && !!process.env.SMTP_USER)
 
   if (!process.env.SMTP_HOST || !process.env.SMTP_USER) {
     console.warn('[Email] Email not configured - skipping email send')
@@ -52,12 +53,13 @@ interface SendCustomEmailOptions {
   body: string
   customerName?: string
   businessName?: string
+  attachments?: Array<{ filename: string; content: Buffer; contentType: string }>
 }
 
 export async function sendCustomEmail(options: SendCustomEmailOptions) {
   const { to, subject, body, customerName, businessName } = options
 
-  console.log('[Email] Sending custom email to:', to)
+  console.log('[Email] Sending custom email...')
 
   if (!process.env.SMTP_HOST || !process.env.SMTP_USER) {
     console.warn('[Email] Email not configured - skipping email send')
@@ -91,6 +93,11 @@ export async function sendCustomEmail(options: SendCustomEmailOptions) {
       subject,
       html,
       text,
+      attachments: options.attachments?.map(a => ({
+        filename: a.filename,
+        content: a.content,
+        contentType: a.contentType,
+      })),
     })
     console.log('[Email] Custom email sent successfully, messageId:', result.messageId)
     return result

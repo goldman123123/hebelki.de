@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Loader2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Loader2, Users, Clock, CalendarOff } from 'lucide-react'
 import { TeamMembersTab } from '@/components/team-scheduling/TeamMembersTab'
 import { BusinessHoursTab } from '@/components/team-scheduling/BusinessHoursTab'
 import { TimeOffTab } from '@/components/team-scheduling/TimeOffTab'
@@ -59,14 +59,8 @@ interface Service {
   category: string | null
 }
 
-const tabs = [
-  { id: 'team', label: 'Team Members' },
-  { id: 'business', label: 'Business Hours' },
-  { id: 'timeoff', label: 'Time Off' },
-]
-
 export default function TeamSchedulingPage() {
-  const [activeTab, setActiveTab] = useState<'team' | 'business' | 'timeoff'>('team')
+  const [activeTab, setActiveTab] = useState('team')
   const [loading, setLoading] = useState(true)
 
   // Team Members Tab State
@@ -142,55 +136,53 @@ export default function TeamSchedulingPage() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Team & Scheduling</h1>
-        <p className="text-gray-600">Manage your team members, business hours, and time off</p>
+      <div className="mb-6 md:mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">Team & Planung</h1>
+        <p className="text-gray-600">Verwalten Sie Ihr Team, Geschäftszeiten und Abwesenheiten</p>
       </div>
 
-      {/* Tabs */}
-      <div className="mb-6 flex gap-1 rounded-lg border bg-gray-50 p-1">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as typeof activeTab)}
-            className={cn(
-              'rounded-md px-4 py-2 text-sm font-medium transition-colors',
-              activeTab === tab.id
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            )}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="mb-6 w-full sm:w-auto">
+          <TabsTrigger value="team" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            <span>Team Mitglieder</span>
+          </TabsTrigger>
+          <TabsTrigger value="business" className="flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            <span>Geschäftszeiten</span>
+          </TabsTrigger>
+          <TabsTrigger value="timeoff" className="flex items-center gap-2">
+            <CalendarOff className="h-4 w-4" />
+            <span>Abwesenheiten</span>
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Tab Content */}
-      {activeTab === 'team' && (
-        <TeamMembersTab
-          staffMembers={staffMembers}
-          services={services}
-          businessSchedule={businessSchedule}
-          onRefresh={fetchData}
-        />
-      )}
+        <TabsContent value="team">
+          <TeamMembersTab
+            staffMembers={staffMembers}
+            services={services}
+            businessSchedule={businessSchedule}
+            onRefresh={fetchData}
+          />
+        </TabsContent>
 
-      {activeTab === 'business' && (
-        <BusinessHoursTab
-          businessTemplate={businessTemplate}
-          businessSchedule={businessSchedule}
-          onBusinessTemplateChange={setBusinessTemplate}
-          onBusinessScheduleChange={setBusinessSchedule}
-        />
-      )}
+        <TabsContent value="business">
+          <BusinessHoursTab
+            businessTemplate={businessTemplate}
+            businessSchedule={businessSchedule}
+            onBusinessTemplateChange={setBusinessTemplate}
+            onBusinessScheduleChange={setBusinessSchedule}
+          />
+        </TabsContent>
 
-      {activeTab === 'timeoff' && (
-        <TimeOffTab
-          overrides={overrides}
-          staffMembers={staffMembers.filter((s) => s.isActive)}
-          onRefresh={fetchData}
-        />
-      )}
+        <TabsContent value="timeoff">
+          <TimeOffTab
+            overrides={overrides}
+            staffMembers={staffMembers.filter((s) => s.isActive)}
+            onRefresh={fetchData}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

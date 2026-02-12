@@ -81,6 +81,13 @@ const dataControlSchema = z.object({
   userId: z.string().optional(), // Clerk user ID for audit trail
 })
 
+// DPO (Datenschutzbeauftragter) settings (stored in JSONB)
+const dpoSchema = z.object({
+  dpoName: z.string().max(100).nullable().optional(),
+  dpoEmail: z.string().email().nullable().optional().or(z.literal('')),
+  dpoPhone: z.string().max(30).nullable().optional(),
+})
+
 // AVV (Auftragsverarbeitungsvertrag) acceptance
 const avvSchema = z.object({
   avvAccepted: z.boolean(),
@@ -171,6 +178,9 @@ export async function PATCH(request: NextRequest) {
     case 'dataControl':
       parsed = dataControlSchema.safeParse(body.data)
       break
+    case 'dpo':
+      parsed = dpoSchema.safeParse(body.data)
+      break
     case 'avv':
       parsed = avvSchema.safeParse(body.data)
       break
@@ -250,6 +260,30 @@ export async function PATCH(request: NextRequest) {
       newSettings.aiLiteracyAcknowledgedAt = null
       newSettings.aiLiteracyAcknowledgedBy = null
       newSettings.aiLiteracyVersion = null
+    }
+
+    const [updated] = await db
+      .update(businesses)
+      .set({
+        settings: newSettings,
+        updatedAt: new Date(),
+      })
+      .where(eq(businesses.id, authResult.business.id))
+      .returning()
+
+    return NextResponse.json({ business: updated })
+  }
+
+  // Handle DPO (Datenschutzbeauftragter) settings
+  if (section === 'dpo') {
+    const dpoData = parsed.data as z.infer<typeof dpoSchema>
+    const currentSettings = (authResult.business.settings as Record<string, unknown>) || {}
+
+    const newSettings: Record<string, unknown> = {
+      ...currentSettings,
+      dpoName: dpoData.dpoName ?? currentSettings.dpoName ?? null,
+      dpoEmail: dpoData.dpoEmail !== undefined ? (dpoData.dpoEmail || null) : (currentSettings.dpoEmail ?? null),
+      dpoPhone: dpoData.dpoPhone ?? currentSettings.dpoPhone ?? null,
     }
 
     const [updated] = await db

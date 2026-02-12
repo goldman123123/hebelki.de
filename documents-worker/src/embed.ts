@@ -87,6 +87,9 @@ export function hashContent(text: string): string {
 /**
  * Generate embeddings for multiple texts with full metadata
  */
+const EMBEDDING_TIMEOUT_MS = 30_000
+const EMBEDDING_MAX_RETRIES = 3
+
 export async function generateEmbeddingsWithMetadata(
   texts: string[]
 ): Promise<EmbeddingResult[]> {
@@ -98,44 +101,61 @@ export async function generateEmbeddingsWithMetadata(
 
   console.log(`[Embeddings] Generating embeddings for ${texts.length} texts`)
 
-  try {
-    const response = await fetch('https://openrouter.ai/api/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': OPENROUTER_SITE_URL,
-        'X-Title': OPENROUTER_SITE_NAME,
-      },
-      body: JSON.stringify({
+  let lastError: Error | null = null
+  for (let attempt = 1; attempt <= EMBEDDING_MAX_RETRIES; attempt++) {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), EMBEDDING_TIMEOUT_MS)
+
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/embeddings', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': OPENROUTER_SITE_URL,
+          'X-Title': OPENROUTER_SITE_NAME,
+        },
+        body: JSON.stringify({
+          model: EMBEDDING_CONFIG.model,
+          input: normalized,
+        }),
+        signal: controller.signal,
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(`OpenRouter embeddings failed: ${JSON.stringify(error)}`)
+      }
+
+      const data = await response.json() as { data: Array<{ embedding: number[] }> }
+      const embeddings = data.data.map((item) => item.embedding)
+
+      console.log(`[Embeddings] Generated ${embeddings.length} embeddings`)
+
+      return embeddings.map((embedding, i) => ({
+        embedding,
+        provider: EMBEDDING_CONFIG.provider,
         model: EMBEDDING_CONFIG.model,
-        input: normalized,
-      }),
-    })
+        dim: EMBEDDING_CONFIG.dim,
+        preprocessVersion: EMBEDDING_CONFIG.preprocessVersion,
+        contentHash: hashes[i],
+      }))
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error))
+      const isAbort = lastError.name === 'AbortError'
+      console.warn(`[Embeddings] Attempt ${attempt}/${EMBEDDING_MAX_RETRIES} failed${isAbort ? ' (timeout)' : ''}: ${lastError.message}`)
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(`OpenRouter embeddings failed: ${JSON.stringify(error)}`)
+      if (attempt < EMBEDDING_MAX_RETRIES) {
+        const delay = Math.pow(2, attempt) * 1000 // 2s, 4s
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
+    } finally {
+      clearTimeout(timeout)
     }
-
-    const data = await response.json() as { data: Array<{ embedding: number[] }> }
-    const embeddings = data.data.map((item) => item.embedding)
-
-    console.log(`[Embeddings] Generated ${embeddings.length} embeddings`)
-
-    // Return with full metadata
-    return embeddings.map((embedding, i) => ({
-      embedding,
-      provider: EMBEDDING_CONFIG.provider,
-      model: EMBEDDING_CONFIG.model,
-      dim: EMBEDDING_CONFIG.dim,
-      preprocessVersion: EMBEDDING_CONFIG.preprocessVersion,
-      contentHash: hashes[i],
-    }))
-  } catch (error) {
-    console.error('[Embeddings] Error:', error)
-    throw error
   }
+
+  console.error('[Embeddings] All retries exhausted')
+  throw lastError!
 }
 
 /**

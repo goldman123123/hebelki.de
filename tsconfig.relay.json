@@ -1,0 +1,32 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["es2022"],
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "target": "ES2022",
+    "outDir": "dist-relay",
+    "declaration": false,
+    "jsx": "preserve",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": false,
+    "strict": false,
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": [
+    "src/voice/**/*.ts",
+    "src/modules/**/*.ts",
+    "src/lib/**/*.ts",
+    "src/types/**/*.ts"
+  ],
+  "exclude": [
+    "src/app/**",
+    "src/components/**",
+    "src/lib/embed/**",
+    "node_modules",
+    "documents-worker"
+  ]
+}

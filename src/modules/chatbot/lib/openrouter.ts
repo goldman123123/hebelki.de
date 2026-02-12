@@ -76,12 +76,7 @@ export async function createChatCompletion(
 
   const model = options.model || process.env.OPENROUTER_MODEL || 'openai/gpt-4o-2024-08-06'
 
-  console.log('🤖 [OPENROUTER] Making API request...')
-  console.log('📊 [OPENROUTER] Model:', model)
-  console.log('📝 [OPENROUTER] Messages:', options.messages.length, 'messages')
-  console.log('⚙️  [OPENROUTER] Temperature:', options.temperature ?? 0.7)
-  console.log('🎯 [OPENROUTER] Max tokens:', options.max_tokens ?? 1000)
-  console.log('🔧 [OPENROUTER] Tools count:', options.tools?.length || 0)
+  console.log(`[OPENROUTER] Request: model=${model}, messages=${options.messages.length}, tools=${options.tools?.length || 0}`)
 
   const requestBody = {
     model,
@@ -91,11 +86,6 @@ export async function createChatCompletion(
     temperature: options.temperature ?? 0.7,
     max_tokens: options.max_tokens ?? 1000,
     stream: false,
-  }
-
-  // DEBUG: Log full request for tool call debugging
-  if (options.tools && options.tools.length > 0) {
-    console.log('[OPENROUTER DEBUG] Request body:', JSON.stringify(requestBody, null, 2))
   }
 
   const response = await fetch(OPENROUTER_API_URL, {
@@ -109,35 +99,22 @@ export async function createChatCompletion(
     body: JSON.stringify(requestBody),
   })
 
-  console.log('✅ [OPENROUTER] Response status:', response.status)
-
   if (!response.ok) {
     const error = await response.text()
-    console.error('❌ [OPENROUTER] API error:', error)
+    console.error('[OPENROUTER] API error:', response.status)
     throw new Error(`OpenRouter API error: ${response.status} - ${error}`)
   }
 
   const result = await response.json()
-  console.log('✅ [OPENROUTER] Response received successfully')
-
-  // DEBUG: Log tool calls in response
-  if (result.choices?.[0]?.message?.tool_calls) {
-    console.log('[OPENROUTER DEBUG] Tool calls in response:', JSON.stringify(result.choices[0].message.tool_calls, null, 2))
-  }
+  console.log('[OPENROUTER] Response received, tool_calls:', !!result.choices?.[0]?.message?.tool_calls)
 
   // Validate response structure
   if (!result || typeof result !== 'object') {
-    console.error('❌ [OPENROUTER] Invalid response type:', typeof result)
     throw new Error('Invalid response format from OpenRouter')
   }
 
   if (!result.choices || !Array.isArray(result.choices) || result.choices.length === 0) {
-    console.error('❌ [OPENROUTER] Missing or empty choices array:', {
-      hasChoices: !!result.choices,
-      isArray: Array.isArray(result.choices),
-      length: result.choices?.length,
-      keys: Object.keys(result),
-    })
+    console.error('[OPENROUTER] Missing or empty choices array')
     throw new Error('OpenRouter response missing choices array')
   }
 

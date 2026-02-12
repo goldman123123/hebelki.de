@@ -740,3 +740,113 @@ ${data.businessName}
 
   return { subject, html, text }
 }
+
+// ============================================
+// GDPR DELETION REQUEST EMAIL
+// ============================================
+
+interface DeletionRequestEmailData {
+  customerName?: string
+  businessName: string
+  confirmUrl: string
+  exportUrl: string
+  expiresAt: Date
+}
+
+export function deletionRequestEmail(data: DeletionRequestEmailData): { subject: string; html: string; text: string } {
+  const subject = `Bestätigung Ihrer Löschanfrage - ${data.businessName}`
+
+  const expiryDate = data.expiresAt.toLocaleDateString('de-DE', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+
+  const greeting = data.customerName ? `Hallo ${data.customerName}` : 'Hallo'
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>${baseStyles}</style>
+</head>
+<body>
+  <div class="header" style="background: #ef4444;">
+    <h1>Löschanfrage</h1>
+  </div>
+  <div class="content">
+    <p>${greeting},</p>
+    <p>wir haben eine Anfrage zur Löschung Ihrer Daten bei <strong>${data.businessName}</strong> erhalten.</p>
+
+    <div class="highlight" style="background: #fef3c7; border-left-color: #f59e0b;">
+      <strong>Wichtig:</strong> Wenn Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignorieren. Ihre Daten bleiben unverändert.
+    </div>
+
+    <div class="details">
+      <h3 style="margin-top: 0;">Was wird gelöscht?</h3>
+      <ul style="color: #374151; padding-left: 20px;">
+        <li>Ihre persönlichen Daten (Name, E-Mail, Telefon, Adresse)</li>
+        <li>Alle Buchungen und Terminhistorie</li>
+        <li>Alle Chat-Gespräche</li>
+        <li>Alle Rechnungen</li>
+      </ul>
+      <p style="color: #6b7280; font-size: 14px;">Diese Aktion kann nicht rückgängig gemacht werden.</p>
+    </div>
+
+    <p><strong>Bevor Sie löschen:</strong> Sie können Ihre Daten herunterladen:</p>
+    <div style="text-align: center; margin: 15px 0;">
+      <a href="${data.exportUrl}" class="button" style="display: inline-block; background: #3B82F6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+        Meine Daten herunterladen
+      </a>
+    </div>
+
+    <p><strong>Löschung bestätigen:</strong></p>
+    <div style="text-align: center; margin: 15px 0;">
+      <a href="${data.confirmUrl}" class="button" style="display: inline-block; background: #ef4444; color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+        Daten endgültig löschen
+      </a>
+    </div>
+
+    <p style="color: #6b7280; font-size: 14px; text-align: center;">
+      Dieser Link ist gültig bis ${expiryDate}.
+    </p>
+
+    <p>Mit freundlichen Grüßen,<br><strong>${data.businessName}</strong></p>
+  </div>
+  <div class="footer">
+    <p>Diese E-Mail wurde automatisch versendet.</p>
+    <p>Powered by Hebelki</p>
+  </div>
+</body>
+</html>`
+
+  const text = `Löschanfrage - ${data.businessName}
+
+${greeting},
+
+wir haben eine Anfrage zur Löschung Ihrer Daten bei ${data.businessName} erhalten.
+
+WICHTIG: Wenn Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignorieren.
+
+Was wird gelöscht:
+- Ihre persönlichen Daten (Name, E-Mail, Telefon, Adresse)
+- Alle Buchungen und Terminhistorie
+- Alle Chat-Gespräche
+- Alle Rechnungen
+
+Diese Aktion kann nicht rückgängig gemacht werden.
+
+Daten herunterladen: ${data.exportUrl}
+
+Löschung bestätigen: ${data.confirmUrl}
+
+Dieser Link ist gültig bis ${expiryDate}.
+
+Mit freundlichen Grüßen,
+${data.businessName}
+`
+
+  return { subject, html, text }
+}

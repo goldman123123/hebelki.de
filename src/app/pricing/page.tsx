@@ -10,6 +10,7 @@ import { DevUserSwitcherPublic } from '@/components/DevUserSwitcherPublic'
 const tiers = [
   {
     name: 'Kostenlos',
+    planId: 'free',
     price: '€0',
     period: 'für immer',
     description: 'Perfekt zum Ausprobieren von Hebelki',
@@ -24,11 +25,13 @@ const tiers = [
       'Hebelki-Branding',
     ],
     cta: 'Jetzt starten',
+    ctaLoggedIn: 'Aktueller Tarif',
     ctaVariant: 'outline' as const,
     popular: false,
   },
   {
     name: 'Starter',
+    planId: 'starter',
     price: '€19',
     period: '/Monat',
     description: 'Für kleine Unternehmen, die durchstarten',
@@ -43,11 +46,13 @@ const tiers = [
     ],
     limitations: [],
     cta: 'Kostenlos testen',
+    ctaLoggedIn: 'Upgraden',
     ctaVariant: 'outline' as const,
     popular: false,
   },
   {
     name: 'Professional',
+    planId: 'pro',
     price: '€49',
     period: '/Monat',
     description: 'Für wachsende Unternehmen mit höheren Ansprüchen',
@@ -64,11 +69,13 @@ const tiers = [
     ],
     limitations: [],
     cta: 'Kostenlos testen',
+    ctaLoggedIn: 'Upgraden',
     ctaVariant: 'default' as const,
     popular: true,
   },
   {
     name: 'Business',
+    planId: 'business',
     price: '€99',
     period: '/Monat',
     description: 'Für Unternehmen mit mehreren Standorten',
@@ -84,6 +91,7 @@ const tiers = [
     ],
     limitations: [],
     cta: 'Vertrieb kontaktieren',
+    ctaLoggedIn: 'Upgraden',
     ctaVariant: 'outline' as const,
     popular: false,
   },
@@ -200,9 +208,14 @@ export default async function PricingPage() {
                 </ul>
               </CardContent>
               <CardFooter>
-                <Link href={isLoggedIn ? "/dashboard" : "/sign-up"} className="w-full">
+                <Link
+                  href={isLoggedIn
+                    ? (tier.planId === 'free' ? '/unternehmen' : `/unternehmen?billing=upgrade`)
+                    : '/sign-up'}
+                  className="w-full"
+                >
                   <Button variant={tier.ctaVariant} className="w-full">
-                    {isLoggedIn ? "Zum Dashboard" : tier.cta}
+                    {isLoggedIn ? tier.ctaLoggedIn : tier.cta}
                   </Button>
                 </Link>
               </CardFooter>
@@ -329,9 +342,9 @@ export default async function PricingPage() {
             {isLoggedIn ? "Wählen Sie den Tarif, der zu Ihrem Unternehmen passt" : "Schließen Sie sich tausenden Unternehmen an, die Hebelki für ihre Terminverwaltung nutzen"}
           </p>
           <div className="mt-8 flex items-center justify-center gap-4">
-            <Link href={isLoggedIn ? "/dashboard" : "/sign-up"}>
+            <Link href={isLoggedIn ? "/unternehmen" : "/sign-up"}>
               <Button size="lg" className="text-lg">
-                {isLoggedIn ? "Zum Dashboard" : "Kostenlos testen"}
+                {isLoggedIn ? "Tarif verwalten" : "Kostenlos testen"}
               </Button>
             </Link>
             <Link href="/book/physioplus">

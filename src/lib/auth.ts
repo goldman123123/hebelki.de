@@ -1,5 +1,5 @@
 import { auth } from '@clerk/nextjs/server'
-import { db } from './db'
+import { db, dbRetry } from './db'
 import { businesses, businessMembers } from './db/schema'
 import { eq, and } from 'drizzle-orm'
 
@@ -20,19 +20,21 @@ export async function requireBusinessAuth(): Promise<AuthResult> {
   }
 
   // ✅ Query business_members table (many-to-many approach)
-  const results = await db
-    .select({
-      business: businesses,
-      role: businessMembers.role,
-      status: businessMembers.status,
-    })
-    .from(businessMembers)
-    .innerJoin(businesses, eq(businesses.id, businessMembers.businessId))
-    .where(and(
-      eq(businessMembers.clerkUserId, userId),
-      eq(businessMembers.status, 'active')
-    ))
-    .limit(1)
+  const results = await dbRetry(() =>
+    db
+      .select({
+        business: businesses,
+        role: businessMembers.role,
+        status: businessMembers.status,
+      })
+      .from(businessMembers)
+      .innerJoin(businesses, eq(businesses.id, businessMembers.businessId))
+      .where(and(
+        eq(businessMembers.clerkUserId, userId),
+        eq(businessMembers.status, 'active')
+      ))
+      .limit(1)
+  )
 
   const business = results[0]?.business
 
@@ -48,19 +50,21 @@ export async function requireBusinessAuth(): Promise<AuthResult> {
  * ✅ Uses business_members table for proper multi-tenant support
  */
 export async function getBusinessForUser(clerkUserId: string) {
-  const results = await db
-    .select({
-      business: businesses,
-      role: businessMembers.role,
-      status: businessMembers.status,
-    })
-    .from(businessMembers)
-    .innerJoin(businesses, eq(businesses.id, businessMembers.businessId))
-    .where(and(
-      eq(businessMembers.clerkUserId, clerkUserId),
-      eq(businessMembers.status, 'active')
-    ))
-    .limit(1)
+  const results = await dbRetry(() =>
+    db
+      .select({
+        business: businesses,
+        role: businessMembers.role,
+        status: businessMembers.status,
+      })
+      .from(businessMembers)
+      .innerJoin(businesses, eq(businesses.id, businessMembers.businessId))
+      .where(and(
+        eq(businessMembers.clerkUserId, clerkUserId),
+        eq(businessMembers.status, 'active')
+      ))
+      .limit(1)
+  )
 
   return results[0]?.business || null
 }

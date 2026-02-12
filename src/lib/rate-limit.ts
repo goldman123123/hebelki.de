@@ -116,3 +116,21 @@ export const chatbotLimiter = rateLimit({
   interval: 60 * 1000, // 1 minute
   uniqueTokenPerInterval: 2000,
 })
+
+// Booking creation: 5 bookings per minute per IP
+export const bookingLimiter = rateLimit({
+  interval: 60 * 1000, // 1 minute
+  uniqueTokenPerInterval: 1000,
+})
+
+// Chatbot polling: 30 requests per minute per conversationId
+export const pollLimiter = rateLimit({
+  interval: 60 * 1000, // 1 minute
+  uniqueTokenPerInterval: 2000,
+})
+
+// Chatbot escalation: 5 escalations per minute per conversationId
+export const escalationLimiter = rateLimit({
+  interval: 60 * 1000, // 1 minute
+  uniqueTokenPerInterval: 1000,
+})

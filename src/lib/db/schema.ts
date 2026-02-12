@@ -12,6 +12,7 @@ import {
   index,
   uniqueIndex,
   vector,
+  check,
 } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 
@@ -90,6 +91,16 @@ export const businesses = pgTable('businesses', {
   planStartedAt: timestamp('plan_started_at', { withTimezone: true }),
   planExpiresAt: timestamp('plan_expires_at', { withTimezone: true }),
 
+  // Stripe billing
+  stripeCustomerId: text('stripe_customer_id'),
+  stripeSubscriptionId: text('stripe_subscription_id'),
+
+  // Custom domain (Pro+ feature)
+  customDomain: text('custom_domain'), // e.g., "termine.meinsalon.de"
+
+  // Voice assistant (Twilio phone number for inbound calls)
+  twilioPhoneNumber: text('twilio_phone_number'),
+
   // Onboarding wizard state tracking
   onboardingState: jsonb('onboarding_state').default({ completed: false, step: 1 }),
 
@@ -119,6 +130,9 @@ export const businessMembers = pgTable('business_members', {
   invitedBy: uuid('invited_by'),
   invitedAt: timestamp('invited_at', { withTimezone: true }),
   joinedAt: timestamp('joined_at', { withTimezone: true }),
+
+  // Staff online detection (heartbeat via support dashboard polling)
+  staffLastSeenAt: timestamp('staff_last_seen_at', { withTimezone: true }),
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
@@ -251,6 +265,7 @@ export const availabilitySlots = pgTable('availability_slots', {
   endTime: time('end_time').notNull(),
 }, (table) => ({
   templateIdx: index('availability_slots_template_idx').on(table.templateId),
+  endAfterStartCheck: check('availability_slots_end_after_start', sql`${table.endTime} > ${table.startTime}`),
 }));
 
 // Date-specific overrides (holidays, special hours, time off)
@@ -361,9 +376,9 @@ export const bookings = pgTable('bookings', {
   staffDateIdx: index('bookings_staff_date_idx').on(table.staffId, table.startsAt),
   statusIdx: index('bookings_status_idx').on(table.status),
   tokenIdx: index('bookings_token_idx').on(table.confirmationToken),
-  idempotencyKeyIdx: uniqueIndex('bookings_idempotency_key_idx').on(table.idempotencyKey),
-  // NEW: Unique index for holdId (one hold → max one booking)
+  idempotencyKeyIdx: uniqueIndex('bookings_idempotency_key_idx').on(table.businessId, table.idempotencyKey),
   holdIdIdx: uniqueIndex('bookings_hold_id_idx').on(table.holdId),
+  endsAfterStartsCheck: check('bookings_ends_after_starts', sql`${table.endsAt} > ${table.startsAt}`),
 }));
 
 // ============================================
@@ -395,8 +410,8 @@ export const bookingHolds = pgTable('booking_holds', {
   businessIdIdx: index('booking_holds_business_id_idx').on(table.businessId),
   expiresAtIdx: index('booking_holds_expires_at_idx').on(table.expiresAt),
   startsAtIdx: index('booking_holds_starts_at_idx').on(table.startsAt),
-  // NEW: Unique index for idempotency (prevents duplicate holds)
   idempotencyKeyIdx: uniqueIndex('booking_holds_idempotency_key_idx').on(table.businessId, table.idempotencyKey),
+  endsAfterStartsCheck: check('booking_holds_ends_after_starts', sql`${table.endsAt} > ${table.startsAt}`),
 }));
 
 // ============================================
@@ -435,10 +450,110 @@ export const waitlist = pgTable('waitlist', {
 });
 
 // ============================================
+// WEBSITE BUILDER
+// ============================================
+
+export type TemplateId = 'dark-luxury' | 'brutalism' | 'glassmorphism' | 'cyberpunk' | 'editorial' | 'neo-minimal'
+
+export interface WebsiteSectionContent {
+  hero: {
+    headline: string
+    subheadline: string
+    ctaText: string
+    ctaLink: string
+  }
+  about: {
+    title: string
+    description: string
+    stats: { label: string; value: string }[]
+  }
+  services: {
+    title: string
+    subtitle: string
+    items: {
+      id: string
+      name: string
+      description: string
+      price: string | null
+      duration: string
+    }[]
+  }
+  team: {
+    title: string
+    subtitle: string
+    members: {
+      id: string
+      name: string
+      title: string
+      bio: string
+      avatarUrl: string | null
+    }[]
+  }
+  testimonials: {
+    title: string
+    subtitle: string
+    items: { name: string; text: string; rating: number }[]
+  }
+  howItWorks: {
+    title: string
+    subtitle: string
+    steps: { step: string; title: string; description: string }[]
+  }
+  benefits: {
+    title: string
+    subtitle: string
+    items: { title: string; description: string }[]
+  }
+  faq: {
+    title: string
+    subtitle: string
+    items: { question: string; answer: string }[]
+  }
+  contact: {
+    title: string
+    subtitle: string
+    phone: string | null
+    email: string | null
+    address: string | null
+    socialLinks: { platform: string; url: string }[]
+  }
+  bookingCta: {
+    headline: string
+    description: string
+    ctaText: string
+    ctaLink: string
+  }
+  footer: {
+    copyrightText: string
+    legalName: string | null
+    legalForm: string | null
+    registrationNumber: string | null
+    registrationCourt: string | null
+  }
+}
+
+export const businessWebsites = pgTable('business_websites', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  businessId: uuid('business_id').notNull().references(() => businesses.id, { onDelete: 'cascade' }),
+  templateId: text('template_id').notNull().$type<TemplateId>(),
+  sections: jsonb('sections').$type<WebsiteSectionContent>(),
+  isPublished: boolean('is_published').default(false),
+  publishedAt: timestamp('published_at', { withTimezone: true }),
+  metaTitle: text('meta_title'),
+  metaDescription: text('meta_description'),
+  lastGeneratedAt: timestamp('last_generated_at', { withTimezone: true }),
+  generationModel: text('generation_model'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+}, (table) => ({
+  businessIdx: uniqueIndex('business_websites_business_idx').on(table.businessId),
+}));
+
+// ============================================
 // RELATIONS
 // ============================================
 
-export const businessesRelations = relations(businesses, ({ many }) => ({
+export const businessesRelations = relations(businesses, ({ many, one }) => ({
   members: many(businessMembers),
   events: many(eventOutbox),
   services: many(services),
@@ -453,6 +568,17 @@ export const businessesRelations = relations(businesses, ({ many }) => ({
   chatbotKnowledge: many(chatbotKnowledge),
   supportTickets: many(supportTickets),
   invoices: many(invoices),
+  website: one(businessWebsites, {
+    fields: [businesses.id],
+    references: [businessWebsites.businessId],
+  }),
+}));
+
+export const businessWebsitesRelations = relations(businessWebsites, ({ one }) => ({
+  business: one(businesses, {
+    fields: [businessWebsites.businessId],
+    references: [businesses.id],
+  }),
 }));
 
 export const businessMembersRelations = relations(businessMembers, ({ one }) => ({
@@ -648,6 +774,7 @@ export const chatbotMessages = pgTable('chatbot_messages', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 }, (table) => ({
   conversationIdx: index('chatbot_messages_conversation_idx').on(table.conversationId),
+  conversationCreatedIdx: index('chatbot_messages_conversation_created_idx').on(table.conversationId, table.createdAt),
   roleIdx: index('chatbot_messages_role_idx').on(table.role),
 }));
 
@@ -893,6 +1020,7 @@ export const invoices = pgTable('invoices', {
   bookingIdx: index('invoices_booking_idx').on(table.bookingId),
   statusIdx: index('invoices_status_idx').on(table.status),
   invoiceNumberIdx: uniqueIndex('invoices_invoice_number_idx').on(table.businessId, table.invoiceNumber),
+  businessStatusDateIdx: index('invoices_business_status_date_idx').on(table.businessId, table.status, table.issueDate),
 }));
 
 // Invoice number sequence tracking (per business, per year)
@@ -1062,8 +1190,8 @@ export const documents = pgTable('documents', {
 }, (table) => ({
   businessIdx: index('documents_business_idx').on(table.businessId),
   statusIdx: index('documents_status_idx').on(table.status),
-  // Index for access control filtering
   audienceScopeIdx: index('documents_audience_scope_idx').on(table.businessId, table.audience, table.scopeType, table.scopeId),
+  businessStatusCreatedIdx: index('documents_business_status_created_idx').on(table.businessId, table.status, table.createdAt),
 }));
 
 /**
@@ -1299,5 +1427,41 @@ export const chunkEmbeddingsRelations = relations(chunkEmbeddings, ({ one }) => 
   business: one(businesses, {
     fields: [chunkEmbeddings.businessId],
     references: [businesses.id],
+  }),
+}));
+
+// ============================================
+// GDPR DELETION REQUESTS
+// ============================================
+
+export const deletionRequests = pgTable('deletion_requests', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  businessId: uuid('business_id').notNull().references(() => businesses.id, { onDelete: 'cascade' }),
+  customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'set null' }),
+  customerEmail: text('customer_email').notNull(),
+  token: text('token').notNull().unique(),
+
+  // Status: pending (email sent), confirmed (customer clicked link), completed (data deleted), expired
+  status: text('status').notNull().default('pending'),
+
+  requestedAt: timestamp('requested_at', { withTimezone: true }).defaultNow().notNull(),
+  confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+}, (table) => ({
+  tokenIdx: uniqueIndex('deletion_requests_token_idx').on(table.token),
+  businessIdx: index('deletion_requests_business_idx').on(table.businessId),
+  customerIdx: index('deletion_requests_customer_idx').on(table.customerId),
+  statusIdx: index('deletion_requests_status_idx').on(table.status),
+}));
+
+export const deletionRequestsRelations = relations(deletionRequests, ({ one }) => ({
+  business: one(businesses, {
+    fields: [deletionRequests.businessId],
+    references: [businesses.id],
+  }),
+  customer: one(customers, {
+    fields: [deletionRequests.customerId],
+    references: [customers.id],
   }),
 }));

@@ -6,7 +6,7 @@
  * Shows customer details, recent bookings, and recent conversations
  */
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -33,10 +33,21 @@ import {
   XCircle,
   AlertCircle,
   MapPin,
+  Bot,
+  User as UserIcon,
+  UserCheck,
 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { toast } from 'sonner'
+
+interface Message {
+  id: string
+  role: string
+  content: string
+  metadata?: Record<string, unknown> | null
+  createdAt: string
+}
 
 interface Customer {
   id: string
@@ -115,6 +126,28 @@ export function CustomerOverviewTab({
   const [saving, setSaving] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
+  const [conversationMessages, setConversationMessages] = useState<Message[]>([])
+  const [loadingMessages, setLoadingMessages] = useState(false)
+  const [conversationDialogOpen, setConversationDialogOpen] = useState(false)
+
+  const handleViewConversation = useCallback(async (conversation: Conversation) => {
+    setSelectedConversation(conversation)
+    setConversationDialogOpen(true)
+    setLoadingMessages(true)
+    try {
+      const response = await fetch(`/api/chatbot/conversations/${conversation.id}`)
+      const data = await response.json()
+      if (data.success) {
+        setConversationMessages(data.messages || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch messages:', error)
+    } finally {
+      setLoadingMessages(false)
+    }
+  }, [])
 
   const [editData, setEditData] = useState({
     name: customer.name || '',
@@ -475,7 +508,8 @@ export function CustomerOverviewTab({
                 return (
                   <div
                     key={conversation.id}
-                    className="rounded-lg border p-3 hover:bg-gray-50"
+                    className="rounded-lg border p-3 hover:bg-gray-50 cursor-pointer"
+                    onClick={() => handleViewConversation(conversation)}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-gray-900">
@@ -537,6 +571,126 @@ export function CustomerOverviewTab({
               )}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Conversation Detail Dialog */}
+      <Dialog open={conversationDialogOpen} onOpenChange={setConversationDialogOpen}>
+        <DialogContent className="sm:max-w-[700px]">
+          <DialogHeader>
+            <DialogTitle>Gesprächsverlauf</DialogTitle>
+            <DialogDescription>
+              {selectedConversation && (
+                <span className="flex items-center gap-2 text-sm">
+                  <span>{channelLabels[selectedConversation.channel] || selectedConversation.channel}</span>
+                  <span>•</span>
+                  <span>
+                    {formatDistanceToNow(new Date(selectedConversation.lastMessageAt), {
+                      addSuffix: true,
+                      locale: de,
+                    })}
+                  </span>
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-[500px] overflow-y-auto py-4">
+            {loadingMessages ? (
+              <div className="flex items-center justify-center gap-2 py-8 text-gray-500">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span>Lädt Nachrichten...</span>
+              </div>
+            ) : conversationMessages.length === 0 ? (
+              <div className="py-8 text-center text-sm text-gray-500">
+                Keine Nachrichten in diesem Gespräch
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {conversationMessages
+                  .filter(m => m.role !== 'tool')
+                  .map((message) => {
+                    if (message.role === 'system') {
+                      return (
+                        <div key={message.id} className="text-center">
+                          <span className="inline-block rounded-full bg-gray-100 px-3 py-1 text-xs italic text-gray-500">
+                            {message.content}
+                          </span>
+                        </div>
+                      )
+                    }
+
+                    if (message.role === 'staff') {
+                      const staffName = (message.metadata?.staffName as string) || 'Support'
+                      return (
+                        <div key={message.id} className="flex gap-3 justify-end">
+                          <div className="text-right">
+                            <p className="text-[10px] font-medium text-purple-600 mb-0.5">{staffName}</p>
+                            <div className="max-w-[70%] ml-auto rounded-lg bg-purple-50 border border-purple-200 px-4 py-2">
+                              <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+                              <p className="mt-1 text-xs text-gray-500">
+                                {new Date(message.createdAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 flex-shrink-0">
+                            <UserCheck className="h-5 w-5 text-purple-600" />
+                          </div>
+                        </div>
+                      )
+                    }
+
+                    return (
+                      <div
+                        key={message.id}
+                        className={`flex gap-3 ${
+                          message.role === 'user' ? 'justify-end' : 'justify-start'
+                        }`}
+                      >
+                        {message.role === 'assistant' && (
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 flex-shrink-0">
+                            <Bot className="h-5 w-5 text-blue-600" />
+                          </div>
+                        )}
+
+                        <div
+                          className={`max-w-[70%] rounded-lg px-4 py-2 ${
+                            message.role === 'user'
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-100 text-gray-900'
+                          }`}
+                        >
+                          {message.role === 'assistant' && (
+                            <p className="text-[10px] font-medium text-blue-500 mb-0.5">KI-Assistent</p>
+                          )}
+                          <p className="whitespace-pre-wrap text-sm">
+                            {message.content}
+                          </p>
+                          <p
+                            className={`mt-1 text-xs ${
+                              message.role === 'user'
+                                ? 'text-blue-100'
+                                : 'text-gray-500'
+                            }`}
+                          >
+                            {new Date(message.createdAt).toLocaleTimeString('de-DE', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </p>
+                        </div>
+
+                        {message.role === 'user' && (
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 flex-shrink-0">
+                            <UserIcon className="h-5 w-5 text-gray-600" />
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

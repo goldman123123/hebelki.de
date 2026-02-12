@@ -55,13 +55,15 @@ interface BookingWidgetProps {
   business: Business
   services: Service[]
   staff: Staff[]
+  onStepChange?: (step: Step) => void
+  onBookingComplete?: (data: { bookingId: string; service: string; dateTime: string }) => void
 }
 
-type Step = 'service' | 'staff' | 'date' | 'time' | 'customer' | 'confirmation'
+export type Step = 'service' | 'staff' | 'date' | 'time' | 'customer' | 'confirmation'
 
 const STEPS: Step[] = ['service', 'staff', 'date', 'time', 'customer', 'confirmation']
 
-export function BookingWidget({ business, services, staff }: BookingWidgetProps) {
+export function BookingWidget({ business, services, staff, onStepChange, onBookingComplete }: BookingWidgetProps) {
   const [currentStep, setCurrentStep] = useState<Step>('service')
   const [selectedService, setSelectedService] = useState<Service | null>(null)
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null)
@@ -79,6 +81,7 @@ export function BookingWidget({ business, services, staff }: BookingWidgetProps)
   const goToStep = (step: Step) => {
     setCurrentStep(step)
     setError(null)
+    onStepChange?.(step)
   }
 
   const goBack = () => {
@@ -150,6 +153,11 @@ export function BookingWidget({ business, services, staff }: BookingWidgetProps)
       const result = await response.json()
       setBookingResult(result)
       goToStep('confirmation')
+      onBookingComplete?.({
+        bookingId: result.id,
+        service: selectedService.name,
+        dateTime: selectedTime.toISOString(),
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {

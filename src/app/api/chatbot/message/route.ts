@@ -8,7 +8,6 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { handleChatMessage } from '@/modules/chatbot/lib/conversation'
-import { getBusinessMemberRole } from '@/lib/auth-helpers'
 import { db } from '@/lib/db'
 import { businesses, chatbotConversations, chatbotMessages, businessMembers, customers } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
@@ -31,7 +30,7 @@ import { sql } from 'drizzle-orm'
 
 // Email validation regex
 function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())
 }
 
 // Phone validation (basic - accepts German and international formats)
@@ -158,7 +157,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
       }
 
-      const metadata = conversation.metadata as any || {}
+      const metadata = (conversation.metadata as Record<string, unknown>) || {}
 
       // If conversation is in live_queue or live_active, save message without AI
       if (conversation.status === 'live_queue' || conversation.status === 'live_active') {
@@ -252,43 +251,47 @@ export async function POST(request: NextRequest) {
     const chatDefaultMode = (businessSettings?.chatDefaultMode as string) || 'ai'
 
     if (liveChatEnabled && chatDefaultMode === 'live' && !conversationId) {
-      // First message in live-first mode: save to DB, queue for staff (no AI)
+      // First message in live-first mode: check if staff is online before queuing
+      const { isAnyStaffOnline } = await import('@/lib/staff-online')
+      const staffOnline = await isAnyStaffOnline(businessId)
 
-      // Create conversation
-      const [newConv] = await db.insert(chatbotConversations).values({
-        businessId,
-        channel: channel || 'web',
-        status: 'live_queue',
-        metadata: {
-          liveQueuedAt: new Date().toISOString(),
-        },
-      }).returning()
+      if (staffOnline) {
+        // Staff is online — queue for live chat
+        const [newConv] = await db.insert(chatbotConversations).values({
+          businessId,
+          channel: channel || 'web',
+          status: 'live_queue',
+          metadata: {
+            liveQueuedAt: new Date().toISOString(),
+          },
+        }).returning()
 
-      // Save user message
-      await db.insert(chatbotMessages).values({
-        conversationId: newConv.id,
-        role: 'user',
-        content: message.trim(),
-      })
-
-      // Emit event to notify owner
-      if (business.email) {
-        const { emitEventStandalone } = await import('@/modules/core/events')
-        await emitEventStandalone(businessId, 'chat.live_requested', {
+        await db.insert(chatbotMessages).values({
           conversationId: newConv.id,
-          businessName: business.name,
-          ownerEmail: business.email,
-          firstMessage: message.trim(),
-          dashboardUrl: `https://www.hebelki.de/support-chat`,
+          role: 'user',
+          content: message.trim(),
+        })
+
+        // Emit event to notify owner
+        if (business.email) {
+          const { emitEventStandalone } = await import('@/modules/core/events')
+          await emitEventStandalone(businessId, 'chat.live_requested', {
+            conversationId: newConv.id,
+            businessName: business.name,
+            ownerEmail: business.email,
+            firstMessage: message.trim(),
+            dashboardUrl: `https://www.hebelki.de/support-chat`,
+          })
+        }
+
+        return NextResponse.json({
+          success: true,
+          conversationId: newConv.id,
+          response: "Ihre Nachricht wurde empfangen. Ein Mitarbeiter wird sich in Kürze melden.",
+          metadata: { liveChatMode: true },
         })
       }
-
-      return NextResponse.json({
-        success: true,
-        conversationId: newConv.id,
-        response: "Ihre Nachricht wurde empfangen. Ein Mitarbeiter wird sich in Kürze melden.",
-        metadata: { liveChatMode: true },
-      })
+      // No staff online — fall through to AI processing below
     }
 
     // ============================================
@@ -308,17 +311,8 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Detect admin context (optional - doesn't throw if not logged in)
-    let adminContext = undefined
-    try {
-      const memberRole = await getBusinessMemberRole(businessId)
-      if (memberRole?.isAdmin) {
-        adminContext = memberRole
-      }
-    } catch (error) {
-      // Not logged in or not a member - treat as customer
-      console.log('[Chatbot API] User not authenticated or not a member')
-    }
+    // Public chatbot is customer-only (admin features moved to /tools/assistant)
+    const adminContext = undefined
 
     // ============================================
     // WHATSAPP COMPLIANCE: STOP/START DETECTION
@@ -367,18 +361,11 @@ export async function POST(request: NextRequest) {
     // Continue with normal AI processing
     // ============================================
 
-    // Derive access context (Phase 1: Business Logic Separation)
-    // - If admin context present: use their role (staff/owner)
-    // - Otherwise: treat as customer (safest default)
-    const accessContext = adminContext
-      ? {
-          actorType: adminContext.role === 'owner' ? 'owner' as const : 'staff' as const,
-          actorId: adminContext.userId,
-        }
-      : {
-          actorType: 'customer' as const,
-          actorId: customerId,
-        }
+    // Public chatbot always uses customer access context
+    const accessContext = {
+      actorType: 'customer' as const,
+      actorId: customerId,
+    }
 
     // Process the message
     const result = await handleChatMessage({
@@ -403,7 +390,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: 'Chatbot-Fehler',
-        message: error instanceof Error ? error.message : 'Unbekannter Fehler',
+        message: 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.',
       },
       { status: 500 }
     )

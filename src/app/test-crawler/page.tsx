@@ -9,7 +9,7 @@ import { Loader2 } from 'lucide-react'
 export default function TestCrawlerPage() {
   const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<any>(null)
+  const [result, setResult] = useState<Record<string, unknown> | null>(null)
   const [error, setError] = useState('')
 
   const handleTest = async () => {

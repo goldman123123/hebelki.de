@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth, clerkClient } from '@clerk/nextjs/server'
 import { createBusinessForUser, getBusinessForUser, getBusinessBySlug } from '@/lib/db/queries'
+import { parseBody } from '@/lib/api-response'
 import { z } from 'zod'
 
 const onboardingSchema = z.object({
@@ -23,7 +24,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'You already have a business' }, { status: 400 })
   }
 
-  const body = await request.json()
+  const { data: body, error: parseError } = await parseBody(request)
+  if (parseError) return parseError
 
   const parsed = onboardingSchema.safeParse(body)
   if (!parsed.success) {

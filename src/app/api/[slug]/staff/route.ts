@@ -22,7 +22,7 @@ export async function GET(
     let staffMembers
     if (serviceId) {
       // Get staff who can perform this service
-      staffMembers = await getStaffForService(serviceId)
+      staffMembers = await getStaffForService(serviceId, business.id)
     } else {
       // Get all staff
       const allStaff = await getStaffByBusiness(business.id)
