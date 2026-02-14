@@ -52,6 +52,12 @@ const nextConfig: NextConfig = {
       },
     ]
   },
+  // Short URL redirects for legal pages
+  async redirects() {
+    return [
+      { source: '/agb', destination: '/allgemeine-geschaeftsbedingungen', permanent: true },
+    ]
+  },
 }
 
 export default nextConfig;
