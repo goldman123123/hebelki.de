@@ -678,6 +678,8 @@ export async function handleChatMessage(params: {
   accessContext?: ChatAccessContext
   // Virtual Assistant mode
   isAssistant?: boolean
+  // Force a specific mode (used by demo page)
+  forceMode?: 'customer' | 'assistant'
   // Per-member tool capabilities (overrides role defaults when set)
   memberCapabilities?: { allowedTools?: string[] }
   // Uploaded files attached to this message
@@ -694,7 +696,10 @@ export async function handleChatMessage(params: {
   response: string
   metadata?: Record<string, unknown>
 }> {
-  const { businessId, message, channel = 'web', customerId, adminContext, accessContext, isAssistant, memberCapabilities, attachedFiles } = params
+  const { businessId, message, channel = 'web', customerId, adminContext, accessContext, isAssistant: isAssistantParam, memberCapabilities, attachedFiles, forceMode } = params
+
+  // forceMode overrides isAssistant
+  const isAssistant = forceMode === 'assistant' || isAssistantParam
 
   // Determine user role
   let userRole: UserRole = 'customer'

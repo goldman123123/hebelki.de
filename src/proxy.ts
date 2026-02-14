@@ -35,6 +35,8 @@ const isPublicRoute = createRouteMatcher([
   '/api/webhooks/stripe', // Stripe webhook (signature-verified in handler)
   '/api/onboarding/(.*)', // Onboarding API endpoints (scraping, etc.)
   '/api/test-crawler', // Test endpoint for Firecrawl
+  '/demo', // Demo landing page
+  '/api/demo/(.*)', // Demo API endpoints
   '/sign-in(.*)',
   '/sign-up(.*)',
 ])

@@ -451,16 +451,28 @@ async function main() {
                 return
               }
 
-              // Detect if caller is the owner
-              const callerNumber = params.callerNumber // Twilio's From number
+              // Demo mode override: force actor type from stream parameter
+              const demoMode = params.demoMode as 'customer' | 'assistant' | undefined
               let isOwnerCaller = false
-              if (callerNumber) {
-                const ownerPhone = await getOwnerWhatsAppNumber(businessId)
-                const normalizedCaller = callerNumber.replace(/\s+/g, '')
-                if (ownerPhone && normalizedCaller === ownerPhone) {
-                  isOwnerCaller = true
-                  session.actorType = 'owner'
-                  log.info(`Owner caller detected: ${callerNumber}`)
+
+              if (demoMode === 'assistant') {
+                session.actorType = 'owner'
+                isOwnerCaller = true
+                log.info(`Demo mode: forced owner/assistant (call: ${session.callSid})`)
+              } else if (demoMode === 'customer') {
+                session.actorType = 'customer'
+                log.info(`Demo mode: forced customer (call: ${session.callSid})`)
+              } else {
+                // Normal flow: detect if caller is the owner
+                const callerNumber = params.callerNumber // Twilio's From number
+                if (callerNumber) {
+                  const ownerPhone = await getOwnerWhatsAppNumber(businessId)
+                  const normalizedCaller = callerNumber.replace(/\s+/g, '')
+                  if (ownerPhone && normalizedCaller === ownerPhone) {
+                    isOwnerCaller = true
+                    session.actorType = 'owner'
+                    log.info(`Owner caller detected: ${callerNumber}`)
+                  }
                 }
               }
 
