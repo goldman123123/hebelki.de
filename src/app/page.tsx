@@ -228,8 +228,8 @@ export default async function Home() {
           </Link>
           <div className="flex items-center gap-4">
             <DevUserSwitcherPublic />
-            <Link href="/physioplus/chat" className="text-sm font-medium text-gray-600 hover:text-gray-900 hidden sm:block">
-              Live-Demo
+            <Link href="/demo" className="text-sm font-medium text-gray-600 hover:text-gray-900 hidden sm:block">
+              Demo
             </Link>
             <Link href="/pricing" className="text-sm font-medium text-gray-600 hover:text-gray-900">
               Preise
@@ -283,10 +283,10 @@ export default async function Home() {
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </Link>
-          <Link href="/physioplus/chat">
+          <Link href="/demo">
             <Button size="lg" variant="outline" className="text-lg w-full sm:w-auto">
               <MessageSquare className="mr-2 h-5 w-5" />
-              Chatbot testen
+              Demo
             </Button>
           </Link>
         </div>
@@ -629,14 +629,14 @@ export default async function Home() {
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
-            <Link href="/physioplus/chat">
+            <Link href="/demo">
               <Button
                 size="lg"
                 variant="outline"
                 className="text-lg w-full sm:w-auto bg-transparent text-white border-white hover:bg-white/10"
               >
                 <MessageSquare className="mr-2 h-5 w-5" />
-                Live-Demo testen
+                Demo
               </Button>
             </Link>
           </div>

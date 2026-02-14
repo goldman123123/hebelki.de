@@ -89,7 +89,7 @@ export function DemoPageClient({ businesses }: { businesses: DemoBusiness[] }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div>
       {/* Hero */}
       <section className="bg-white border-b">
         <div className="mx-auto max-w-5xl px-4 py-16 text-center">
