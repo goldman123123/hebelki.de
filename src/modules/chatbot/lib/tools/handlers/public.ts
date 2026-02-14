@@ -11,6 +11,41 @@ import { getStaffForService } from '@/lib/db/queries'
 import { hybridSearch, searchWithCategoryThreshold, type AccessContext } from '@/lib/search/hybrid-search'
 import { updateConversationIntent } from '../../conversation'
 import type { InternalAccessContext } from '../types'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('chatbot:tools:handlers:public')
+
+/** Availability API response slot */
+interface AvailabilitySlot {
+  available: boolean
+  start: string
+  end: string
+  recommendedStaffId?: string
+  recommendedStaffName?: string
+}
+
+/** Hold API response */
+interface HoldApiResponse {
+  holdId?: string
+  expiresAt?: string
+  startsAt?: string
+  endsAt?: string
+  staffId?: string
+  error?: string
+  code?: string
+  details?: Record<string, unknown>
+}
+
+/** Confirm API response */
+interface ConfirmApiResponse {
+  bookingId?: string
+  confirmationToken?: string
+  booking?: { startsAt?: string; endsAt?: string }
+  service?: { name?: string; price?: string }
+  staff?: { name?: string; email?: string }
+  error?: string
+  code?: string
+}
 
 /**
  * Public tool handlers
@@ -77,7 +112,7 @@ export const publicHandlers = {
         },
       }
     } catch (error) {
-      console.error('[get_current_date] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Abrufen des Datums' }
     }
   },
@@ -106,7 +141,7 @@ export const publicHandlers = {
     if (args._conversationId) {
       updateConversationIntent(args._conversationId, {
         state: 'browsing_services',
-      }).catch(err => console.error('[Intent] Failed to update:', err))
+      }).catch(err => log.error('Failed to update:', err))
     }
 
     return {
@@ -172,7 +207,7 @@ export const publicHandlers = {
       const url = `${baseUrl}/api/${business.slug}/availability?serviceId=${args.serviceId}&date=${args.date}${args.staffId ? `&staffId=${args.staffId}` : ''}`
 
       const response = await fetch(url)
-      const data = await response.json()
+      const data = await response.json() as { error?: string; slots?: AvailabilitySlot[] }
 
       if (!response.ok) {
         return { success: false, error: data.error || 'Failed to fetch availability' }
@@ -187,15 +222,6 @@ export const publicHandlers = {
         .then(rows => rows[0])
 
       const timezone = businessInfo?.timezone || 'Europe/Berlin'
-
-      // Define slot type for availability API response
-      interface AvailabilitySlot {
-        available: boolean
-        start: string
-        end: string
-        recommendedStaffId?: string
-        recommendedStaffName?: string
-      }
 
       // Format slots (show all available slots, limit to first 20 for performance) WITH INDICES
       // IMPORTANT: Include serviceId and staffId so AI can directly call create_hold
@@ -233,7 +259,7 @@ export const publicHandlers = {
           serviceId: args.serviceId,
           serviceName: service?.name,
           selectedDate: args.date,
-        }).catch(err => console.error('[Intent] Failed to update:', err))
+        }).catch(err => log.error('Failed to update:', err))
       }
 
       const totalAvailable = slots.filter((s) => s.available).length
@@ -252,7 +278,7 @@ export const publicHandlers = {
         },
       }
     } catch (error) {
-      console.error('[check_availability] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Abrufen der Verfügbarkeit' }
     }
   },
@@ -268,11 +294,11 @@ export const publicHandlers = {
     _conversationId?: string
   }) {
     try {
-      console.log('[create_hold] Called with args:', JSON.stringify(args, null, 2))
+      log.info('Called with args:', JSON.stringify(args, null, 2))
 
       // VALIDATE PAYLOAD - Check required parameters
       if (!args.businessId || !args.serviceId || !args.startsAt) {
-        console.log('[create_hold] Validation failed - missing parameters')
+        log.info('Validation failed - missing parameters')
         return {
           success: false,
           error: 'Fehlende Parameter für die Reservierung.',
@@ -316,8 +342,8 @@ export const publicHandlers = {
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3005'
       const url = `${baseUrl}/api/${business.slug}/holds`
 
-      console.log('[create_hold] Calling API:', url)
-      console.log('[create_hold] Request body:', JSON.stringify({
+      log.info('Calling API:', url)
+      log.info('Request body:', JSON.stringify({
         serviceId: args.serviceId,
         staffId: args.staffId,
         startsAt: args.startsAt,
@@ -335,10 +361,10 @@ export const publicHandlers = {
         }),
       })
 
-      const data = await response.json()
+      const data = await response.json() as HoldApiResponse
 
-      console.log('[create_hold] API response status:', response.status)
-      console.log('[create_hold] API response data:', JSON.stringify(data, null, 2))
+      log.info('API response status:', response.status)
+      log.info('API response data:', JSON.stringify(data, null, 2))
 
       if (!response.ok) {
         // CATEGORIZE API ERRORS
@@ -368,9 +394,9 @@ export const publicHandlers = {
       }
 
       // Use server-assigned staffId (may differ from args.staffId due to auto-assignment)
-      const assignedStaffId = data.staffId || args.staffId || null
+      const assignedStaffId = data.staffId || args.staffId || undefined
 
-      console.log('[create_hold] SUCCESS - Hold created:', data.holdId, 'staffId:', assignedStaffId)
+      log.info('SUCCESS - Hold created:', data.holdId, 'staffId:', assignedStaffId)
 
       // Track intent: hold is active, customer needs to provide details
       if (args._conversationId) {
@@ -405,7 +431,7 @@ export const publicHandlers = {
             staffId: assignedStaffId,
             staffName,
           },
-        }).catch(err => console.error('[Intent] Failed to update:', err))
+        }).catch(err => log.error('Failed to update:', err))
       }
 
       return {
@@ -421,8 +447,8 @@ export const publicHandlers = {
         nextStep: 'WICHTIG: Der Termin ist NOCH NICHT gebucht — nur für 5 Minuten reserviert. Du MUSST jetzt Name, E-Mail und Telefon des Kunden erfragen und dann confirm_booking() aufrufen, um die Buchung abzuschließen.',
       }
     } catch (error) {
-      console.error('[create_hold] EXCEPTION caught:', error)
-      console.error('[create_hold] Error details:', error instanceof Error ? error.message : String(error))
+      log.error('EXCEPTION caught:', error)
+      log.error('Error details:', error instanceof Error ? error.message : String(error))
       return {
         success: false,
         error: 'Fehler beim Erstellen der Reservierung. Bitte versuchen Sie es erneut.',
@@ -472,7 +498,7 @@ export const publicHandlers = {
         }),
       })
 
-      const data = await response.json()
+      const data = await response.json() as ConfirmApiResponse
 
       if (!response.ok) {
         if (data.code === 'HOLD_EXPIRED') {
@@ -482,7 +508,7 @@ export const publicHandlers = {
               state: 'idle',
               holdId: undefined,
               holdExpiresAt: undefined,
-            }).catch(err => console.error('[Intent] Failed to update:', err))
+            }).catch(err => log.error('Failed to update:', err))
           }
           return {
             success: false,
@@ -504,7 +530,7 @@ export const publicHandlers = {
           selectedDate: undefined,
           selectedSlot: undefined,
           customerData: undefined,
-        }).catch(err => console.error('[Intent] Failed to update:', err))
+        }).catch(err => log.error('Failed to update:', err))
       }
 
       return {
@@ -523,7 +549,7 @@ export const publicHandlers = {
         },
       }
     } catch (error) {
-      console.error('[confirm_booking] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Bestätigen der Buchung' }
     }
   },
@@ -555,7 +581,7 @@ export const publicHandlers = {
         customerScopeId: _accessContext.customerScopeId,
       } : undefined
 
-      console.log(`[TOOL] Hybrid search: "${query}" (category: ${category || 'all'}, actorType: ${_accessContext?.actorType || 'customer'})`)
+      log.info(`Hybrid search: "${query}" (category: ${category || 'all'}, actorType: ${_accessContext?.actorType || 'customer'})`)
 
       // Use category-specific thresholds if category is provided
       const results = category
@@ -566,7 +592,7 @@ export const publicHandlers = {
             accessContext,
           })
 
-      console.log(`[TOOL] Found ${results.length} results (method: ${results[0]?.method || 'none'})`)
+      log.info(`Found ${results.length} results (method: ${results[0]?.method || 'none'})`)
 
       return {
         success: true,
@@ -586,7 +612,7 @@ export const publicHandlers = {
         },
       }
     } catch (error) {
-      console.error('[TOOL] Knowledge base search error:', error)
+      log.error('Knowledge base search error:', error)
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Suchfehler',
@@ -627,7 +653,7 @@ export const publicHandlers = {
         },
       }
     } catch (error) {
-      console.error('[request_data_deletion] Error:', error)
+      log.error('Error:', error)
       return {
         success: false,
         error: 'Fehler bei der Verarbeitung der Löschanfrage.',

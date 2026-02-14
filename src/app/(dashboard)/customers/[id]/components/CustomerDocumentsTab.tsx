@@ -48,6 +48,9 @@ import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { toast } from 'sonner'
 import { UploadModal } from '@/components/documents/UploadModal'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('dashboard:customers:[id]:CustomerDocumentsTab')
 
 interface Document {
   id: string
@@ -170,7 +173,7 @@ export function CustomerDocumentsTab({
         })
       }
     } catch (error) {
-      console.error('Failed to fetch documents:', error)
+      log.error('Failed to fetch documents:', error)
       toast.error('Fehler beim Laden der Dokumente')
     } finally {
       setLoading(false)
@@ -206,7 +209,7 @@ export function CustomerDocumentsTab({
           }
         }
       } catch (error) {
-        console.error('Polling error:', error)
+        log.error('Polling error:', error)
       }
     }, 2000)
   }
@@ -230,7 +233,7 @@ export function CustomerDocumentsTab({
         throw new Error(data.error || 'Fehler beim Löschen')
       }
     } catch (error) {
-      console.error('Delete error:', error)
+      log.error('Delete error:', error)
       toast.error(error instanceof Error ? error.message : 'Fehler beim Löschen')
     } finally {
       setDeleting(false)
@@ -256,7 +259,7 @@ export function CustomerDocumentsTab({
         document.body.removeChild(link)
       }
     } catch (error) {
-      console.error(`${action} error:`, error)
+      log.error(`${action} error:`, error)
       toast.error(error instanceof Error ? error.message : 'Fehler beim Laden')
     } finally {
       setActionLoading(null)

@@ -10,6 +10,9 @@ import { requireBusinessAuth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { deletionRequests, customers } from '@/lib/db/schema'
 import { eq, desc } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:admin:gdpr:requests')
 
 export async function GET() {
   const authResult = await requireBusinessAuth()
@@ -36,7 +39,7 @@ export async function GET() {
 
     return NextResponse.json({ requests: results })
   } catch (error) {
-    console.error('[GET /api/admin/gdpr/requests] Error:', error)
+    log.error('[GET /api/admin/gdpr/requests] Error:', error)
     return NextResponse.json(
       { error: 'Fehler beim Laden der Löschanfragen' },
       { status: 500 }

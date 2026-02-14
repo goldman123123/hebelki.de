@@ -14,6 +14,9 @@ import { chatbotConversations, chatbotMessages, businesses } from '@/lib/db/sche
 import { eq } from 'drizzle-orm'
 import { emitEventStandalone } from '@/modules/core/events'
 import { escalationLimiter } from '@/lib/rate-limit'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:chatbot:escalate')
 
 export async function POST(request: NextRequest) {
   try {
@@ -78,7 +81,7 @@ export async function POST(request: NextRequest) {
         })
         .where(eq(chatbotConversations.id, conversationId))
 
-      console.log(`[ESCALATION] Conversation ${conversationId} moved to live_queue`)
+      log.info(`Conversation ${conversationId} moved to live_queue`)
 
       // Get first user message for email notification
       const firstMessage = await db
@@ -121,7 +124,7 @@ export async function POST(request: NextRequest) {
       })
       .where(eq(chatbotConversations.id, conversationId))
 
-    console.log(`[ESCALATION] Requesting contact info for conversation ${conversationId}`)
+    log.info(`Requesting contact info for conversation ${conversationId}`)
 
     const message = "Um Sie zu kontaktieren, benötigen wir Ihre E-Mail-Adresse oder Telefonnummer. Wie können wir Sie erreichen?"
 
@@ -131,7 +134,7 @@ export async function POST(request: NextRequest) {
       awaitingContactInfo: true,
     })
   } catch (error) {
-    console.error('[Escalation API] Error:', error)
+    log.error('Error:', error)
 
     return NextResponse.json(
       { error: 'Eskalierungs-Fehler' },

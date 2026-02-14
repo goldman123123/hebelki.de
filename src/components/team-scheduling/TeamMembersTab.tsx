@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/forms'
 import { StaffCard } from './StaffCard'
 import { InlineStaffForm } from './InlineStaffForm'
-import { Plus, Loader2 } from 'lucide-react'
+import { Plus, Loader2, Shield } from 'lucide-react'
+import Link from 'next/link'
 
 interface TimeSlot {
   startTime: string
@@ -260,7 +261,13 @@ export function TeamMembersTab({
 
   return (
     <div>
-      <div className="mb-6 flex justify-end">
+      <div className="mb-6 flex justify-end gap-2">
+        <Link href="/team-scheduling/capabilities">
+          <Button variant="outline">
+            <Shield className="mr-2 h-4 w-4" />
+            KI-Berechtigungen
+          </Button>
+        </Link>
         <Button
           onClick={() => setCreatingNew(true)}
           disabled={creatingNew || editingId !== null}

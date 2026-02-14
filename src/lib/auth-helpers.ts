@@ -8,6 +8,9 @@ import { auth } from '@clerk/nextjs/server'
 import { db } from './db'
 import { businessMembers, businesses } from './db/schema'
 import { eq, and } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('lib:auth-helpers')
 
 /**
  * Get the current user's ID from Clerk
@@ -31,7 +34,7 @@ export async function requireAuth() {
 export async function requireBusinessAccess(businessId: string) {
   const userId = await requireAuth()
 
-  console.log(`[requireBusinessAccess] Checking access for user ${userId} to business ${businessId}`)
+  log.info(`Checking access for user ${userId} to business ${businessId}`)
 
   try {
     // Check if user is a member of this business
@@ -46,16 +49,16 @@ export async function requireBusinessAccess(businessId: string) {
       .limit(1)
       .then(rows => rows[0])
 
-    console.log(`[requireBusinessAccess] Query result:`, member ? 'Member found' : 'No member found')
+    log.info(`Query result:`, member ? 'Member found' : 'No member found')
 
     if (!member) {
-      console.error(`[requireBusinessAccess] Access denied for user ${userId} to business ${businessId}`)
+      log.error(`Access denied for user ${userId} to business ${businessId}`)
       throw new Error('Access denied - You do not have access to this business')
     }
 
     return member
   } catch (error) {
-    console.error(`[requireBusinessAccess] Database query failed:`, error)
+    log.error(`Database query failed:`, error)
     throw error
   }
 }
@@ -140,7 +143,7 @@ export async function getBusinessMemberRole(businessId: string): Promise<{
       isAdmin: member.role === 'owner' || member.role === 'admin',
     }
   } catch (error) {
-    console.error('[getBusinessMemberRole] Error:', error)
+    log.error('Error:', error)
     return null
   }
 }

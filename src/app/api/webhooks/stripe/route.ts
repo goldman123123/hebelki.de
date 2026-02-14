@@ -4,6 +4,9 @@ import { db } from '@/lib/db'
 import { businesses } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import type Stripe from 'stripe'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:webhooks:stripe')
 
 export async function POST(request: NextRequest) {
   const body = await request.text()
@@ -108,7 +111,7 @@ export async function POST(request: NextRequest) {
 
       if (customerId) {
         // Log payment failure - the subscription will handle status via subscription.updated
-        console.warn(`[Stripe] Payment failed for customer ${customerId}`)
+        log.warn(`Payment failed for customer ${customerId}`)
       }
       break
     }

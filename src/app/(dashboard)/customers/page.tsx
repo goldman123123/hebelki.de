@@ -35,6 +35,9 @@ import {
 import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { toast } from 'sonner'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('dashboard:customers')
 
 interface Customer {
   id: string
@@ -99,7 +102,7 @@ export default function CustomersPage() {
         toast.error(data.error || 'Fehler beim Laden der Kunden')
       }
     } catch (error) {
-      console.error('Failed to fetch customers:', error)
+      log.error('Failed to fetch customers:', error)
       toast.error('Fehler beim Laden der Kunden')
     } finally {
       setLoading(false)
@@ -141,7 +144,7 @@ export default function CustomersPage() {
         toast.error(data.error || 'Fehler beim Erstellen des Kunden')
       }
     } catch (error) {
-      console.error('Failed to create customer:', error)
+      log.error('Failed to create customer:', error)
       toast.error('Fehler beim Erstellen des Kunden')
     } finally {
       setCreating(false)

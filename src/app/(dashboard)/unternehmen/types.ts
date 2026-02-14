@@ -30,6 +30,23 @@ export interface BusinessSettings {
   // Voice Assistant
   voiceEnabled?: boolean
   twilioPhoneNumber?: string
+  // AI Configuration
+  aiApiKey?: string         // BYOK OpenRouter API key (encrypted)
+  aiChatbotModel?: string   // e.g. 'openai/gpt-4o', 'anthropic/claude-sonnet-4'
+  aiWebsiteModel?: string   // For website content gen (default: google/gemini-2.5-flash)
+  aiExtractionModel?: string // For knowledge extraction (default: google/gemini-2.5-flash-lite)
+  aiPostModel?: string      // For post generation (default: google/gemini-2.5-flash)
+  // Team Phone Numbers (channel identity)
+  teamPhoneNumbers?: TeamPhoneNumberEntry[]
+}
+
+export interface TeamPhoneNumberEntry {
+  phone: string
+  name: string
+  role: 'owner' | 'admin' | 'staff'
+  clerkUserId?: string
+  email?: string
+  hasPin?: boolean
 }
 
 export interface Business {

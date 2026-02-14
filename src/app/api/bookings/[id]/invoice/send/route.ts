@@ -9,6 +9,9 @@ import { requireBusinessAuth } from '@/lib/auth'
 import { verifyBookingOwnership } from '@/lib/db/queries'
 import { getInvoiceByBookingId, sendInvoice } from '@/lib/invoices'
 import { emitEventStandalone } from '@/modules/core/events'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:bookings:id:invoice:send')
 
 export async function POST(
   request: NextRequest,
@@ -47,7 +50,7 @@ export async function POST(
     return NextResponse.json({ success: true, invoice: updated })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to send invoice'
-    console.error('Error sending invoice:', error)
+    log.error('Error sending invoice:', error)
     return NextResponse.json({ error: message }, { status: 400 })
   }
 }

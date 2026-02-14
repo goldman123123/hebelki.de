@@ -12,6 +12,9 @@ import { generateLieferscheinHtml } from './lieferschein-templates'
 import { generatePdfFromHtml } from './pdf'
 import { queueDocumentForEmbedding, buildLieferscheinDocTitle } from './document-knowledge'
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('lib:lieferschein')
 
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID
@@ -145,7 +148,7 @@ export async function generateAndUploadLieferschein(bookingId: string, actorId?:
       authorityLevel: 'high',
     })
   } catch (err) {
-    console.error('[generateAndUploadLieferschein] Failed to queue for embedding:', err)
+    log.error('Failed to queue for embedding:', err)
   }
 
   // Log audit event

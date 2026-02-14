@@ -7,3 +7,12 @@ export interface InternalAccessContext {
   actorId?: string
   customerScopeId?: string
 }
+
+/**
+ * Per-member AI tool capabilities.
+ * When null/undefined, role defaults are used.
+ * When set, allowedTools is an explicit whitelist.
+ */
+export interface MemberCapabilities {
+  allowedTools?: string[]
+}

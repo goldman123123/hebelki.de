@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation'
 import { useWizard } from '../../context/WizardContext'
 import { Button } from '@/components/ui/button'
 import { CheckCircle, Loader2 } from 'lucide-react'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('app:onboarding:wizard:components:steps:Step6Complete')
 
 export function Step6Complete() {
   const { state } = useWizard()
@@ -29,7 +32,7 @@ export function Step6Complete() {
           }
         })
       }).catch((error) => {
-        console.error('Failed to mark onboarding complete:', error)
+        log.error('Failed to mark onboarding complete:', error)
       })
     }
   }, [state.businessData, state.scrapeJobId, state.detectedServices, state.setupChoice])
@@ -57,7 +60,7 @@ export function Step6Complete() {
         const servicesData = await servicesResponse.json()
         setHasServices(servicesData.services?.length > 0)
       } catch (err) {
-        console.error('Error checking completion:', err)
+        log.error('Error checking completion:', err)
       } finally {
         setIsLoading(false)
       }

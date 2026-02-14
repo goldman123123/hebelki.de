@@ -25,6 +25,9 @@ import { generateInvoiceHtml } from './invoice-templates'
 import { generatePdfFromHtml } from './pdf'
 import { queueDocumentForEmbedding, buildInvoiceDocTitle } from './document-knowledge'
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('lib:invoices')
 
 // R2 client configuration
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID
@@ -350,7 +353,7 @@ export async function generateAndUploadInvoicePdf(invoiceId: string): Promise<st
       authorityLevel: 'high',
     })
   } catch (err) {
-    console.error('[generateAndUploadInvoicePdf] Failed to queue for embedding:', err)
+    log.error('Failed to queue for embedding:', err)
   }
 
   return r2Key

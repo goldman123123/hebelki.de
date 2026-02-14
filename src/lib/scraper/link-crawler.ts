@@ -4,6 +4,9 @@
  */
 import axios from 'axios'
 import * as cheerio from 'cheerio'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('lib:scraper:link-crawler')
 
 export interface CrawledLink {
   url: string
@@ -13,7 +16,7 @@ export interface CrawledLink {
 
 export async function crawlHomepageLinks(baseUrl: string): Promise<CrawledLink[]> {
   try {
-    console.log(`🔍 Crawling homepage: ${baseUrl}`)
+    log.info(`Crawling homepage: ${baseUrl}`)
 
     const response = await axios.get(baseUrl, {
       timeout: 15000,
@@ -76,11 +79,11 @@ export async function crawlHomepageLinks(baseUrl: string): Promise<CrawledLink[]
       })
     })
 
-    console.log(`✅ Found ${links.length} unique links on homepage`)
+    log.info(`Found ${links.length} unique links on homepage`)
     return links
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error)
-    console.error(`❌ Failed to crawl homepage: ${message}`)
+    log.error(`Failed to crawl homepage: ${message}`)
     return []
   }
 }

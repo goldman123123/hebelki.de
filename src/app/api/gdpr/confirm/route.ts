@@ -10,6 +10,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { customers, deletionRequests } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:gdpr:confirm')
 
 export async function POST(request: NextRequest) {
   try {
@@ -91,7 +94,7 @@ export async function POST(request: NextRequest) {
       message: 'Ihre Daten wurden erfolgreich gelöscht.',
     })
   } catch (error) {
-    console.error('[POST /api/gdpr/confirm] Error:', error)
+    log.error('[POST /api/gdpr/confirm] Error:', error)
     return NextResponse.json(
       { error: 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.' },
       { status: 500 }

@@ -5,6 +5,9 @@ import { isSlotAvailable, getAvailableSlotsWithStaff } from '@/lib/availability'
 import { db } from '@/lib/db'
 import { staff, staffServices } from '@/lib/db/schema'
 import { eq, and, isNull } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:slug:holds')
 
 /**
  * POST /api/{slug}/holds - Create a hold
@@ -79,7 +82,7 @@ export async function POST(
     const available = await isSlotAvailable(config, slotStart)
     if (!available) {
       // Log the mismatch for debugging
-      console.error('[Holds API] Slot unavailable', {
+      log.error('Slot unavailable', {
         requested: slotStart.toISOString(),
         serviceId,
         staffId,
@@ -131,7 +134,7 @@ export async function POST(
       staffId: assignedStaffId,
     })
   } catch (error) {
-    console.error('Error creating hold:', error)
+    log.error('Error creating hold:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -159,7 +162,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Error canceling hold:', error)
+    log.error('Error canceling hold:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

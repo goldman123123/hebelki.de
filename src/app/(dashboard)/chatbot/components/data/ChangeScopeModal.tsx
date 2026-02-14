@@ -32,6 +32,9 @@ import { Bot, Lock, User, Loader2, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { Document } from './DocumentCard'
 import { cn } from '@/lib/utils'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('dashboard:chatbot:data:ChangeScopeModal')
 
 interface Customer {
   id: string
@@ -95,7 +98,7 @@ export function ChangeScopeModal({
         setCustomers(data.customers)
       }
     } catch (error) {
-      console.error('Failed to load customers:', error)
+      log.error('Failed to load customers:', error)
       toast.error('Fehler beim Laden der Kunden')
     } finally {
       setLoadingCustomers(false)
@@ -156,7 +159,7 @@ export function ChangeScopeModal({
       onOpenChange(false)
       onSuccess?.()
     } catch (error) {
-      console.error('Save scope error:', error)
+      log.error('Save scope error:', error)
       toast.error(error instanceof Error ? error.message : 'Fehler beim Speichern')
     } finally {
       setSaving(false)

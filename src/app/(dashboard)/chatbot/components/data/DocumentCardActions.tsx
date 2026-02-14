@@ -32,6 +32,9 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Document } from './DocumentCard'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('dashboard:chatbot:data:DocumentCardActions')
 
 interface DocumentCardActionsProps {
   document: Document
@@ -86,7 +89,7 @@ export function DocumentCardActions({
         document.body.removeChild(link)
       }
     } catch (error) {
-      console.error(`${action} error:`, error)
+      log.error(`${action} error:`, error)
       toast.error(error instanceof Error ? error.message : 'Fehler beim Laden')
     } finally {
       setLoading(null)
@@ -123,7 +126,7 @@ export function DocumentCardActions({
 
       onDataClassChange?.()
     } catch (error) {
-      console.error('Toggle knowledge error:', error)
+      log.error('Toggle knowledge error:', error)
       toast.error(error instanceof Error ? error.message : 'Fehler beim Aktualisieren')
     } finally {
       setLoading(null)

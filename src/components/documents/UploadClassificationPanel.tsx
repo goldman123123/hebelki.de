@@ -22,6 +22,9 @@ import {
   ChevronDown,
   Loader2,
 } from 'lucide-react'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('ui:documents:UploadClassificationPanel')
 
 export interface ClassificationOptions {
   useAsKnowledge: boolean
@@ -96,7 +99,7 @@ export function UploadClassificationPanel({
         setCustomers(data.customers)
       }
     } catch (error) {
-      console.error('Failed to fetch customers:', error)
+      log.error('Failed to fetch customers:', error)
     } finally {
       setLoadingCustomers(false)
     }

@@ -11,6 +11,9 @@ import { getMemberById, updateMemberRole, removeMember } from '@/lib/db/queries'
 import { requirePermission, isOwner } from '@/modules/core/permissions'
 import { getMembership } from '@/modules/core/auth'
 import { z } from 'zod'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:admin:members:id')
 
 const updateMemberSchema = z.object({
   role: z.enum(['owner', 'admin', 'staff'], {
@@ -77,7 +80,7 @@ export async function PATCH(
       return NextResponse.json({ error: error.message }, { status: 403 })
     }
 
-    console.error('Error updating member:', error)
+    log.error('Error updating member:', error)
     return NextResponse.json({ error: 'Interner Serverfehler' }, { status: 500 })
   }
 }
@@ -128,7 +131,7 @@ export async function DELETE(
       return NextResponse.json({ error: error.message }, { status: 403 })
     }
 
-    console.error('Error removing member:', error)
+    log.error('Error removing member:', error)
     return NextResponse.json({ error: 'Interner Serverfehler' }, { status: 500 })
   }
 }

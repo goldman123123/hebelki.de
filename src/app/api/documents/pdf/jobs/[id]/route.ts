@@ -9,6 +9,9 @@ import { db } from '@/lib/db'
 import { ingestionJobs, documentVersions, documents } from '@/lib/db/schema'
 import { requireBusinessAccess } from '@/lib/auth-helpers'
 import { eq } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:documents:pdf:jobs:id')
 
 type Params = Promise<{ id: string }>
 
@@ -146,7 +149,7 @@ export async function GET(
       document: documentInfo,
     })
   } catch (error) {
-    console.error('[GET /api/documents/pdf/jobs/[id]] Error:', error)
+    log.error('[GET /api/documents/pdf/jobs/[id]] Error:', error)
 
     if (error instanceof Error) {
       if (error.message.includes('Unauthorized')) {

@@ -15,10 +15,12 @@ import {
   bookingNotificationEmail,
   bookingConfirmedEmail,
   bookingCancellationEmail,
+  bookingRescheduledEmail,
   bookingReminderEmail,
   invoiceSentEmail,
   liveChatRequestEmail,
   chatEscalatedEmail,
+  memberInvitedEmail,
 } from '@/lib/email-templates'
 import { getDownloadUrl } from '@/lib/r2/client'
 import type {
@@ -26,12 +28,16 @@ import type {
   BookingCreatedPayload,
   BookingConfirmedPayload,
   BookingCancelledPayload,
+  BookingRescheduledPayload,
   BookingRemindedPayload,
   MemberInvitedPayload,
   InvoiceSentPayload,
   ChatLiveRequestedPayload,
   ChatEscalatedPayload,
 } from './index'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('core:events:processor')
 
 // ============================================
 // EVENT PROCESSOR
@@ -45,7 +51,7 @@ import type {
  * @returns Number of events successfully processed
  */
 export async function processEvents(limit = 100): Promise<number> {
-  console.log('[EventProcessor] Starting event processing, limit:', limit)
+  log.info('Starting event processing, limit:', limit)
 
   // Fetch unprocessed events that haven't exceeded max attempts
   // Include events that are ready for retry (nextRetryAt is null or in the past)
@@ -63,7 +69,7 @@ export async function processEvents(limit = 100): Promise<number> {
     .orderBy(eventOutbox.createdAt)
     .limit(limit)
 
-  console.log(`[EventProcessor] Found ${events.length} events to process`)
+  log.info(`Found ${events.length} events to process`)
 
   let processedCount = 0
 
@@ -72,12 +78,12 @@ export async function processEvents(limit = 100): Promise<number> {
       await processEvent(event)
       processedCount++
     } catch (error) {
-      console.error(`[EventProcessor] Error processing event ${event.id}:`, error)
+      log.error(`Error processing event ${event.id}:`, error)
       // Continue processing other events
     }
   }
 
-  console.log(`[EventProcessor] Successfully processed ${processedCount}/${events.length} events`)
+  log.info(`Successfully processed ${processedCount}/${events.length} events`)
 
   return processedCount
 }
@@ -86,7 +92,7 @@ export async function processEvents(limit = 100): Promise<number> {
  * Process a single event.
  */
 async function processEvent(event: typeof eventOutbox.$inferSelect): Promise<void> {
-  console.log(`[EventProcessor] Processing event ${event.id} (${event.eventType}), attempt ${event.attempts + 1}`)
+  log.info(`Processing event ${event.id} (${event.eventType}), attempt ${event.attempts + 1}`)
 
   try {
     // Handle event based on type
@@ -102,7 +108,7 @@ async function processEvent(event: typeof eventOutbox.$inferSelect): Promise<voi
       })
       .where(eq(eventOutbox.id, event.id))
 
-    console.log(`[EventProcessor] Event ${event.id} processed successfully`)
+    log.info(`Event ${event.id} processed successfully`)
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     const newAttempts = event.attempts + 1
@@ -122,15 +128,15 @@ async function processEvent(event: typeof eventOutbox.$inferSelect): Promise<voi
       })
       .where(eq(eventOutbox.id, event.id))
 
-    console.error(
+    log.error(
       `[EventProcessor] Event ${event.id} failed (attempt ${newAttempts}/${event.maxAttempts}):`,
       errorMessage
     )
 
     if (newAttempts >= event.maxAttempts) {
-      console.error(`[EventProcessor] Event ${event.id} exceeded max attempts, will not retry`)
+      log.error(`Event ${event.id} exceeded max attempts, will not retry`)
     } else {
-      console.log(`[EventProcessor] Event ${event.id} will retry at ${nextRetryAt.toISOString()}`)
+      log.info(`Event ${event.id} will retry at ${nextRetryAt.toISOString()}`)
     }
 
     throw error
@@ -158,6 +164,10 @@ async function handleEvent(eventType: EventType, payload: Record<string, unknown
       await handleBookingCancelled(payload as unknown as BookingCancelledPayload)
       break
 
+    case 'booking.rescheduled':
+      await handleBookingRescheduled(payload as unknown as BookingRescheduledPayload)
+      break
+
     case 'booking.reminded':
       await handleBookingReminded(payload as unknown as BookingRemindedPayload)
       break
@@ -179,7 +189,7 @@ async function handleEvent(eventType: EventType, payload: Record<string, unknown
       break
 
     default:
-      console.warn(`[EventProcessor] Unknown event type: ${eventType}`)
+      log.warn(`Unknown event type: ${eventType}`)
       // Don't throw - mark as processed to avoid infinite retries
   }
 }
@@ -188,11 +198,16 @@ async function handleEvent(eventType: EventType, payload: Record<string, unknown
  * Handle booking.created event: Send confirmation email to customer + notification to business.
  */
 async function handleBookingCreated(payload: BookingCreatedPayload): Promise<void> {
-  console.log('[EventProcessor] Handling booking.created event')
+  log.info('Handling booking.created event')
 
   // Build confirmation URL for email confirmation flow
   const confirmationUrl = payload.requireEmailConfirmation && payload.confirmationToken
     ? `https://www.hebelki.de/confirm/${payload.confirmationToken}`
+    : undefined
+
+  // Build manage URL for self-service link
+  const manageUrl = payload.confirmationToken
+    ? `https://www.hebelki.de/manage/${payload.confirmationToken}`
     : undefined
 
   // Send confirmation email to customer
@@ -210,6 +225,7 @@ async function handleBookingCreated(payload: BookingCreatedPayload): Promise<voi
     currency: payload.currency,
     bookingStatus: payload.bookingStatus,
     confirmationUrl,
+    manageUrl,
   })
 
   await sendEmail({
@@ -219,7 +235,7 @@ async function handleBookingCreated(payload: BookingCreatedPayload): Promise<voi
     text: customerEmail.text,
   })
 
-  console.log('[EventProcessor] Customer confirmation email sent')
+  log.info('Customer confirmation email sent')
 
   // Send notification email to business (if email configured)
   if (payload.businessEmail) {
@@ -246,7 +262,7 @@ async function handleBookingCreated(payload: BookingCreatedPayload): Promise<voi
       text: notificationEmail.text,
     })
 
-    console.log('[EventProcessor] Business notification email sent')
+    log.info('Business notification email sent')
   }
 }
 
@@ -254,7 +270,11 @@ async function handleBookingCreated(payload: BookingCreatedPayload): Promise<voi
  * Handle booking.confirmed event: Send confirmation email to customer.
  */
 async function handleBookingConfirmed(payload: BookingConfirmedPayload): Promise<void> {
-  console.log('[EventProcessor] Handling booking.confirmed event')
+  log.info('Handling booking.confirmed event')
+
+  const manageUrl = payload.confirmationToken
+    ? `https://www.hebelki.de/manage/${payload.confirmationToken}`
+    : undefined
 
   const email = bookingConfirmedEmail({
     customerName: payload.customerName,
@@ -267,6 +287,7 @@ async function handleBookingConfirmed(payload: BookingConfirmedPayload): Promise
     confirmationToken: payload.confirmationToken || '',
     price: payload.price,
     currency: payload.currency,
+    manageUrl,
   })
 
   await sendEmail({
@@ -276,14 +297,14 @@ async function handleBookingConfirmed(payload: BookingConfirmedPayload): Promise
     text: email.text,
   })
 
-  console.log('[EventProcessor] Booking confirmed email sent')
+  log.info('Booking confirmed email sent')
 }
 
 /**
  * Handle booking.cancelled event: Send cancellation email to customer.
  */
 async function handleBookingCancelled(payload: BookingCancelledPayload): Promise<void> {
-  console.log('[EventProcessor] Handling booking.cancelled event')
+  log.info('Handling booking.cancelled event')
 
   const email = bookingCancellationEmail({
     customerName: payload.customerName,
@@ -306,14 +327,52 @@ async function handleBookingCancelled(payload: BookingCancelledPayload): Promise
     text: email.text,
   })
 
-  console.log('[EventProcessor] Booking cancellation email sent')
+  log.info('Booking cancellation email sent')
+}
+
+/**
+ * Handle booking.rescheduled event: Send reschedule confirmation email to customer.
+ */
+async function handleBookingRescheduled(payload: BookingRescheduledPayload): Promise<void> {
+  log.info('Handling booking.rescheduled event')
+
+  const manageUrl = payload.confirmationToken
+    ? `https://www.hebelki.de/manage/${payload.confirmationToken}`
+    : undefined
+
+  const email = bookingRescheduledEmail({
+    customerName: payload.customerName,
+    customerEmail: payload.customerEmail,
+    serviceName: payload.serviceName,
+    staffName: payload.staffName,
+    businessName: payload.businessName,
+    oldStartsAt: new Date(payload.oldStartsAt),
+    oldEndsAt: new Date(payload.oldEndsAt),
+    newStartsAt: new Date(payload.newStartsAt),
+    newEndsAt: new Date(payload.newEndsAt),
+    confirmationToken: payload.confirmationToken || '',
+    manageUrl,
+  })
+
+  await sendEmail({
+    to: payload.customerEmail,
+    subject: email.subject,
+    html: email.html,
+    text: email.text,
+  })
+
+  log.info('Booking rescheduled email sent')
 }
 
 /**
  * Handle booking.reminded event: Send reminder email to customer.
  */
 async function handleBookingReminded(payload: BookingRemindedPayload): Promise<void> {
-  console.log('[EventProcessor] Handling booking.reminded event')
+  log.info('Handling booking.reminded event')
+
+  const manageUrl = payload.confirmationToken
+    ? `https://www.hebelki.de/manage/${payload.confirmationToken}`
+    : undefined
 
   const email = bookingReminderEmail({
     customerName: payload.customerName,
@@ -326,6 +385,7 @@ async function handleBookingReminded(payload: BookingRemindedPayload): Promise<v
     confirmationToken: payload.confirmationToken || '',
     price: 0,
     currency: 'EUR',
+    manageUrl,
   })
 
   await sendEmail({
@@ -335,41 +395,38 @@ async function handleBookingReminded(payload: BookingRemindedPayload): Promise<v
     text: email.text,
   })
 
-  console.log('[EventProcessor] Booking reminder email sent')
+  log.info('Booking reminder email sent')
 }
 
 /**
  * Handle member.invited event: Send invitation email.
  */
 async function handleMemberInvited(payload: MemberInvitedPayload): Promise<void> {
-  console.log('[EventProcessor] Handling member.invited event')
+  log.info('Handling member.invited event')
 
-  // TODO: Create invitation email template
-  // For now, send a simple email
-  const subject = `Einladung zu ${payload.businessName} auf Hebelki`
-  const html = `
-    <h2>Sie wurden zu ${payload.businessName} eingeladen</h2>
-    <p>Hallo ${payload.inviteeName || ''},</p>
-    <p>${payload.inviterName} hat Sie eingeladen, ${payload.businessName} als ${payload.role} beizutreten.</p>
-    <p><a href="${payload.invitationUrl}">Einladung annehmen</a></p>
-    <p>Mit freundlichen Grüßen,<br>Das Hebelki-Team</p>
-  `
+  const email = memberInvitedEmail({
+    inviterName: payload.inviterName,
+    businessName: payload.businessName,
+    role: payload.role,
+    inviteeName: payload.inviteeName,
+    acceptUrl: payload.invitationUrl,
+  })
 
   await sendEmail({
     to: payload.inviteeEmail,
-    subject,
-    html,
-    text: `Sie wurden zu ${payload.businessName} eingeladen. ${payload.invitationUrl}`,
+    subject: email.subject,
+    html: email.html,
+    text: email.text,
   })
 
-  console.log('[EventProcessor] Member invitation email sent')
+  log.info('Member invitation email sent')
 }
 
 /**
  * Handle invoice.sent event: Send invoice PDF to customer via email.
  */
 async function handleInvoiceSent(payload: InvoiceSentPayload): Promise<void> {
-  console.log('[EventProcessor] Handling invoice.sent event')
+  log.info('Handling invoice.sent event')
 
   // Load invoice + customer from DB to get email and details
   const { db } = await import('@/lib/db')
@@ -384,7 +441,7 @@ async function handleInvoiceSent(payload: InvoiceSentPayload): Promise<void> {
     .limit(1)
 
   if (!invoiceData?.customer?.email) {
-    console.warn('[EventProcessor] No customer email for invoice', payload.invoiceId)
+    log.warn('No customer email for invoice', payload.invoiceId)
     return
   }
 
@@ -394,7 +451,7 @@ async function handleInvoiceSent(payload: InvoiceSentPayload): Promise<void> {
     : ''
 
   if (!pdfDownloadUrl) {
-    console.warn('[EventProcessor] No PDF available for invoice', payload.invoiceId)
+    log.warn('No PDF available for invoice', payload.invoiceId)
     return
   }
 
@@ -429,14 +486,14 @@ async function handleInvoiceSent(payload: InvoiceSentPayload): Promise<void> {
     text: email.text,
   })
 
-  console.log('[EventProcessor] Invoice sent email delivered to', invoiceData.customer.email)
+  log.info('Invoice sent email delivered to', invoiceData.customer.email)
 }
 
 /**
  * Handle chat.live_requested event: Notify business owner of new live chat request.
  */
 async function handleChatLiveRequested(payload: ChatLiveRequestedPayload): Promise<void> {
-  console.log('[EventProcessor] Handling chat.live_requested event')
+  log.info('Handling chat.live_requested event')
 
   const email = liveChatRequestEmail({
     businessName: payload.businessName,
@@ -452,14 +509,14 @@ async function handleChatLiveRequested(payload: ChatLiveRequestedPayload): Promi
     text: email.text,
   })
 
-  console.log('[EventProcessor] Live chat request email sent to', payload.ownerEmail)
+  log.info('Live chat request email sent to', payload.ownerEmail)
 }
 
 /**
  * Handle chat.escalated event: Notify business owner of unanswered chat.
  */
 async function handleChatEscalated(payload: ChatEscalatedPayload): Promise<void> {
-  console.log('[EventProcessor] Handling chat.escalated event')
+  log.info('Handling chat.escalated event')
 
   const email = chatEscalatedEmail({
     businessName: payload.businessName,
@@ -477,5 +534,5 @@ async function handleChatEscalated(payload: ChatEscalatedPayload): Promise<void>
     text: email.text,
   })
 
-  console.log('[EventProcessor] Chat escalated email sent to', payload.ownerEmail)
+  log.info('Chat escalated email sent to', payload.ownerEmail)
 }

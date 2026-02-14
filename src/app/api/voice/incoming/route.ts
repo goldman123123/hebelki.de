@@ -13,6 +13,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { businesses } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:voice:incoming')
 
 const VOICE_RELAY_URL = process.env.VOICE_RELAY_URL || 'wss://localhost:3006/media'
 
@@ -43,7 +46,7 @@ export async function POST(request: NextRequest) {
     const callerNumber = formData.get('From') as string | null
     const callSid = formData.get('CallSid') as string | null
 
-    console.log('[Voice Webhook] Incoming call:', {
+    log.info('Incoming call:', {
       called: calledNumber,
       from: callerNumber,
       callSid,
@@ -78,7 +81,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!businessId) {
-      console.warn('[Voice Webhook] No business found for number:', calledNumber)
+      log.warn('No business found for number:', calledNumber)
       // Fallback: reject with a message
       const notFoundTwiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
@@ -112,7 +115,7 @@ export async function POST(request: NextRequest) {
       headers: { 'Content-Type': 'text/xml' },
     })
   } catch (error) {
-    console.error('[Voice Webhook] Error:', error)
+    log.error('Error:', error)
 
     const errorTwiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>

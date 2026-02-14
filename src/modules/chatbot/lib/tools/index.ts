@@ -10,6 +10,9 @@ import { publicToolDefs, adminToolDefs, assistantToolDefs } from './definitions'
 import { publicHandlers } from './handlers/public'
 import { adminHandlers } from './handlers/admin'
 import { assistantHandlers } from './handlers/assistant'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('chatbot:tools:index')
 
 /**
  * Tool definitions for OpenRouter function calling
@@ -58,10 +61,19 @@ export async function executeTool(
   const accessContext = args._accessContext as InternalAccessContext | undefined
   const actorType = accessContext?.actorType || 'customer'
   if (!CUSTOMER_TOOLS.has(toolName) && actorType === 'customer') {
-    console.warn(`[TOOL AUTH] Blocked ${toolName} for customer actor`)
+    log.warn(`Blocked ${toolName} for customer actor`)
     throw new Error(`Tool "${toolName}" is not available`)
   }
 
-  // @ts-expect-error - Dynamic tool execution
-  return handler(args)
+  // Defense-in-depth: if staff has custom capabilities, enforce them
+  const capabilities = args._memberCapabilities as { allowedTools?: string[] } | undefined
+  if (capabilities?.allowedTools && actorType === 'staff') {
+    const allowed = new Set([...CUSTOMER_TOOLS, ...capabilities.allowedTools])
+    if (!allowed.has(toolName)) {
+      log.warn(`Blocked ${toolName} for staff — not in capabilities`)
+      throw new Error(`Tool "${toolName}" is not available`)
+    }
+  }
+
+  return (handler as (args: Record<string, unknown>) => Promise<unknown>)(args)
 }

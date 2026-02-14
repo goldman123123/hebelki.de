@@ -1,3 +1,6 @@
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('lib:chunking:semantic-chunker')
 /**
  * Semantic Chunking for Text Content
  *
@@ -125,7 +128,7 @@ export async function semanticChunk(
     }
   }
 
-  console.log(`[Semantic Chunker] Split ${text.length} chars into ${chunks.length} chunks`)
+  log.info(`Split ${text.length} chars into ${chunks.length} chunks`)
 
   return chunks
 }

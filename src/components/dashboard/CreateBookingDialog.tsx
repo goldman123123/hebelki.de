@@ -21,6 +21,9 @@ import { cn, formatTime } from '@/lib/utils'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { BookingStepContent } from './BookingStepContent'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('ui:dashboard:CreateBookingDialog')
 
 interface Customer {
   id: string
@@ -149,7 +152,7 @@ export function CreateBookingDialog({
         setCustomers(data.customers || [])
       }
     } catch (error) {
-      console.error('Failed to search customers:', error)
+      log.error('Failed to search customers:', error)
     } finally {
       setLoadingCustomers(false)
     }
@@ -183,7 +186,7 @@ export function CreateBookingDialog({
         setServices(data.services || [])
       }
     } catch (error) {
-      console.error('Failed to fetch services:', error)
+      log.error('Failed to fetch services:', error)
     } finally {
       setLoadingServices(false)
     }
@@ -199,7 +202,7 @@ export function CreateBookingDialog({
         setStaffList(data.staff || [])
       }
     } catch (error) {
-      console.error('Failed to fetch staff:', error)
+      log.error('Failed to fetch staff:', error)
     } finally {
       setLoadingStaff(false)
     }
@@ -230,7 +233,7 @@ export function CreateBookingDialog({
           setTimezone(data.timezone || 'Europe/Berlin')
         }
       } catch (error) {
-        console.error('Failed to fetch time slots:', error)
+        log.error('Failed to fetch time slots:', error)
       } finally {
         setLoadingSlots(false)
       }
@@ -322,7 +325,7 @@ export function CreateBookingDialog({
         toast.error(data.error || 'Fehler beim Erstellen der Buchung')
       }
     } catch (error) {
-      console.error('Failed to create booking:', error)
+      log.error('Failed to create booking:', error)
       toast.error('Fehler beim Erstellen der Buchung')
     } finally {
       setSubmitting(false)

@@ -16,6 +16,9 @@ import { ingestionJobs, businesses } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { requireBusinessAccess } from '@/lib/auth-helpers'
 import { scrapingLimiter } from '@/lib/rate-limit'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:onboarding:scrape-selected')
 
 export async function POST(request: NextRequest) {
   try {
@@ -60,7 +63,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(`[Onboarding Scrape] User ${userId} starting scrape for business ${businessId} with ${urls.length} URLs`)
+    log.info(`User ${userId} starting scrape for business ${businessId} with ${urls.length} URLs`)
 
     // 5. Create worker job
     const scrapeConfig = {
@@ -83,7 +86,7 @@ export async function POST(request: NextRequest) {
       maxAttempts: 3,
     }).returning({ id: ingestionJobs.id })
 
-    console.log(`[Onboarding Scrape] Created job ${job.id} for ${urls.length} URLs`)
+    log.info(`Created job ${job.id} for ${urls.length} URLs`)
 
     // 6. Update business onboarding state
     const currentBusiness = await db.query.businesses.findFirst({
@@ -110,7 +113,7 @@ export async function POST(request: NextRequest) {
       urlCount: urls.length,
     })
   } catch (error) {
-    console.error('[Onboarding Scrape] Error:', error)
+    log.error('Error:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to start scraping' },
       { status: 500 }

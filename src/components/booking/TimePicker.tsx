@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('ui:booking:TimePicker')
 
 interface TimeSlot {
   start: string
@@ -54,7 +57,7 @@ export function TimePicker({
           setSlots(data.slots || [])
         }
       } catch (error) {
-        console.error('Failed to fetch time slots:', error)
+        log.error('Failed to fetch time slots:', error)
       } finally {
         setIsLoading(false)
       }

@@ -1,5 +1,8 @@
 import Fuse from 'fuse.js'
 import { DetectedService } from './types'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('lib:ai-extractor:deduplicator')
 
 /**
  * Deduplicates services using fuzzy name matching.
@@ -57,7 +60,7 @@ export function deduplicateServices(services: DetectedService[]): DetectedServic
     processedIndices.add(idx)
   })
 
-  console.log(`Deduplication: ${services.length} services → ${unique.length} unique (removed ${services.length - unique.length} duplicates)`)
+  log.info(`Deduplication: ${services.length} services → ${unique.length} unique (removed ${services.length - unique.length} duplicates)`)
 
   return unique
 }

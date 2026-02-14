@@ -9,6 +9,7 @@ const isPublicRoute = createRouteMatcher([
   '/site/(.*)', // Public business websites
   '/embed/(.*)', // Embeddable widget pages (booking + chat iframes)
   '/confirm/(.*)', // Public email confirmation page
+  '/manage/(.*)', // Public booking management page (token-gated)
   '/gdpr/(.*)', // GDPR self-service pages (deletion confirmation)
   '/(.*)/chat', // Public chat pages (e.g., /physioplus/chat)
   '/test-crawler', // Test page for Firecrawl
@@ -29,6 +30,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/chatbot/date', // Public date API for chatbot
   '/api/voice/incoming', // Twilio voice webhook
   '/api/whatsapp/webhook', // WhatsApp webhook from Twilio
+  '/api/manage/(.*)', // Booking management endpoints (token-gated)
   '/api/gdpr/(.*)', // GDPR self-service endpoints (token-gated)
   '/api/webhooks/stripe', // Stripe webhook (signature-verified in handler)
   '/api/onboarding/(.*)', // Onboarding API endpoints (scraping, etc.)

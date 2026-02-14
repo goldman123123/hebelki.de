@@ -27,6 +27,9 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DataPurpose } from './DocumentList'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('dashboard:chatbot:data:SectionUploadZone')
 
 interface SectionUploadZoneProps {
   businessId: string
@@ -199,7 +202,7 @@ export function SectionUploadZone({
         setCustomers(data.customers)
       }
     } catch (err) {
-      console.error('Failed to fetch customers:', err)
+      log.error('Failed to fetch customers:', err)
     } finally {
       setLoadingCustomers(false)
     }
@@ -339,7 +342,7 @@ export function SectionUploadZone({
           errorMsg = `${errorMsg} (${detailMsgs})`
         }
 
-        console.error('Upload init failed:', { status: initResponse.status, data: initData })
+        log.error('Upload init failed:', { status: initResponse.status, data: initData })
         throw new Error(errorMsg)
       }
 
@@ -390,7 +393,7 @@ export function SectionUploadZone({
       }, 1500)
 
     } catch (err) {
-      console.error('Upload error:', err)
+      log.error('Upload error:', err)
       setStatus('error')
       setError(err instanceof Error ? err.message : 'Fehler beim Hochladen')
       toast.error(err instanceof Error ? err.message : 'Fehler beim Hochladen')

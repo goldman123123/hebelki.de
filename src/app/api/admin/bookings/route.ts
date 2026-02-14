@@ -14,6 +14,9 @@ import { bookings, customers } from '@/lib/db/schema'
 import { emitEventStandalone } from '@/modules/core/events'
 import { processEvents } from '@/modules/core/events/processor'
 import { eq, and } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:admin:bookings')
 
 export async function GET(request: NextRequest) {
   const authResult = await requireBusinessAuth()
@@ -239,7 +242,7 @@ export async function POST(request: NextRequest) {
       try {
         await processEvents(10)
       } catch (emailError) {
-        console.error('Error processing events after admin booking creation:', emailError)
+        log.error('Error processing events after admin booking creation:', emailError)
         // Don't fail the booking if email processing fails
       }
     }
@@ -264,7 +267,7 @@ export async function POST(request: NextRequest) {
       } : null,
     })
   } catch (error) {
-    console.error('Error creating admin booking:', error)
+    log.error('Error creating admin booking:', error)
     return NextResponse.json(
       { error: 'Fehler beim Erstellen der Buchung' },
       { status: 500 }

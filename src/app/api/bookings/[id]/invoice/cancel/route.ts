@@ -8,6 +8,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireBusinessAuth } from '@/lib/auth'
 import { verifyBookingOwnership } from '@/lib/db/queries'
 import { getInvoiceByBookingId, cancelInvoiceWithStorno, createReplacementInvoice } from '@/lib/invoices'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:bookings:id:invoice:cancel')
 
 export async function POST(
   request: NextRequest,
@@ -56,7 +59,7 @@ export async function POST(
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to cancel invoice'
-    console.error('Error cancelling invoice:', error)
+    log.error('Error cancelling invoice:', error)
     return NextResponse.json({ error: message }, { status: 400 })
   }
 }

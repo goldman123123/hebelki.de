@@ -10,6 +10,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sendWhatsAppMessage } from '@/lib/twilio-client'
 import { formatTwilioWhatsAppNumber } from '@/lib/whatsapp-phone-formatter'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:whatsapp:send')
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,7 +49,7 @@ export async function POST(request: NextRequest) {
       to: formattedTo,
     })
   } catch (error) {
-    console.error('[WhatsApp Send API] Error:', error)
+    log.error('Error:', error)
     return NextResponse.json(
       { error: 'Internal error' },
       { status: 500 }

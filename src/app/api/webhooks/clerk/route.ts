@@ -14,12 +14,15 @@ import { headers } from 'next/headers'
 import { db } from '@/lib/db'
 import { businessMembers } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:webhooks:clerk')
 
 export async function POST(req: NextRequest) {
   const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET
 
   if (!WEBHOOK_SECRET) {
-    console.error('[Clerk Webhook] CLERK_WEBHOOK_SECRET not configured')
+    log.error('CLERK_WEBHOOK_SECRET not configured')
     return new Response('Webhook not configured', { status: 500 })
   }
 
@@ -31,7 +34,7 @@ export async function POST(req: NextRequest) {
 
   // If there are no headers, error out
   if (!svix_id || !svix_timestamp || !svix_signature) {
-    console.error('[Clerk Webhook] Missing svix headers')
+    log.error('Missing svix headers')
     return new Response('Missing headers', { status: 400 })
   }
 
@@ -52,20 +55,20 @@ export async function POST(req: NextRequest) {
       'svix-signature': svix_signature,
     }) as typeof evt
   } catch (err) {
-    console.error('[Clerk Webhook] Error verifying webhook:', err)
+    log.error('Error verifying webhook:', err)
     return new Response('Invalid signature', { status: 400 })
   }
 
   // Get the event type
   const eventType = evt.type
 
-  console.log(`[Clerk Webhook] Received event: ${eventType}`)
+  log.info(`Received event: ${eventType}`)
 
   // Handle user.deleted event
   if (eventType === 'user.deleted') {
     const userId = evt.data.id
 
-    console.log(`[Clerk Webhook] Deleting user ${userId} from all business memberships`)
+    log.info(`Deleting user ${userId} from all business memberships`)
 
     try {
       // Remove user from all business memberships
@@ -73,9 +76,9 @@ export async function POST(req: NextRequest) {
         .delete(businessMembers)
         .where(eq(businessMembers.clerkUserId, userId))
 
-      console.log(`[Clerk Webhook] Removed user ${userId} from ${result.rowCount || 0} business(es)`)
+      log.info(`Removed user ${userId} from ${result.rowCount || 0} business(es)`)
     } catch (error) {
-      console.error('[Clerk Webhook] Error deleting user memberships:', error)
+      log.error('Error deleting user memberships:', error)
       return new Response('Error processing webhook', { status: 500 })
     }
   }
@@ -84,7 +87,7 @@ export async function POST(req: NextRequest) {
   if (eventType === 'user.updated') {
     const userId = evt.data.id
 
-    console.log(`[Clerk Webhook] User ${userId} updated`)
+    log.info(`User ${userId} updated`)
 
     // Future: Update pending invitations if email changed
     // This would be useful for matching invited users by email

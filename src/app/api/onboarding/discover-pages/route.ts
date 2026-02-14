@@ -7,6 +7,9 @@ import { auth } from '@clerk/nextjs/server'
 import { fetchSitemap } from '@/lib/scraper/sitemap-parser'
 import { crawlHomepageLinks } from '@/lib/scraper/link-crawler'
 import { categorizePages, CategorizedPage } from '@/lib/scraper/page-categorizer'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:onboarding:discover-pages')
 
 export async function POST(request: NextRequest) {
   try {
@@ -60,22 +63,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 })
     }
 
-    console.log(`Discovering pages for: ${normalizedUrl}`)
+    log.info(`Discovering pages for: ${normalizedUrl}`)
 
     // Try sitemap first
     let pages: CategorizedPage[] = []
     const sitemapUrls = await fetchSitemap(normalizedUrl)
 
     if (sitemapUrls.length > 0) {
-      console.log(`✅ Found ${sitemapUrls.length} URLs in sitemap`)
+      log.info(`Found ${sitemapUrls.length} URLs in sitemap`)
       pages = categorizePages(
         sitemapUrls.map(s => ({ url: s.url, title: null }))
       )
     } else {
       // Fallback: crawl homepage
-      console.log('⚠️ No sitemap found, crawling homepage...')
+      log.info('No sitemap found, crawling homepage...')
       const links = await crawlHomepageLinks(normalizedUrl)
-      console.log(`✅ Found ${links.length} links on homepage`)
+      log.info(`Found ${links.length} links on homepage`)
       pages = categorizePages(links)
     }
 
@@ -92,7 +95,7 @@ export async function POST(request: NextRequest) {
       count: pages.length
     })
   } catch (error) {
-    console.error('Failed to discover pages:', error)
+    log.error('Failed to discover pages:', error)
     return NextResponse.json(
       { error: 'Failed to discover pages' },
       { status: 500 }

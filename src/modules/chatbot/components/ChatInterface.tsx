@@ -13,6 +13,9 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Loader2, Send, Bot, User, UserCheck } from 'lucide-react'
 import { VoiceRecorder } from './VoiceRecorder'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('chatbot:ChatInterface')
 
 // Renders text with clickable links
 function Linkify({ children, className }: { children: string; className?: string }) {
@@ -152,7 +155,7 @@ export function ChatInterface({
           }
         }
       } catch (error) {
-        console.error('Polling error:', error)
+        log.error('Polling error:', error)
       }
     }, 3000)
   }, [])
@@ -222,7 +225,7 @@ export function ChatInterface({
         onNewMessage?.('assistant')
       }
     } catch (error) {
-      console.error('Chat error:', error)
+      log.error('Chat error:', error)
 
       const errorMessage: Message = {
         role: 'assistant',
@@ -282,11 +285,11 @@ export function ChatInterface({
           setAwaitingContact(true)
         }
       } else {
-        console.error('Escalation failed:', data.error)
+        log.error('Escalation failed:', data.error)
         alert('Fehler beim Weiterleiten. Bitte versuchen Sie es erneut.')
       }
     } catch (error) {
-      console.error('Escalation error:', error)
+      log.error('Escalation error:', error)
       alert('Fehler beim Weiterleiten. Bitte versuchen Sie es erneut.')
     }
   }

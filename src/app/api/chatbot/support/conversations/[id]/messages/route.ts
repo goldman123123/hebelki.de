@@ -12,6 +12,9 @@ import { requireBusinessAuth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { chatbotConversations, chatbotMessages } from '@/lib/db/schema'
 import { eq, and, gt, ne } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:chatbot:support:conversations:id:messages')
 
 export async function GET(
   request: NextRequest,
@@ -70,7 +73,7 @@ export async function GET(
       conversationStatus: conversation.status,
     })
   } catch (error) {
-    console.error('[Support Messages API] Error:', error)
+    log.error('Error:', error)
     return NextResponse.json(
       { error: 'Fehler beim Laden der Nachrichten' },
       { status: 500 }

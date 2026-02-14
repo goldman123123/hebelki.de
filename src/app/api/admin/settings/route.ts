@@ -6,6 +6,11 @@ import { businesses } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { encrypt } from '@/lib/crypto'
+import { generatePin } from '@/lib/channel-identity'
+import { sendEmail } from '@/lib/email'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:admin:settings')
 
 // Profile section (basic business info)
 const profileSchema = z.object({
@@ -108,6 +113,28 @@ const whatsappSchema = z.object({
   whatsappEnabled: z.boolean().optional(),
 })
 
+// Team phone numbers for channel identity (WhatsApp/Voice → assistant mode)
+const teamPhoneEntrySchema = z.object({
+  phone: z.string().regex(/^\+[1-9]\d{7,14}$/),
+  name: z.string().min(1).max(100),
+  role: z.enum(['owner', 'admin', 'staff']),
+  clerkUserId: z.string().optional(),
+  email: z.string().email().optional(),
+  pinHash: z.string().optional(), // Existing hash (not sent by client)
+})
+
+const teamPhonesSchema = z.object({
+  entries: z.array(z.object({
+    phone: z.string().regex(/^\+[1-9]\d{7,14}$/),
+    name: z.string().min(1).max(100),
+    role: z.enum(['owner', 'admin', 'staff']),
+    clerkUserId: z.string().optional(),
+    email: z.string().email().optional(),
+    resetPin: z.boolean().optional(), // true = generate new PIN + send email
+    isNew: z.boolean().optional(),    // true = new entry, generate PIN
+  })).max(20),
+})
+
 // Legacy schemas for backwards compatibility
 const businessInfoSchema = z.object({
   name: z.string().min(2).max(100).optional(),
@@ -132,6 +159,14 @@ function maskWhatsAppCredentials(business: typeof businesses.$inferSelect) {
     masked.hasTwilioAuthToken = true
   } else {
     masked.hasTwilioAuthToken = false
+  }
+
+  // Mask team phone numbers (remove pinHash, add hasPin flag)
+  if (Array.isArray(masked.teamPhoneNumbers)) {
+    masked.teamPhoneNumbers = (masked.teamPhoneNumbers as Array<Record<string, unknown>>).map(entry => {
+      const { pinHash, ...rest } = entry
+      return { ...rest, hasPin: !!pinHash }
+    })
   }
 
   return { ...business, settings: masked }
@@ -195,6 +230,9 @@ export async function PATCH(request: NextRequest) {
       break
     case 'whatsapp':
       parsed = whatsappSchema.safeParse(body.data)
+      break
+    case 'teamPhones':
+      parsed = teamPhonesSchema.safeParse(body.data)
       break
     // Legacy section name for backwards compatibility
     case 'business':
@@ -419,6 +457,108 @@ export async function PATCH(request: NextRequest) {
       .returning()
 
     return NextResponse.json({ business: maskWhatsAppCredentials(updated) })
+  }
+
+  // Handle Team Phone Numbers (channel identity for WhatsApp/Voice)
+  if (section === 'teamPhones') {
+    const teamPhonesData = parsed.data as z.infer<typeof teamPhonesSchema>
+    const currentSettings = (authResult.business.settings as Record<string, unknown>) || {}
+    const existingPhones = (currentSettings.teamPhoneNumbers as Array<{
+      phone: string; name: string; role: string; clerkUserId?: string;
+      email?: string; pinHash: string
+    }>) || []
+
+    // Build existing phone → pinHash lookup
+    const existingHashMap = new Map(existingPhones.map(p => [p.phone, p.pinHash]))
+
+    const newEntries: Array<{
+      phone: string; name: string; role: string; clerkUserId?: string;
+      email?: string; pinHash: string
+    }> = []
+
+    const pinEmails: Array<{ email: string; name: string; pin: string; businessName: string }> = []
+
+    for (const entry of teamPhonesData.entries) {
+      let pinHash = existingHashMap.get(entry.phone) || ''
+
+      // Generate new PIN if: new entry or reset requested
+      if (entry.isNew || entry.resetPin || !pinHash) {
+        const { pin, pinHash: newHash } = await generatePin()
+        pinHash = newHash
+
+        // Queue email if email provided
+        if (entry.email) {
+          pinEmails.push({
+            email: entry.email,
+            name: entry.name,
+            pin,
+            businessName: authResult.business.name,
+          })
+        }
+      }
+
+      newEntries.push({
+        phone: entry.phone,
+        name: entry.name,
+        role: entry.role,
+        clerkUserId: entry.clerkUserId,
+        email: entry.email,
+        pinHash,
+      })
+    }
+
+    // Save to settings
+    const newSettings = {
+      ...currentSettings,
+      teamPhoneNumbers: newEntries,
+    }
+
+    const [updated] = await db
+      .update(businesses)
+      .set({
+        settings: newSettings,
+        updatedAt: new Date(),
+      })
+      .where(eq(businesses.id, authResult.business.id))
+      .returning()
+
+    // Send PIN emails in background (non-blocking)
+    for (const pe of pinEmails) {
+      sendEmail({
+        to: pe.email,
+        subject: `Ihr Zugangs-PIN für ${pe.businessName}`,
+        html: `
+          <h2>Ihr Zugangs-PIN</h2>
+          <p>Hallo ${pe.name},</p>
+          <p>Ihr neuer 4-stelliger PIN für den WhatsApp/Telefon-Zugang zum ${pe.businessName}-Assistenten:</p>
+          <div style="font-size: 32px; font-weight: bold; letter-spacing: 8px; padding: 16px; background: #f3f4f6; border-radius: 8px; text-align: center; margin: 16px 0;">
+            ${pe.pin}
+          </div>
+          <p>Verwenden Sie diesen PIN, wenn Sie über WhatsApp oder Telefon auf den Geschäftsassistenten zugreifen möchten.</p>
+          <p><strong>Hinweis:</strong> Teilen Sie diesen PIN nicht mit anderen Personen.</p>
+          <p>Mit freundlichen Grüßen,<br>${pe.businessName}</p>
+        `,
+        text: `Ihr Zugangs-PIN für ${pe.businessName}: ${pe.pin}. Verwenden Sie diesen PIN bei WhatsApp/Telefon-Zugang.`,
+      }).catch(err => {
+        log.error('Failed to send PIN email:', err)
+      })
+    }
+
+    // Return masked response (no pinHashes)
+    const maskedEntries = newEntries.map(e => ({
+      phone: e.phone,
+      name: e.name,
+      role: e.role,
+      clerkUserId: e.clerkUserId,
+      email: e.email,
+      hasPin: !!e.pinHash,
+    }))
+
+    return NextResponse.json({
+      business: maskWhatsAppCredentials(updated),
+      teamPhoneNumbers: maskedEntries,
+      pinEmailsSent: pinEmails.length,
+    })
   }
 
   // Handle empty strings as null for nullable fields

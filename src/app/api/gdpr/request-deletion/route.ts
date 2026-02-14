@@ -13,6 +13,9 @@ import { eq, and } from 'drizzle-orm'
 import { randomBytes } from 'crypto'
 import { sendEmail } from '@/lib/email'
 import { deletionRequestEmail } from '@/lib/email-templates'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:gdpr:request-deletion')
 
 export async function POST(request: NextRequest) {
   try {
@@ -101,7 +104,7 @@ export async function POST(request: NextRequest) {
       message: 'Falls ein Konto mit dieser E-Mail existiert, erhalten Sie eine Bestätigungs-E-Mail.',
     })
   } catch (error) {
-    console.error('[POST /api/gdpr/request-deletion] Error:', error)
+    log.error('[POST /api/gdpr/request-deletion] Error:', error)
     return NextResponse.json(
       { error: 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.' },
       { status: 500 }

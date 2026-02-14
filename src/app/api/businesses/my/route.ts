@@ -7,6 +7,9 @@
 
 import { NextResponse } from 'next/server'
 import { getUserBusinesses } from '@/lib/auth-helpers'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:businesses:my')
 
 export async function GET() {
   try {
@@ -18,7 +21,7 @@ export async function GET() {
       count: businesses.length,
     })
   } catch (error) {
-    console.error('Get user businesses error:', error)
+    log.error('Get user businesses error:', error)
 
     const message = error instanceof Error ? error.message : 'Internal server error'
     const status = message.includes('Unauthorized') ? 401 : 500

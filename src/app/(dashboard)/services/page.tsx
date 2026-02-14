@@ -10,6 +10,9 @@ import { ServiceCard } from './components/ServiceCard'
 import { ServiceEditSheet } from './components/ServiceEditSheet'
 import { ServiceToolbar } from './components/ServiceToolbar'
 import { ServiceDetector } from './components/ServiceDetector'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('dashboard:services')
 
 interface Service {
   id: string
@@ -72,7 +75,7 @@ export default function ServicesPage() {
           setBusinessError(data.error)
         }
       } catch (error) {
-        console.error('Failed to fetch business:', error)
+        log.error('Failed to fetch business:', error)
         setBusinessError('Fehler beim Laden des Unternehmens')
       }
     }

@@ -25,6 +25,9 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { CustomerOverviewTab } from './components/CustomerOverviewTab'
 import { CustomerDocumentsTab } from './components/CustomerDocumentsTab'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('dashboard:customers:[id]')
 
 interface Customer {
   id: string
@@ -99,7 +102,7 @@ export default function CustomerDetailPage() {
         }
       }
     } catch (error) {
-      console.error('Failed to fetch customer:', error)
+      log.error('Failed to fetch customer:', error)
       toast.error('Fehler beim Laden des Kunden')
     } finally {
       setLoading(false)

@@ -2,6 +2,11 @@ import { createChatCompletion } from '@/modules/chatbot/lib/openrouter'
 import { db } from '@/lib/db'
 import { businesses, services, staff, chatbotKnowledge } from '@/lib/db/schema'
 import { eq, and, isNull } from 'drizzle-orm'
+import { getAIConfig } from '@/lib/ai/config'
+import { logAIUsage } from '@/lib/ai/usage'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('posts:generate-post')
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -189,12 +194,23 @@ export async function generatePost(
   const data = await fetchBusinessData(businessId)
   const prompt = buildPostPrompt(data, options)
 
-  const model = 'google/gemini-2.5-flash'
+  const aiConfig = await getAIConfig(businessId)
+  const model = aiConfig.postModel
   const response = await createChatCompletion({
     model,
+    apiKey: aiConfig.apiKey,
     messages: [{ role: 'user', content: prompt }],
     temperature: 0.8,
     max_tokens: 1500,
+  })
+
+  await logAIUsage({
+    businessId,
+    channel: 'post',
+    model: response.model || model,
+    promptTokens: response.usage?.prompt_tokens,
+    completionTokens: response.usage?.completion_tokens,
+    totalTokens: response.usage?.total_tokens,
   })
 
   const raw = response.choices[0]?.message?.content || '{}'
@@ -204,7 +220,7 @@ export async function generatePost(
   try {
     parsed = JSON.parse(cleaned)
   } catch {
-    console.error('[generatePost] Failed to parse AI response:', cleaned.substring(0, 500))
+    log.error('Failed to parse AI response:', cleaned.substring(0, 500))
     parsed = {}
   }
 

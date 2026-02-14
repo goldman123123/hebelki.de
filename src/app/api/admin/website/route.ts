@@ -5,6 +5,9 @@ import { businessWebsites } from '@/lib/db/schema'
 import type { TemplateId, WebsiteSectionContent } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { generateWebsiteContent } from '@/modules/website/lib/generate-content'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:admin:website')
 
 export async function GET() {
   const authResult = await requireBusinessAuth()
@@ -86,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ website })
   } catch (error) {
-    console.error('[POST /api/admin/website] Generation failed:', error)
+    log.error('[POST /api/admin/website] Generation failed:', error)
     return NextResponse.json({ error: 'Content generation failed' }, { status: 500 })
   }
 }

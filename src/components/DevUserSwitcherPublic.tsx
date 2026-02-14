@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { UserCog, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('ui:DevUserSwitcherPublic')
 
 interface DevUser {
   clerkUserId: string
@@ -48,7 +51,7 @@ export function DevUserSwitcherPublic() {
         window.location.href = data.url
       }
     } catch (error) {
-      console.error('Failed to switch user:', error)
+      log.error('Failed to switch user:', error)
     }
   }
 

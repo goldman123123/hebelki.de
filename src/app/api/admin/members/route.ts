@@ -12,7 +12,11 @@ import { requirePermission } from '@/modules/core/permissions'
 import { requireSeatsAvailable } from '@/modules/core/entitlements'
 import { getMembership } from '@/modules/core/auth'
 import { emitEventStandalone } from '@/modules/core/events'
+import { clerkClient } from '@clerk/nextjs/server'
 import { z } from 'zod'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:admin:members')
 
 const inviteMemberSchema = z.object({
   email: z.string().email('Ungültige E-Mail-Adresse'),
@@ -41,13 +45,33 @@ export async function GET(request: NextRequest) {
     // Get all members
     const members = await getBusinessMembers(authResult.business.id)
 
-    return NextResponse.json({ members })
+    // Resolve Clerk user names
+    const client = await clerkClient()
+    const enrichedMembers = await Promise.all(
+      members.map(async (m) => {
+        try {
+          if (m.clerkUserId.startsWith('pending:')) {
+            return { ...m, name: m.clerkUserId.replace('pending:', ''), email: m.clerkUserId.replace('pending:', '') }
+          }
+          const clerkUser = await client.users.getUser(m.clerkUserId)
+          return {
+            ...m,
+            name: clerkUser.fullName || clerkUser.firstName || 'Unbekannt',
+            email: clerkUser.emailAddresses[0]?.emailAddress || null,
+          }
+        } catch {
+          return { ...m, name: 'Unbekannt', email: null }
+        }
+      })
+    )
+
+    return NextResponse.json({ members: enrichedMembers })
   } catch (error) {
     if (error instanceof Error && error.name === 'ForbiddenError') {
       return NextResponse.json({ error: error.message }, { status: 403 })
     }
 
-    console.error('Error fetching members:', error)
+    log.error('Error fetching members:', error)
     return NextResponse.json({ error: 'Interner Serverfehler' }, { status: 500 })
   }
 }
@@ -85,9 +109,21 @@ export async function POST(request: NextRequest) {
 
     const { email, role } = parsed.data
 
-    // TODO: Look up Clerk user by email to get clerkUserId
-    // For now, we'll use email as placeholder (will be matched when user signs up)
-    const clerkUserId = `pending:${email}`
+    // Look up Clerk user by email to get clerkUserId
+    const client = await clerkClient()
+    let clerkUserId = `pending:${email}`
+    let inviteeName: string | undefined
+
+    try {
+      const userList = await client.users.getUserList({ emailAddress: [email] })
+      if (userList.data.length > 0) {
+        const foundUser = userList.data[0]
+        clerkUserId = foundUser.id
+        inviteeName = foundUser.fullName || foundUser.firstName || undefined
+      }
+    } catch {
+      // User not found in Clerk - will use pending placeholder
+    }
 
     // Create member invitation
     const newMember = await createBusinessMember({
@@ -98,14 +134,23 @@ export async function POST(request: NextRequest) {
       invitedBy: member.id,
     })
 
+    // Get inviter name from Clerk
+    let inviterName = 'Team'
+    try {
+      const inviterUser = await client.users.getUser(authResult.userId)
+      inviterName = inviterUser.fullName || inviterUser.firstName || 'Team'
+    } catch {
+      // Fallback to generic name
+    }
+
     // Emit member.invited event (send invitation email)
     await emitEventStandalone(authResult.business.id, 'member.invited', {
       memberId: newMember.id,
       businessId: authResult.business.id,
       businessName: authResult.business.name,
       inviteeEmail: email,
-      inviteeName: undefined,
-      inviterName: authResult.userId, // TODO: Get actual user name from Clerk
+      inviteeName,
+      inviterName,
       role,
       invitationUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.hebelki.de'}/accept-invitation/${newMember.id}`,
     })
@@ -121,7 +166,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.error('Error inviting member:', error)
+    log.error('Error inviting member:', error)
     return NextResponse.json({ error: 'Interner Serverfehler' }, { status: 500 })
   }
 }

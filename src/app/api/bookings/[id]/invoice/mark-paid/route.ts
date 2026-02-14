@@ -8,6 +8,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireBusinessAuth } from '@/lib/auth'
 import { verifyBookingOwnership } from '@/lib/db/queries'
 import { getInvoiceByBookingId, markInvoicePaid } from '@/lib/invoices'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:bookings:id:invoice:mark-paid')
 
 export async function POST(
   request: NextRequest,
@@ -41,7 +44,7 @@ export async function POST(
     return NextResponse.json({ success: true, invoice: updated })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to mark invoice as paid'
-    console.error('Error marking invoice as paid:', error)
+    log.error('Error marking invoice as paid:', error)
     return NextResponse.json({ error: message }, { status: 400 })
   }
 }

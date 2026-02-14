@@ -5,6 +5,9 @@ import { businessWebsites } from '@/lib/db/schema'
 import type { TemplateId, WebsiteSectionContent } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { regenerateSection } from '@/modules/website/lib/generate-content'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:admin:website:regenerate-section')
 
 export async function POST(request: NextRequest) {
   const authResult = await requireBusinessAuth()
@@ -62,7 +65,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ website, regeneratedSection: sectionName })
   } catch (error) {
-    console.error('[POST /api/admin/website/regenerate-section] Failed:', error)
+    log.error('[POST /api/admin/website/regenerate-section] Failed:', error)
     return NextResponse.json({ error: 'Regeneration failed' }, { status: 500 })
   }
 }

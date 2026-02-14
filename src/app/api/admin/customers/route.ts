@@ -9,6 +9,9 @@ import { db } from '@/lib/db'
 import { customers, bookings, chatbotConversations } from '@/lib/db/schema'
 import { eq, and, or, ilike, desc, sql, count } from 'drizzle-orm'
 import { z } from 'zod'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:admin:customers')
 
 // Validation schema for creating a customer
 const createCustomerSchema = z.object({
@@ -165,7 +168,7 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('[GET /api/admin/customers] Error:', error)
+    log.error('[GET /api/admin/customers] Error:', error)
     return NextResponse.json(
       { error: 'Fehler beim Laden der Kunden' },
       { status: 500 }
@@ -228,7 +231,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ customer: newCustomer }, { status: 201 })
   } catch (error) {
-    console.error('[POST /api/admin/customers] Error:', error)
+    log.error('[POST /api/admin/customers] Error:', error)
     return NextResponse.json(
       { error: 'Fehler beim Erstellen des Kunden' },
       { status: 500 }

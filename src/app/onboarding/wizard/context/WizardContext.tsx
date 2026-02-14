@@ -9,6 +9,9 @@ import {
   parseModeParam,
   type WizardState,
 } from '@/lib/validation/wizard-state'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('app:onboarding:wizard:context:WizardContext')
 
 interface WizardContextType {
   state: WizardState
@@ -92,7 +95,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
         })
       })
     } catch (error) {
-      console.error('Failed to save progress:', error)
+      log.error('Failed to save progress:', error)
     }
   }
 

@@ -18,6 +18,9 @@ import {
   EMBEDDING_CONFIG,
   normalizeText,
 } from '@/lib/embeddings'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('lib:jobs:re-embed')
 
 export interface ReEmbedResult {
   processed: number
@@ -46,8 +49,8 @@ export async function reEmbedLegacyKnowledgeEntries(
   let failed = 0
   let skipped = 0
 
-  console.log(`[Re-Embed KB] Starting for business ${businessId}`)
-  console.log(`[Re-Embed KB] Target version: ${EMBEDDING_CONFIG.preprocessVersion}`)
+  log.info(`Starting for business ${businessId}`)
+  log.info(`Target version: ${EMBEDDING_CONFIG.preprocessVersion}`)
 
   // Find legacy entries (preprocessVersion is NULL, 'legacy', or not current)
   const legacyEntries = await db
@@ -71,10 +74,10 @@ export async function reEmbedLegacyKnowledgeEntries(
     )
     .limit(batchSize)
 
-  console.log(`[Re-Embed KB] Found ${legacyEntries.length} entries to re-embed`)
+  log.info(`Found ${legacyEntries.length} entries to re-embed`)
 
   if (dryRun) {
-    console.log(`[Re-Embed KB] Dry run - not making changes`)
+    log.info(`Dry run - not making changes`)
     return {
       processed: 0,
       failed: 0,
@@ -104,17 +107,17 @@ export async function reEmbedLegacyKnowledgeEntries(
         .where(eq(chatbotKnowledge.id, entry.id))
 
       processed++
-      console.log(`[Re-Embed KB] ✅ ${entry.id} (${entry.title})`)
+      log.info(`✅ ${entry.id} (${entry.title})`)
 
       onProgress?.(processed, legacyEntries.length)
     } catch (error) {
       failed++
-      console.error(`[Re-Embed KB] ❌ ${entry.id}:`, error)
+      log.error(`❌ ${entry.id}:`, error)
     }
   }
 
   const durationMs = Date.now() - startTime
-  console.log(`[Re-Embed KB] Completed: ${processed} processed, ${failed} failed in ${durationMs}ms`)
+  log.info(`Completed: ${processed} processed, ${failed} failed in ${durationMs}ms`)
 
   return { processed, failed, skipped, durationMs }
 }
@@ -133,8 +136,8 @@ export async function reEmbedLegacyDocumentChunks(
   let failed = 0
   let skipped = 0
 
-  console.log(`[Re-Embed Docs] Starting for business ${businessId}`)
-  console.log(`[Re-Embed Docs] Target version: ${EMBEDDING_CONFIG.preprocessVersion}`)
+  log.info(`Starting for business ${businessId}`)
+  log.info(`Target version: ${EMBEDDING_CONFIG.preprocessVersion}`)
 
   // Find legacy chunk embeddings
   const legacyChunks = await db
@@ -158,10 +161,10 @@ export async function reEmbedLegacyDocumentChunks(
     )
     .limit(batchSize)
 
-  console.log(`[Re-Embed Docs] Found ${legacyChunks.length} chunks to re-embed`)
+  log.info(`Found ${legacyChunks.length} chunks to re-embed`)
 
   if (dryRun) {
-    console.log(`[Re-Embed Docs] Dry run - not making changes`)
+    log.info(`Dry run - not making changes`)
     return {
       processed: 0,
       failed: 0,
@@ -212,17 +215,17 @@ export async function reEmbedLegacyDocumentChunks(
         .where(eq(chunkEmbeddings.chunkId, chunk.chunkId))
 
       processed++
-      console.log(`[Re-Embed Docs] ✅ chunk ${chunk.chunkId}`)
+      log.info(`✅ chunk ${chunk.chunkId}`)
 
       onProgress?.(processed, legacyChunks.length)
     } catch (error) {
       failed++
-      console.error(`[Re-Embed Docs] ❌ chunk ${chunk.chunkId}:`, error)
+      log.error(`❌ chunk ${chunk.chunkId}:`, error)
     }
   }
 
   const durationMs = Date.now() - startTime
-  console.log(`[Re-Embed Docs] Completed: ${processed} processed, ${failed} failed in ${durationMs}ms`)
+  log.info(`Completed: ${processed} processed, ${failed} failed in ${durationMs}ms`)
 
   return { processed, failed, skipped, durationMs }
 }
@@ -234,15 +237,15 @@ export async function reEmbedAllLegacy(
   businessId: string,
   options: ReEmbedOptions = {}
 ): Promise<{ kb: ReEmbedResult; docs: ReEmbedResult }> {
-  console.log(`\n=== Re-Embed All Legacy for ${businessId} ===\n`)
+  log.info(`\n=== Re-Embed All Legacy for ${businessId} ===\n`)
 
   const kb = await reEmbedLegacyKnowledgeEntries(businessId, options)
   const docs = await reEmbedLegacyDocumentChunks(businessId, options)
 
-  console.log(`\n=== Summary ===`)
-  console.log(`KB:   ${kb.processed} processed, ${kb.failed} failed`)
-  console.log(`Docs: ${docs.processed} processed, ${docs.failed} failed`)
-  console.log(`Total time: ${kb.durationMs + docs.durationMs}ms`)
+  log.info(`\n=== Summary ===`)
+  log.info(`KB:   ${kb.processed} processed, ${kb.failed} failed`)
+  log.info(`Docs: ${docs.processed} processed, ${docs.failed} failed`)
+  log.info(`Total time: ${kb.durationMs + docs.durationMs}ms`)
 
   return { kb, docs }
 }

@@ -10,6 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Clock, User, Mail, Phone, CheckCircle, XCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { cn, formatTime } from '@/lib/utils'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('dashboard:calendar:MonthlyCalendar')
 
 interface Booking {
   booking: {
@@ -137,7 +140,7 @@ export function MonthlyCalendar({ bookingsByDay, businessId, timezone, year, mon
         alert('Failed to update booking status')
       }
     } catch (error) {
-      console.error('Error updating booking:', error)
+      log.error('Error updating booking:', error)
       alert('Error updating booking status')
     } finally {
       setUpdatingBookingId(null)

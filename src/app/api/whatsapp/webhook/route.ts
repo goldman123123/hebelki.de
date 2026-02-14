@@ -22,11 +22,15 @@ import { validateTwilioWebhook, sendWhatsAppMessage, getTwilioCredentials } from
 import { findOrCreateWhatsAppCustomer } from '@/lib/whatsapp-customer'
 import { formatE164Phone } from '@/lib/whatsapp-phone-formatter'
 import { getOwnerWhatsAppNumber } from '@/lib/whatsapp-owner'
+import { resolveChannelIdentity, verifyTeamPin, isPinAttempt, type ChannelIdentity } from '@/lib/channel-identity'
 import { isAnyStaffOnline } from '@/lib/staff-online'
 import { handleChatMessage } from '@/modules/chatbot/lib/conversation'
 import { db } from '@/lib/db'
-import { businesses, customers, chatbotConversations, chatbotMessages } from '@/lib/db/schema'
+import { businesses, businessMembers, customers, chatbotConversations, chatbotMessages, staff } from '@/lib/db/schema'
 import { eq, and, ne, sql, desc } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:whatsapp:webhook')
 
 // STOP/START keywords for WhatsApp compliance (case-insensitive)
 const STOP_KEYWORDS = ['stop', 'unsubscribe', 'cancel', 'end', 'quit', 'stopp', 'abmelden']
@@ -36,9 +40,9 @@ export async function POST(request: NextRequest) {
   try {
     // 1. PARSE: Extract data from Twilio (before validation — need TO number)
     const formData = await request.formData()
-    const params: Record<string, any> = {}
+    const params: Record<string, string> = {}
     formData.forEach((value, key) => {
-      params[key] = value
+      params[key] = String(value)
     })
 
     const from = params.From as string           // "whatsapp:+4915123456789"
@@ -46,7 +50,7 @@ export async function POST(request: NextRequest) {
     const body = (params.Body as string || '').trim()
     const messageSid = params.MessageSid as string
 
-    console.log('[WhatsApp Webhook] Received:', {
+    log.info('Received:', {
       from,
       to,
       messageSid,
@@ -57,7 +61,7 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get('X-Twilio-Signature') || request.headers.get('x-twilio-signature')
 
     if (!signature) {
-      console.error('[WhatsApp Webhook] Missing Twilio signature')
+      log.error('Missing Twilio signature')
       return NextResponse.json({ error: 'Missing signature' }, { status: 403 })
     }
 
@@ -82,7 +86,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!businessRow) {
-      console.error('[WhatsApp Webhook] No business found for TO number:', toPhone)
+      log.error('No business found for TO number:', toPhone)
       // Use global credentials for error reply
       await sendWhatsAppMessage({
         to: from,
@@ -107,13 +111,29 @@ export async function POST(request: NextRequest) {
       const isValidGlobal = validateTwilioWebhook(globalToken, signature, webhookUrl, params)
 
       if (!isValidGlobal) {
-        console.error('[WhatsApp Webhook] Invalid Twilio signature')
+        log.error('Invalid Twilio signature')
         return NextResponse.json({ error: 'Invalid signature' }, { status: 403 })
       }
     }
 
     // 5. PHONE NORMALIZATION
     const phoneNumber = formatE164Phone(from)
+
+    // 5b. TEAM MEMBER DETECTION (owner/admin/staff → assistant mode)
+    const identity = await resolveChannelIdentity(phoneNumber, businessId)
+
+    if (identity.isTeamMember) {
+      const teamResult = await handleTeamMemberMessage({
+        businessId,
+        businessName: businessRow.name || businessRow.slug,
+        identity,
+        phoneNumber,
+        senderFrom: from,
+        message,
+      })
+      if (teamResult) return teamResult
+      // If null, fall through to normal flow (e.g. PIN rejected)
+    }
 
     // 6. OWNER HANDOFF DETECTION
     const whatsappHandoffEnabled = businessSettings.whatsappHandoffEnabled === true
@@ -220,7 +240,7 @@ export async function POST(request: NextRequest) {
         .where(eq(customers.phone, phoneNumber))
 
       // Twilio handles STOP automatically, but we record it
-      console.log('[WhatsApp Webhook] Customer opted out:', phoneNumber)
+      log.info('Customer opted out:', phoneNumber)
       return NextResponse.json({ success: true, action: 'opted_out' })
     }
 
@@ -230,7 +250,7 @@ export async function POST(request: NextRequest) {
         .set({ whatsappOptInStatus: 'OPTED_IN', whatsappOptInAt: new Date() })
         .where(eq(customers.phone, phoneNumber))
 
-      console.log('[WhatsApp Webhook] Customer opted in:', phoneNumber)
+      log.info('Customer opted in:', phoneNumber)
 
       await sendWhatsAppMessage(
         { to: from, body: 'Willkommen zurück! Sie erhalten wieder Nachrichten von uns.' },
@@ -247,7 +267,7 @@ export async function POST(request: NextRequest) {
       const mediaUrl = params.MediaUrl0 as string
 
       if (!mediaUrl) {
-        console.error('[WhatsApp Webhook] Voice message with no MediaUrl0')
+        log.error('Voice message with no MediaUrl0')
         await sendWhatsAppMessage(
           { to: from, body: 'Entschuldigung, die Sprachnachricht konnte nicht verarbeitet werden.' },
           businessId
@@ -257,7 +277,7 @@ export async function POST(request: NextRequest) {
 
       const openaiKey = process.env.OPENAI_API_KEY
       if (!openaiKey) {
-        console.error('[WhatsApp Webhook] OPENAI_API_KEY not configured')
+        log.error('OPENAI_API_KEY not configured')
         await sendWhatsAppMessage(
           { to: from, body: 'Entschuldigung, Sprachnachrichten werden derzeit nicht unterstützt.' },
           businessId
@@ -323,7 +343,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Empty transcription' }, { status: 200 })
         }
 
-        console.log('[WhatsApp Webhook] Voice message transcribed:', {
+        log.info('Voice message transcribed:', {
           audioSize,
           textLength: transcribedText.length,
           preview: transcribedText.slice(0, 80),
@@ -333,7 +353,7 @@ export async function POST(request: NextRequest) {
         message = message ? `${message}\n\n[Sprachnachricht]: ${transcribedText}` : transcribedText
 
       } catch (transcribeError: unknown) {
-        console.error('[WhatsApp Webhook] Transcription failed:', transcribeError instanceof Error ? transcribeError.message : transcribeError)
+        log.error('Transcription failed:', transcribeError instanceof Error ? transcribeError.message : transcribeError)
         await sendWhatsAppMessage(
           { to: from, body: 'Entschuldigung, die Sprachnachricht konnte nicht verarbeitet werden. Bitte senden Sie eine Textnachricht.' },
           businessId
@@ -375,7 +395,7 @@ export async function POST(request: NextRequest) {
       })
       reply = chatbotResult.response
     } catch (chatbotError) {
-      console.error('[WhatsApp Webhook] Chatbot error:', chatbotError)
+      log.error('Chatbot error:', chatbotError)
       await sendWhatsAppMessage(
         { to: from, body: 'Entschuldigung, es gab einen technischen Fehler. Bitte versuchen Sie es später erneut.' },
         businessId
@@ -390,11 +410,11 @@ export async function POST(request: NextRequest) {
     )
 
     if (!sendResult.success) {
-      console.error('[WhatsApp Webhook] Failed to send reply:', sendResult.error)
+      log.error('Failed to send reply:', sendResult.error)
       return NextResponse.json({ error: 'Failed to send reply' }, { status: 200 })
     }
 
-    console.log('[WhatsApp Webhook] Success:', {
+    log.info('Success:', {
       business: businessRow.slug,
       customerId,
       messageSid: sendResult.sid,
@@ -404,7 +424,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, messageSid: sendResult.sid })
 
   } catch (error: unknown) {
-    console.error('[WhatsApp Webhook] Error:', error)
+    log.error('Error:', error)
     return NextResponse.json(
       { error: 'Internal error' },
       { status: 200 } // Always 200 for Twilio
@@ -450,7 +470,7 @@ async function handleOwnerForward(params: {
       const timeout = ((metadata.ownerTimeoutSeconds as number) || timeoutSeconds) * 1000
       if (Date.now() > notifiedAt + timeout) {
         // Timeout — switch to AI
-        console.log('[WhatsApp Owner Handoff] Timeout reached, switching to AI')
+        log.info('Timeout reached, switching to AI')
         await db.update(chatbotConversations)
           .set({
             status: 'active',
@@ -476,7 +496,7 @@ async function handleOwnerForward(params: {
             )
           }
         } catch (err) {
-          console.error('[WhatsApp Owner Handoff] AI takeover failed:', err)
+          log.error('AI takeover failed:', err)
         }
 
         // Notify owner
@@ -546,7 +566,7 @@ async function handleOwnerForward(params: {
     businessId
   )
 
-  console.log('[WhatsApp Owner Handoff] Forwarded to owner:', {
+  log.info('Forwarded to owner:', {
     business: businessId,
     customer: customerPhone,
     conversationId: newConv.id,
@@ -594,7 +614,7 @@ async function handleOwnerReply(params: {
   const customerPhone = metadata.customerPhone as string
 
   if (!customerPhone) {
-    console.error('[WhatsApp Owner Reply] No customer phone in metadata')
+    log.error('No customer phone in metadata')
     return null
   }
 
@@ -603,7 +623,7 @@ async function handleOwnerReply(params: {
 
   if (isAICommand) {
     // Owner delegates to AI
-    console.log('[WhatsApp Owner Reply] Owner requested AI takeover')
+    log.info('Owner requested AI takeover')
 
     await db.update(chatbotConversations)
       .set({
@@ -643,7 +663,7 @@ async function handleOwnerReply(params: {
           )
         }
       } catch (err) {
-        console.error('[WhatsApp Owner Reply] AI takeover failed:', err)
+        log.error('AI takeover failed:', err)
       }
     }
 
@@ -657,7 +677,7 @@ async function handleOwnerReply(params: {
   }
 
   // Owner replies with content — relay to customer
-  console.log('[WhatsApp Owner Reply] Relaying owner message to customer')
+  log.info('Relaying owner message to customer')
 
   // Save as staff message
   await db.insert(chatbotMessages).values({
@@ -683,6 +703,192 @@ async function handleOwnerReply(params: {
   )
 
   return NextResponse.json({ success: true, action: 'owner_reply' })
+}
+
+// ============================================
+// TEAM MEMBER: Route owner/admin/staff to assistant mode
+// ============================================
+
+async function handleTeamMemberMessage(params: {
+  businessId: string
+  businessName: string
+  identity: ChannelIdentity
+  phoneNumber: string
+  senderFrom: string
+  message: string
+}): Promise<NextResponse | null> {
+  const { businessId, businessName, identity, phoneNumber, senderFrom, message } = params
+
+  // Find or create internal conversation for this team member
+  const existingConv = await db
+    .select({
+      id: chatbotConversations.id,
+      metadata: chatbotConversations.metadata,
+    })
+    .from(chatbotConversations)
+    .where(and(
+      eq(chatbotConversations.businessId, businessId),
+      eq(chatbotConversations.channel, 'whatsapp'),
+      ne(chatbotConversations.status, 'closed'),
+      sql`${chatbotConversations.metadata}->>'isInternal' = 'true'`,
+      sql`${chatbotConversations.metadata}->>'teamPhone' = ${phoneNumber}`,
+    ))
+    .orderBy(desc(chatbotConversations.updatedAt))
+    .limit(1)
+    .then(rows => rows[0])
+
+  const metadata = (existingConv?.metadata as Record<string, unknown>) || {}
+  const isPinVerified = metadata.pinVerified === true
+
+  // PIN verification flow
+  if (identity.requiresPin && !isPinVerified) {
+    if (isPinAttempt(message)) {
+      // Verify PIN
+      const pinValid = await verifyTeamPin(phoneNumber, businessId, message.trim())
+
+      if (pinValid) {
+        // Mark conversation as verified
+        if (existingConv) {
+          await db.update(chatbotConversations)
+            .set({
+              metadata: { ...metadata, pinVerified: true, pinVerifiedAt: new Date().toISOString() },
+              updatedAt: new Date(),
+            })
+            .where(eq(chatbotConversations.id, existingConv.id))
+        } else {
+          // Create verified conversation
+          await db.insert(chatbotConversations).values({
+            businessId,
+            channel: 'whatsapp',
+            status: 'active',
+            metadata: {
+              isInternal: true,
+              teamPhone: phoneNumber,
+              actorRole: identity.role,
+              actorName: identity.name,
+              pinVerified: true,
+              pinVerifiedAt: new Date().toISOString(),
+            },
+          })
+        }
+
+        await sendWhatsAppMessage(
+          { to: senderFrom, body: `PIN bestätigt. Hallo ${identity.name || 'Team'}! Ihr ${businessName}-Assistent ist bereit. Wie kann ich helfen?` },
+          businessId
+        )
+        return NextResponse.json({ success: true, action: 'team_pin_verified' })
+      } else {
+        await sendWhatsAppMessage(
+          { to: senderFrom, body: 'Ungültiger PIN. Bitte versuchen Sie es erneut.' },
+          businessId
+        )
+        return NextResponse.json({ success: true, action: 'team_pin_invalid' })
+      }
+    }
+
+    // First message or non-PIN message — ask for PIN
+    // Create conversation to track this session
+    if (!existingConv) {
+      await db.insert(chatbotConversations).values({
+        businessId,
+        channel: 'whatsapp',
+        status: 'active',
+        metadata: {
+          isInternal: true,
+          teamPhone: phoneNumber,
+          actorRole: identity.role,
+          actorName: identity.name,
+          pinVerified: false,
+        },
+      })
+    }
+
+    await sendWhatsAppMessage(
+      { to: senderFrom, body: `Zugang als ${identity.role === 'owner' ? 'Inhaber' : identity.role === 'admin' ? 'Admin' : 'Mitarbeiter'} erkannt. Bitte geben Sie Ihren 4-stelligen PIN ein:` },
+      businessId
+    )
+    return NextResponse.json({ success: true, action: 'team_pin_requested' })
+  }
+
+  // PIN already verified or no PIN required — route to assistant
+  const conversationId = existingConv?.id
+
+  // Determine if this role gets full assistant or limited staff tools
+  const isOwnerOrAdmin = identity.role === 'owner' || identity.role === 'admin'
+
+  // Look up staff capabilities by phone number
+  let memberCapabilities: { allowedTools?: string[] } | undefined
+  if (identity.role === 'staff') {
+    const staffMember = await db
+      .select({ capabilities: staff.capabilities })
+      .from(staff)
+      .where(and(
+        eq(staff.businessId, businessId),
+        eq(staff.phone, phoneNumber),
+      ))
+      .limit(1)
+      .then(rows => rows[0])
+
+    if (staffMember?.capabilities) {
+      memberCapabilities = staffMember.capabilities as { allowedTools?: string[] }
+    }
+  }
+
+  try {
+    const chatbotResult = await handleChatMessage({
+      businessId,
+      conversationId,
+      message,
+      channel: 'whatsapp',
+      adminContext: {
+        userId: identity.clerkUserId || `team:${phoneNumber}`,
+        role: identity.role,
+        isAdmin: isOwnerOrAdmin,
+      },
+      isAssistant: isOwnerOrAdmin,
+      memberCapabilities,
+      accessContext: {
+        actorType: identity.role === 'admin' ? 'owner' : identity.role as 'staff' | 'customer' | 'owner',
+        actorId: identity.clerkUserId,
+      },
+    })
+
+    // Update conversation metadata if new
+    if (!conversationId) {
+      await db.update(chatbotConversations)
+        .set({
+          metadata: {
+            isInternal: true,
+            teamPhone: phoneNumber,
+            actorRole: identity.role,
+            actorName: identity.name,
+            pinVerified: !identity.requiresPin || isPinVerified,
+          },
+        })
+        .where(eq(chatbotConversations.id, chatbotResult.conversationId))
+    }
+
+    // Send response
+    await sendWhatsAppMessage(
+      { to: senderFrom, body: chatbotResult.response },
+      businessId
+    )
+
+    log.info('Assistant response sent:', {
+      business: businessId,
+      role: identity.role,
+      conversationId: chatbotResult.conversationId,
+    })
+
+    return NextResponse.json({ success: true, action: 'team_assistant' })
+  } catch (err) {
+    log.error('Assistant error:', err)
+    await sendWhatsAppMessage(
+      { to: senderFrom, body: 'Technischer Fehler beim Assistenten. Bitte versuchen Sie es später erneut.' },
+      businessId
+    )
+    return NextResponse.json({ error: 'Assistant error' }, { status: 200 })
+  }
 }
 
 // ============================================

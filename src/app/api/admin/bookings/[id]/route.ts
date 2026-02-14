@@ -8,6 +8,9 @@ import { eq } from 'drizzle-orm'
 import { emitEventStandalone } from '@/modules/core/events'
 import { processEvents } from '@/modules/core/events/processor'
 import { z } from 'zod'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:admin:bookings:id')
 
 const itemSchema = z.object({
   description: z.string().min(1),
@@ -146,10 +149,10 @@ export async function PATCH(
       try {
         await processEvents(10)
       } catch (processError) {
-        console.error('Error processing events after status change:', processError)
+        log.error('Error processing events after status change:', processError)
       }
     } catch (eventError) {
-      console.error('Error emitting status change event:', eventError)
+      log.error('Error emitting status change event:', eventError)
       // Don't fail the status update if event emission fails
     }
   }

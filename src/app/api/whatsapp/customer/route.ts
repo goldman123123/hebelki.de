@@ -10,6 +10,9 @@ import { db } from '@/lib/db'
 import { customers, businesses } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { formatE164Phone } from '@/lib/whatsapp-phone-formatter'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:whatsapp:customer')
 
 export async function GET(request: NextRequest) {
   try {
@@ -67,7 +70,7 @@ export async function GET(request: NextRequest) {
       customer,
     })
   } catch (error) {
-    console.error('[WhatsApp Customer Lookup] Error:', error)
+    log.error('Error:', error)
     return NextResponse.json(
       { error: 'Internal error' },
       { status: 500 }
@@ -131,7 +134,7 @@ export async function POST(request: NextRequest) {
       created: true,
     })
   } catch (error) {
-    console.error('[WhatsApp Customer Create] Error:', error)
+    log.error('Error:', error)
     return NextResponse.json(
       { error: 'Internal error' },
       { status: 500 }

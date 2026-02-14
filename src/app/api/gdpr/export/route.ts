@@ -19,6 +19,9 @@ import {
   staff,
 } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:gdpr:export')
 
 export async function GET(request: NextRequest) {
   try {
@@ -215,7 +218,7 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('[GET /api/gdpr/export] Error:', error)
+    log.error('[GET /api/gdpr/export] Error:', error)
     return NextResponse.json(
       { error: 'Ein Fehler ist aufgetreten beim Exportieren Ihrer Daten.' },
       { status: 500 }

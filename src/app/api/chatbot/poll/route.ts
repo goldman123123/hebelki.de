@@ -13,6 +13,9 @@ import { chatbotConversations, chatbotMessages, businesses } from '@/lib/db/sche
 import { eq, and, gt, ne } from 'drizzle-orm'
 import { emitEventStandalone } from '@/modules/core/events'
 import { pollLimiter } from '@/lib/rate-limit'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:chatbot:poll')
 
 export async function GET(request: NextRequest) {
   try {
@@ -65,7 +68,7 @@ export async function GET(request: NextRequest) {
 
       if (new Date() > timeoutAt) {
         // Timeout reached — no staff responded
-        console.log(`[POLL] Timeout reached for conversation ${conversationId}`)
+        log.info(`Timeout reached for conversation ${conversationId}`)
 
         // Mark timeout email as sent to avoid duplicates
         await db
@@ -160,7 +163,7 @@ export async function GET(request: NextRequest) {
       status: conversation.status,
     })
   } catch (error) {
-    console.error('[Poll API] Error:', error)
+    log.error('Error:', error)
     return NextResponse.json(
       { error: 'Poll-Fehler' },
       { status: 500 }

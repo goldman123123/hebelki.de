@@ -134,6 +134,10 @@ export const businessMembers = pgTable('business_members', {
   // Staff online detection (heartbeat via support dashboard polling)
   staffLastSeenAt: timestamp('staff_last_seen_at', { withTimezone: true }),
 
+  // Per-member AI tool capabilities (null = use role defaults)
+  // { allowedTools?: string[] }
+  capabilities: jsonb('capabilities'),
+
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 }, (table) => ({
@@ -213,9 +217,9 @@ export const staff = pgTable('staff', {
   isActive: boolean('is_active').default(true),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
 
-  // Google Calendar integration
-  googleCalendarId: text('google_calendar_id'),
-  googleRefreshToken: text('google_refresh_token'),
+  // Per-staff AI tool capabilities (null = use role defaults)
+  // { allowedTools?: string[] }
+  capabilities: jsonb('capabilities'),
 
   settings: jsonb('settings').default({}),
 
@@ -432,24 +436,6 @@ export const bookingActions = pgTable('booking_actions', {
 }));
 
 // ============================================
-// WAITLIST
-// ============================================
-
-export const waitlist = pgTable('waitlist', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  businessId: uuid('business_id').notNull().references(() => businesses.id, { onDelete: 'cascade' }),
-  customerId: uuid('customer_id').references(() => customers.id),
-  serviceId: uuid('service_id').references(() => services.id),
-  staffId: uuid('staff_id').references(() => staff.id), // NULL = any staff
-
-  preferredDates: jsonb('preferred_dates'), // array of date ranges
-
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-  notifiedAt: timestamp('notified_at', { withTimezone: true }),
-  convertedBookingId: uuid('converted_booking_id').references(() => bookings.id),
-});
-
-// ============================================
 // WEBSITE BUILDER
 // ============================================
 
@@ -568,6 +554,7 @@ export const businessesRelations = relations(businesses, ({ many, one }) => ({
   chatbotKnowledge: many(chatbotKnowledge),
   supportTickets: many(supportTickets),
   invoices: many(invoices),
+  aiUsageLogs: many(aiUsageLog),
   website: one(businessWebsites, {
     fields: [businesses.id],
     references: [businessWebsites.businessId],
@@ -831,6 +818,7 @@ export const chatbotKnowledge = pgTable('chatbot_knowledge', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 }, (table) => ({
   businessIdx: index('chatbot_knowledge_business_idx').on(table.businessId),
+  businessActiveIdx: index('chatbot_knowledge_business_active_idx').on(table.businessId, table.isActive),
   sourceIdx: index('chatbot_knowledge_source_idx').on(table.source),
   categoryIdx: index('chatbot_knowledge_category_idx').on(table.category),
   embeddingIdx: index('chatbot_knowledge_embedding_idx').using('hnsw', table.embedding.op('vector_cosine_ops')),
@@ -1431,6 +1419,27 @@ export const chunkEmbeddingsRelations = relations(chunkEmbeddings, ({ one }) => 
 }));
 
 // ============================================
+// AI USAGE LOG
+// ============================================
+
+export const aiUsageLog = pgTable('ai_usage_log', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  businessId: uuid('business_id').notNull().references(() => businesses.id, { onDelete: 'cascade' }),
+  channel: text('channel').notNull(), // 'chatbot', 'embedding', 'website_gen', 'knowledge_extraction', 'voice', 'whatsapp_transcription', 'post_gen'
+  model: text('model').notNull(), // e.g. 'openai/gpt-4o', 'google/gemini-2.5-flash'
+  promptTokens: integer('prompt_tokens').default(0),
+  completionTokens: integer('completion_tokens').default(0),
+  totalTokens: integer('total_tokens').default(0),
+  estimatedCostCents: integer('estimated_cost_cents').default(0), // in cents for precision
+  metadata: jsonb('metadata').default({}), // extra context
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (table) => ({
+  businessIdx: index('ai_usage_log_business_idx').on(table.businessId),
+  businessCreatedIdx: index('ai_usage_log_business_created_idx').on(table.businessId, table.createdAt),
+  channelIdx: index('ai_usage_log_channel_idx').on(table.channel),
+}));
+
+// ============================================
 // GDPR DELETION REQUESTS
 // ============================================
 
@@ -1453,6 +1462,13 @@ export const deletionRequests = pgTable('deletion_requests', {
   businessIdx: index('deletion_requests_business_idx').on(table.businessId),
   customerIdx: index('deletion_requests_customer_idx').on(table.customerId),
   statusIdx: index('deletion_requests_status_idx').on(table.status),
+}));
+
+export const aiUsageLogRelations = relations(aiUsageLog, ({ one }) => ({
+  business: one(businesses, {
+    fields: [aiUsageLog.businessId],
+    references: [businesses.id],
+  }),
 }));
 
 export const deletionRequestsRelations = relations(deletionRequests, ({ one }) => ({

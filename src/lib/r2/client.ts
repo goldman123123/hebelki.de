@@ -13,6 +13,9 @@ import {
   HeadObjectCommand,
 } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('lib:r2:client')
 
 // Environment validation
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID
@@ -21,7 +24,7 @@ const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY
 const R2_BUCKET_NAME = (process.env.R2_BUCKET_NAME || 'hebelki').trim()
 
 if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
-  console.warn(
+  log.warn(
     'R2 credentials not configured. Document upload/download will fail. ' +
     'Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY in .env.local'
   )

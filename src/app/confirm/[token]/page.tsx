@@ -4,6 +4,7 @@ import { bookings } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { emitEventStandalone } from '@/modules/core/events'
 import { processEvents } from '@/modules/core/events/processor'
+import Link from 'next/link'
 import { CheckCircle, AlertCircle, Clock, Info } from 'lucide-react'
 
 interface PageProps {
@@ -63,6 +64,12 @@ export default async function ConfirmBookingPage({ params }: PageProps) {
             staffName={staffMember?.name}
             businessName={business?.name}
           />
+          <Link
+            href={`/manage/${token}`}
+            className="inline-block mt-4 text-sm text-blue-600 hover:text-blue-800 underline"
+          >
+            Termin verwalten
+          </Link>
         </div>
       </div>
     )
@@ -101,6 +108,12 @@ export default async function ConfirmBookingPage({ params }: PageProps) {
             staffName={staffMember?.name}
             businessName={business?.name}
           />
+          <Link
+            href={`/manage/${token}`}
+            className="inline-block mt-4 text-sm text-blue-600 hover:text-blue-800 underline"
+          >
+            Termin verwalten
+          </Link>
         </div>
       </div>
     )
@@ -173,6 +186,12 @@ export default async function ConfirmBookingPage({ params }: PageProps) {
             staffName={staffMember?.name}
             businessName={business?.name}
           />
+          <Link
+            href={`/manage/${token}`}
+            className="inline-block mt-4 text-sm text-blue-600 hover:text-blue-800 underline"
+          >
+            Termin verwalten
+          </Link>
         </div>
       </div>
     )
@@ -195,6 +214,12 @@ export default async function ConfirmBookingPage({ params }: PageProps) {
           staffName={staffMember?.name}
           businessName={business?.name}
         />
+        <Link
+          href={`/manage/${token}`}
+          className="inline-block mt-4 text-sm text-blue-600 hover:text-blue-800 underline"
+        >
+          Termin verwalten
+        </Link>
       </div>
     </div>
   )

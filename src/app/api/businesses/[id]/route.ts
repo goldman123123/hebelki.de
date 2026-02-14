@@ -3,6 +3,9 @@ import { auth } from '@clerk/nextjs/server'
 import { db } from '@/lib/db'
 import { businesses, businessMembers } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:businesses:id')
 
 export async function GET(
   request: NextRequest,
@@ -48,7 +51,7 @@ export async function GET(
 
     return NextResponse.json(business)
   } catch (error) {
-    console.error('Error fetching business:', error)
+    log.error('Error fetching business:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -96,7 +99,7 @@ export async function PATCH(
 
     return NextResponse.json({ business: updated[0] })
   } catch (error) {
-    console.error('Error updating business:', error)
+    log.error('Error updating business:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

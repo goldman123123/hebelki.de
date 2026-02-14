@@ -11,6 +11,9 @@ import { detectServicesFromUrl } from '@/lib/service-detector'
 import { db } from '@/lib/db'
 import { businesses } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:admin:services:detect')
 
 interface DetectRequest {
   businessId: string
@@ -47,17 +50,18 @@ export async function POST(request: NextRequest) {
 
     const businessType = business.type || 'general'
 
-    console.log(`[Service Detection] Starting for business ${businessId} from ${url}`)
+    log.info(`Starting for business ${businessId} from ${url}`)
 
     // Detect services
     const result = await detectServicesFromUrl({
       url,
       businessType,
+      businessId,
       maxPages: 10,
       selectedUrls,
     })
 
-    console.log(`[Service Detection] Found ${result.services.length} services`)
+    log.info(`Found ${result.services.length} services`)
 
     return NextResponse.json({
       services: result.services,
@@ -66,7 +70,7 @@ export async function POST(request: NextRequest) {
       source: result.source,
     })
   } catch (error) {
-    console.error('[Service Detection] Error:', error)
+    log.error('Error:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Detection failed' },
       { status: 500 }

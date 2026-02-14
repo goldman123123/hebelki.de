@@ -13,6 +13,9 @@
 import { db } from '@/lib/db'
 import { customers } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('lib:whatsapp-compliance')
 
 // Twilio-compliant keywords for opt-out
 export const STOP_KEYWORDS = ['STOP', 'STOPALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT']
@@ -71,7 +74,7 @@ export async function handleOptOut(
     .where(eq(customers.id, customerId))
 
   // Log for audit trail
-  console.log(`[WHATSAPP-COMPLIANCE] Customer ${customerId} opted out via keyword`)
+  log.info(`Customer ${customerId} opted out via keyword`)
 }
 
 /**
@@ -94,7 +97,7 @@ export async function handleOptIn(
     })
     .where(eq(customers.id, customerId))
 
-  console.log(`[WHATSAPP-COMPLIANCE] Customer ${customerId} opted in via keyword`)
+  log.info(`Customer ${customerId} opted in via keyword`)
 }
 
 /**
@@ -124,7 +127,7 @@ export async function handleImplicitOptIn(
       })
       .where(eq(customers.id, customerId))
 
-    console.log(`[WHATSAPP-COMPLIANCE] Customer ${customerId} implicitly opted in via first message`)
+    log.info(`Customer ${customerId} implicitly opted in via first message`)
   }
 }
 

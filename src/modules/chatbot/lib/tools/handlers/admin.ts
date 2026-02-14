@@ -8,6 +8,9 @@ import { db } from '@/lib/db'
 import { services, staff, staffServices, customers, bookings, businesses, chatbotConversations, chatbotMessages, bookingActions } from '@/lib/db/schema'
 import { eq, and, ne, desc, or, ilike, gte, lte, isNull, lt, gt } from 'drizzle-orm'
 import { sendEmail, sendCustomEmail } from '@/lib/email'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('chatbot:tools:handlers:admin')
 
 /**
  * Admin tool handlers
@@ -98,7 +101,7 @@ export const adminHandlers = {
         },
       }
     } catch (error) {
-      console.error('[search_bookings] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Suchen von Buchungen' }
     }
   },
@@ -170,7 +173,7 @@ export const adminHandlers = {
         },
       }
     } catch (error) {
-      console.error('[update_booking_status] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Aktualisieren des Status' }
     }
   },
@@ -245,7 +248,7 @@ export const adminHandlers = {
         },
       }
     } catch (error) {
-      console.error('[reschedule_booking] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Verschieben der Buchung' }
     }
   },
@@ -401,7 +404,7 @@ export const adminHandlers = {
         },
       }
     } catch (error) {
-      console.error('[search_customer_conversations] Error:', error)
+      log.error('Error:', error)
       return {
         success: false,
         error: 'Fehler beim Durchsuchen der Gespräche',
@@ -508,7 +511,7 @@ export const adminHandlers = {
         },
       }
     } catch (error) {
-      console.error('[get_todays_bookings] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Abrufen der heutigen Buchungen' }
     }
   },
@@ -614,7 +617,7 @@ export const adminHandlers = {
         },
       }
     } catch (error) {
-      console.error('[get_upcoming_bookings] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Abrufen der kommenden Buchungen' }
     }
   },
@@ -823,7 +826,7 @@ export const adminHandlers = {
             text: `Buchungsbestätigung\n\nHallo ${args.customerName},\n\nIhre Buchung wurde bestätigt:\n- Service: ${service.name}\n- Datum: ${formattedDate}\n- Uhrzeit: ${formattedTime}${staffName ? `\n- Mitarbeiter: ${staffName}` : ''}${service.price ? `\n- Preis: ${service.price} €` : ''}\n\nMit freundlichen Grüßen,\n${business.name}`,
           })
         } catch (emailError) {
-          console.error('[create_booking_admin] Email error:', emailError)
+          log.error('Email error:', emailError)
           // Don't fail the booking if email fails
         }
       }
@@ -843,7 +846,7 @@ export const adminHandlers = {
         },
       }
     } catch (error) {
-      console.error('[create_booking_admin] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Erstellen der Buchung' }
     }
   },
@@ -959,7 +962,7 @@ export const adminHandlers = {
           })
           emailSent = true
         } catch (emailError) {
-          console.error('[cancel_booking_with_notification] Email error:', emailError)
+          log.error('Email error:', emailError)
         }
       }
 
@@ -974,7 +977,7 @@ export const adminHandlers = {
         },
       }
     } catch (error) {
-      console.error('[cancel_booking_with_notification] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Stornieren der Buchung' }
     }
   },
@@ -1035,7 +1038,7 @@ export const adminHandlers = {
         },
       }
     } catch (error) {
-      console.error('[create_customer] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Erstellen des Kunden' }
     }
   },
@@ -1129,7 +1132,7 @@ export const adminHandlers = {
         },
       }
     } catch (error) {
-      console.error('[update_customer] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Aktualisieren des Kunden' }
     }
   },
@@ -1185,7 +1188,7 @@ export const adminHandlers = {
         },
       }
     } catch (error) {
-      console.error('[search_customers] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler bei der Kundensuche' }
     }
   },
@@ -1310,7 +1313,7 @@ export const adminHandlers = {
         },
       }
     } catch (error) {
-      console.error('[get_customer_bookings] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Abrufen der Kundenbuchungen' }
     }
   },
@@ -1375,7 +1378,7 @@ export const adminHandlers = {
         },
       }
     } catch (error) {
-      console.error('[send_email_to_customer] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Senden der E-Mail' }
     }
   },
@@ -1474,7 +1477,7 @@ export const adminHandlers = {
         },
       }
     } catch (error) {
-      console.error('[resend_booking_confirmation] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Senden der Bestätigung' }
     }
   },
@@ -1590,7 +1593,7 @@ export const adminHandlers = {
         },
       }
     } catch (error) {
-      console.error('[get_daily_summary] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Abrufen der Tagesübersicht' }
     }
   },
@@ -1670,7 +1673,7 @@ export const adminHandlers = {
         },
       }
     } catch (error) {
-      console.error('[get_escalated_conversations] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Abrufen der eskalierten Gespräche' }
     }
   },

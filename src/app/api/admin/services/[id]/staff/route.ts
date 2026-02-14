@@ -4,6 +4,9 @@ import { verifyServiceOwnership } from '@/lib/db/queries'
 import { db } from '@/lib/db'
 import { staffServices, staff } from '@/lib/db/schema'
 import { eq, and, asc } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:admin:services:id:staff')
 
 /**
  * GET /api/admin/services/[id]/staff
@@ -108,7 +111,7 @@ export async function PUT(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Error updating staff priority:', error)
+    log.error('Error updating staff priority:', error)
     return NextResponse.json(
       { error: 'Failed to update staff priority' },
       { status: 500 }

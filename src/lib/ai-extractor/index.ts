@@ -1,9 +1,15 @@
 import { ScrapedPage, KnowledgeEntry, DetectedService } from './types'
 import { createChatCompletion } from '@/modules/chatbot/lib/openrouter'
+import { getAIConfig } from '@/lib/ai/config'
+import { logAIUsage } from '@/lib/ai/usage'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('lib:ai-extractor:index')
 
 async function extractKnowledgeBatch(
   pages: ScrapedPage[],
-  businessType: string
+  businessType: string,
+  businessId?: string
 ): Promise<KnowledgeEntry[]> {
   const combinedContent = pages
     .map(p => `=== PAGE: ${p.url} ===\nTitle: ${p.metadata?.title || 'Untitled'}\n\n${p.markdown}`)
@@ -96,13 +102,17 @@ Return a JSON array with this structure:
 Return ONLY valid JSON, no other text.`
 
   try {
-    console.log('🤖 [KNOWLEDGE EXTRACTION] Starting AI extraction...')
-    console.log('📊 [KNOWLEDGE EXTRACTION] Model: google/gemini-2.5-flash-lite')
-    console.log('📝 [KNOWLEDGE EXTRACTION] Content length:', combinedContent.length, 'chars')
-    console.log('📄 [KNOWLEDGE EXTRACTION] Pages in batch:', pages.length)
+    const aiConfig = businessId ? await getAIConfig(businessId) : null
+    const model = aiConfig?.extractionModel || 'google/gemini-2.5-flash-lite'
+
+    log.info('Starting AI extraction...')
+    log.info('Model:', model)
+    log.info('Content length:', combinedContent.length, 'chars')
+    log.info('Pages in batch:', pages.length)
 
     const response = await createChatCompletion({
-      model: 'google/gemini-2.5-flash-lite',
+      model,
+      apiKey: aiConfig?.apiKey,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `Extract comprehensive knowledge from:\n\n${combinedContent}` }
@@ -111,19 +121,30 @@ Return ONLY valid JSON, no other text.`
       max_tokens: 8000   // Increased from 4000 to allow more detailed output
     })
 
-    console.log('✅ [KNOWLEDGE EXTRACTION] AI response received')
+    if (businessId) {
+      await logAIUsage({
+        businessId,
+        channel: 'extraction',
+        model: response.model || model,
+        promptTokens: response.usage?.prompt_tokens,
+        completionTokens: response.usage?.completion_tokens,
+        totalTokens: response.usage?.total_tokens,
+      })
+    }
+
+    log.info('AI response received')
     const content = response.choices[0].message.content
-    console.log('💬 [KNOWLEDGE EXTRACTION] Raw AI response length:', content.length, 'chars')
+    log.info('Raw AI response length:', content.length, 'chars')
 
     // Try to extract JSON from response
     const jsonMatch = content.match(/\[[\s\S]*\]/)
     if (!jsonMatch) {
-      console.error('❌ [KNOWLEDGE EXTRACTION] No JSON array found in AI response')
+      log.error('No JSON array found in AI response')
       return []
     }
 
     const extracted = JSON.parse(jsonMatch[0])
-    console.log('📊 [KNOWLEDGE EXTRACTION] Extracted entries:', extracted.length)
+    log.info('Extracted entries:', extracted.length)
 
     // Lower threshold to 60% to capture more entries
     const filtered = extracted.filter((e: KnowledgeEntry) => {
@@ -132,14 +153,14 @@ Return ONLY valid JSON, no other text.`
       return hasMinLength && hasGoodConfidence
     })
 
-    console.log('✅ [KNOWLEDGE EXTRACTION] Filtered entries (confidence >= 60%, length >= 50):', filtered.length)
+    log.info('Filtered entries (confidence >= 60%, length >= 50):', filtered.length)
 
     return filtered
   } catch (error) {
-    console.error('❌ [KNOWLEDGE EXTRACTION] AI extraction error:', error)
+    log.error('AI extraction error:', error)
     if (error instanceof Error) {
-      console.error('❌ [KNOWLEDGE EXTRACTION] Error message:', error.message)
-      console.error('❌ [KNOWLEDGE EXTRACTION] Error stack:', error.stack)
+      log.error('Error message:', error.message)
+      log.error('Error stack:', error.stack)
     }
     return []
   }
@@ -147,7 +168,8 @@ Return ONLY valid JSON, no other text.`
 
 export async function extractKnowledgeFromContent(
   scrapedPages: ScrapedPage[],
-  businessType: string
+  businessType: string,
+  businessId?: string
 ): Promise<KnowledgeEntry[]> {
   // Separate critical pages for priority processing
   const criticalPages = scrapedPages.filter(p =>
@@ -165,8 +187,8 @@ export async function extractKnowledgeFromContent(
 
   // Process critical pages first
   if (criticalPages.length > 0) {
-    console.log(`Processing ${criticalPages.length} critical pages first...`)
-    const criticalKnowledge = await extractKnowledgeBatch(criticalPages, businessType)
+    log.info(`Processing ${criticalPages.length} critical pages first...`)
+    const criticalKnowledge = await extractKnowledgeBatch(criticalPages, businessType, businessId)
     allKnowledge.push(...criticalKnowledge)
   }
 
@@ -174,24 +196,25 @@ export async function extractKnowledgeFromContent(
   const batchSize = 15
   for (let i = 0; i < normalPages.length; i += batchSize) {
     const batch = normalPages.slice(i, i + batchSize)
-    console.log(`Processing batch ${Math.floor(i / batchSize) + 1}: pages ${i + 1}-${Math.min(i + batchSize, normalPages.length)} of ${normalPages.length}`)
+    log.info(`Processing batch ${Math.floor(i / batchSize) + 1}: pages ${i + 1}-${Math.min(i + batchSize, normalPages.length)} of ${normalPages.length}`)
 
     try {
-      const batchResults = await extractKnowledgeBatch(batch, businessType)
+      const batchResults = await extractKnowledgeBatch(batch, businessType, businessId)
       allKnowledge.push(...batchResults)
     } catch (error) {
-      console.error(`Error processing batch ${Math.floor(i / batchSize) + 1}:`, error)
+      log.error(`Error processing batch ${Math.floor(i / batchSize) + 1}:`, error)
       // Continue with next batch even if this one fails
     }
   }
 
-  console.log(`Extracted ${allKnowledge.length} total knowledge entries from ${scrapedPages.length} pages`)
+  log.info(`Extracted ${allKnowledge.length} total knowledge entries from ${scrapedPages.length} pages`)
   return allKnowledge
 }
 
 async function extractServicesBatch(
   pages: ScrapedPage[],
-  businessType: string
+  businessType: string,
+  businessId?: string
 ): Promise<DetectedService[]> {
   const combinedContent = pages
     .map(p => `URL: ${p.url}\n${p.markdown}`)
@@ -241,12 +264,16 @@ Do not make assumptions or estimations.
 Return JSON array. Only include services with confidence >= 60. Return valid JSON only, no other text.`
 
   try {
-    console.log('🤖 [SERVICE EXTRACTION] Starting AI extraction...')
-    console.log('📊 [SERVICE EXTRACTION] Model: google/gemini-2.5-flash-lite')
-    console.log('📝 [SERVICE EXTRACTION] Content length:', combinedContent.length, 'chars')
+    const aiConfig = businessId ? await getAIConfig(businessId) : null
+    const model = aiConfig?.extractionModel || 'google/gemini-2.5-flash-lite'
+
+    log.info('Starting AI extraction...')
+    log.info('Model:', model)
+    log.info('Content length:', combinedContent.length, 'chars')
 
     const response = await createChatCompletion({
-      model: 'google/gemini-2.5-flash-lite',
+      model,
+      apiKey: aiConfig?.apiKey,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: combinedContent }
@@ -255,8 +282,19 @@ Return JSON array. Only include services with confidence >= 60. Return valid JSO
       max_tokens: 8000
     })
 
-    console.log('✅ [SERVICE EXTRACTION] AI response received')
-    console.log('📄 [SERVICE EXTRACTION] Response structure:', JSON.stringify({
+    if (businessId) {
+      await logAIUsage({
+        businessId,
+        channel: 'extraction',
+        model: response.model || model,
+        promptTokens: response.usage?.prompt_tokens,
+        completionTokens: response.usage?.completion_tokens,
+        totalTokens: response.usage?.total_tokens,
+      })
+    }
+
+    log.info('AI response received')
+    log.info('Response structure:', JSON.stringify({
       id: response.id,
       model: response.model,
       finish_reason: response.choices[0].finish_reason,
@@ -264,19 +302,19 @@ Return JSON array. Only include services with confidence >= 60. Return valid JSO
     }, null, 2))
 
     const content = response.choices[0].message.content
-    console.log('💬 [SERVICE EXTRACTION] Raw AI response:', content.substring(0, 500) + '...')
+    log.info('Raw AI response:', content.substring(0, 500) + '...')
 
     // Try to extract JSON from response
     const jsonMatch = content.match(/\[[\s\S]*\]/)
     if (!jsonMatch) {
-      console.error('❌ [SERVICE EXTRACTION] No JSON array found in AI response')
-      console.error('📄 [SERVICE EXTRACTION] Full response:', content)
+      log.error('No JSON array found in AI response')
+      log.error('Full response:', content)
       return []
     }
 
-    console.log('✅ [SERVICE EXTRACTION] JSON found, parsing...')
+    log.info('JSON found, parsing...')
     const extracted = JSON.parse(jsonMatch[0])
-    console.log('📊 [SERVICE EXTRACTION] Extracted services:', extracted.length)
+    log.info('Extracted services:', extracted.length)
 
     // Swap name and description - descriptions are more complete and make better service names
     const swapped = extracted.map((service: DetectedService) => ({
@@ -289,18 +327,18 @@ Return JSON array. Only include services with confidence >= 60. Return valid JSO
     const kept = swapped.filter((e: DetectedService) => e.confidence >= 60)
     const rejected = extracted.filter((e: DetectedService) => e.confidence < 60)
 
-    console.log(`✅ [SERVICE EXTRACTION] Kept ${kept.length} services (confidence >= 60%)`)
+    log.info(`Kept ${kept.length} services (confidence >= 60%)`)
     if (rejected.length > 0) {
-      console.log(`⚠️  [SERVICE EXTRACTION] Filtered ${rejected.length} services (confidence < 60%):`)
-      rejected.forEach((s: DetectedService) => console.log(`   - ${s.name}: ${s.confidence}%`))
+      log.info(`Filtered ${rejected.length} services (confidence < 60%):`)
+      rejected.forEach((s: DetectedService) => log.info(`   - ${s.name}: ${s.confidence}%`))
     }
 
     return kept
   } catch (error) {
-    console.error('❌ [SERVICE EXTRACTION] AI extraction error:', error)
+    log.error('AI extraction error:', error)
     if (error instanceof Error) {
-      console.error('❌ [SERVICE EXTRACTION] Error message:', error.message)
-      console.error('❌ [SERVICE EXTRACTION] Error stack:', error.stack)
+      log.error('Error message:', error.message)
+      log.error('Error stack:', error.stack)
     }
     return []
   }
@@ -308,7 +346,8 @@ Return JSON array. Only include services with confidence >= 60. Return valid JSO
 
 export async function extractServicesFromContent(
   scrapedPages: ScrapedPage[],
-  businessType: string
+  businessType: string,
+  businessId?: string
 ): Promise<DetectedService[]> {
   // Prioritize service-related pages
   const servicePriority = scrapedPages.filter(p =>
@@ -325,8 +364,8 @@ export async function extractServicesFromContent(
 
   // Process service pages first
   if (servicePriority.length > 0) {
-    console.log(`Processing ${servicePriority.length} service-related pages first...`)
-    const priorityServices = await extractServicesBatch(servicePriority, businessType)
+    log.info(`Processing ${servicePriority.length} service-related pages first...`)
+    const priorityServices = await extractServicesBatch(servicePriority, businessType, businessId)
     allServices.push(...priorityServices)
   }
 
@@ -334,17 +373,17 @@ export async function extractServicesFromContent(
   const batchSize = 15
   for (let i = 0; i < normalPages.length; i += batchSize) {
     const batch = normalPages.slice(i, i + batchSize)
-    console.log(`Processing services batch ${Math.floor(i / batchSize) + 1}: pages ${i + 1}-${Math.min(i + batchSize, normalPages.length)} of ${normalPages.length}`)
+    log.info(`Processing services batch ${Math.floor(i / batchSize) + 1}: pages ${i + 1}-${Math.min(i + batchSize, normalPages.length)} of ${normalPages.length}`)
 
     try {
-      const batchResults = await extractServicesBatch(batch, businessType)
+      const batchResults = await extractServicesBatch(batch, businessType, businessId)
       allServices.push(...batchResults)
     } catch (error) {
-      console.error(`Error processing services batch ${Math.floor(i / batchSize) + 1}:`, error)
+      log.error(`Error processing services batch ${Math.floor(i / batchSize) + 1}:`, error)
       // Continue with next batch even if this one fails
     }
   }
 
-  console.log(`Extracted ${allServices.length} total services from ${scrapedPages.length} pages`)
+  log.info(`Extracted ${allServices.length} total services from ${scrapedPages.length} pages`)
   return allServices
 }

@@ -5,6 +5,9 @@ import { processEvents } from '@/modules/core/events/processor'
 import { db } from '@/lib/db'
 import { bookings, services, staff } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:slug:confirm')
 
 /**
  * POST /api/{slug}/confirm - Confirm hold and create booking
@@ -41,7 +44,7 @@ export async function POST(
     try {
       await processEvents(10)
     } catch (emailError) {
-      console.error('Error processing events after booking confirmation:', emailError)
+      log.error('Error processing events after booking confirmation:', emailError)
       // Don't fail the booking if email processing fails
     }
 
@@ -68,7 +71,7 @@ export async function POST(
       staff: bookingDetails?.staff,
     })
   } catch (error: unknown) {
-    console.error('Error confirming hold:', error)
+    log.error('Error confirming hold:', error)
     const message = error instanceof Error ? error.message : String(error)
 
     if (message === 'Hold expired. Please select a new time slot.') {

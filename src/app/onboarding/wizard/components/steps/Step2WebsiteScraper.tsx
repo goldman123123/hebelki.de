@@ -8,6 +8,9 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Loader2, MessageSquare, Copy, Search, CheckCircle2, XCircle, Clock } from 'lucide-react'
 import type { CategorizedPage } from '@/lib/scraper/page-categorizer'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('app:onboarding:wizard:components:steps:Step2WebsiteScraper')
 
 interface StepProps {
   onNext: () => void
@@ -118,7 +121,7 @@ export function Step2WebsiteScraper({ onNext, onBack, onSkip }: StepProps) {
                 const { services } = await detectResponse.json()
 
                 if (services?.length > 0) {
-                  console.log(`[Step2] Detected ${services.length} services from knowledge`)
+                  log.info(`Detected ${services.length} services from knowledge`)
                   scrapeResults.servicesCount = services.length
 
                   // Save to database for Step4 to read
@@ -137,9 +140,9 @@ export function Step2WebsiteScraper({ onNext, onBack, onSkip }: StepProps) {
                         }
                       })
                     })
-                    console.log('[Step2] Saved servicesForReview to database')
+                    log.info('Saved servicesForReview to database')
                   } catch (err) {
-                    console.error('[Step2] Failed to save services to database:', err)
+                    log.error('Failed to save services to database:', err)
                   }
 
                   // Save detected services to wizard context for Step4
@@ -164,14 +167,14 @@ export function Step2WebsiteScraper({ onNext, onBack, onSkip }: StepProps) {
                   })
                   return // Early exit - state is set
                 } else {
-                  console.log('[Step2] No services detected from knowledge')
+                  log.info('No services detected from knowledge')
                 }
               } else {
                 const errorData = await detectResponse.json().catch(() => ({}))
-                console.error('[Step2] Detect services API failed:', detectResponse.status, errorData)
+                log.error('Detect services API failed:', detectResponse.status, errorData)
               }
             } catch (err) {
-              console.error('[Step2] Service detection failed:', err)
+              log.error('Service detection failed:', err)
               // Continue with 0 services - not a fatal error
             }
           }
@@ -194,9 +197,9 @@ export function Step2WebsiteScraper({ onNext, onBack, onSkip }: StepProps) {
                   }
                 })
               })
-              console.log('[Step2] Saved servicesForReview from worker metrics to database')
+              log.info('Saved servicesForReview from worker metrics to database')
             } catch (err) {
-              console.error('[Step2] Failed to save services to database:', err)
+              log.error('Failed to save services to database:', err)
             }
           }
 
@@ -232,7 +235,7 @@ export function Step2WebsiteScraper({ onNext, onBack, onSkip }: StepProps) {
           setCurrentStage(data.stage || 'processing')
         }
       } catch (err) {
-        console.error('Polling error:', err)
+        log.error('Polling error:', err)
       }
     }, 2000)
 

@@ -7,6 +7,9 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Trash2, Edit, Check, AlertCircle, Loader2, Package } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('app:onboarding:wizard:components:steps:Step4ServiceSetup')
 
 interface StepProps {
   onNext: () => void
@@ -115,7 +118,7 @@ export function Step4ServiceSetup({ onNext, onBack, onSkip }: StepProps) {
         setServices(reviewableServices)
         setState({ detectedServices: reviewableServices })
       } catch (err) {
-        console.error('Failed to load services:', err)
+        log.error('Failed to load services:', err)
         setError('Failed to load detected services')
       } finally {
         setLoading(false)

@@ -6,7 +6,7 @@
  * browser-like rendering of content.
  */
 
-import { convert } from 'html-to-text'
+import { convert, type SelectorDefinition } from 'html-to-text'
 
 /**
  * Convert HTML to clean, readable text
@@ -94,7 +94,7 @@ export function htmlToCleanText(html: string): string {
 
       // Images - skip entirely (alt text not reliable)
       { selector: 'img', format: 'skip' },
-    ] as any,
+    ] as SelectorDefinition[],
 
     // Limits
     limits: {

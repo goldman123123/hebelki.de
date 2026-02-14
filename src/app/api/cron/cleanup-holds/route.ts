@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cleanupExpiredHolds } from '@/lib/db/holds'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:cron:cleanup-holds')
 
 /**
  * Cron job to cleanup expired holds
@@ -13,19 +16,19 @@ export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET
 
   if (!cronSecret) {
-    console.error('[Cron] CRON_SECRET not configured')
+    log.error('CRON_SECRET not configured')
     return NextResponse.json({ error: 'Cron not configured' }, { status: 500 })
   }
 
   if (authHeader !== `Bearer ${cronSecret}`) {
-    console.error('[Cron] Invalid or missing authorization header')
+    log.error('Invalid or missing authorization header')
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
-    console.log('[Cron] Starting expired holds cleanup...')
+    log.info('Starting expired holds cleanup...')
     const count = await cleanupExpiredHolds()
-    console.log(`[Cron] Cleanup complete: ${count} holds deleted`)
+    log.info(`Cleanup complete: ${count} holds deleted`)
 
     return NextResponse.json({
       success: true,
@@ -33,7 +36,7 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString()
     })
   } catch (error) {
-    console.error('[Cron] Error cleaning up holds:', error)
+    log.error('Error cleaning up holds:', error)
     return NextResponse.json(
       {
         success: false,

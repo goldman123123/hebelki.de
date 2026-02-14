@@ -5,6 +5,9 @@ import { useWizard } from '../../context/WizardContext'
 import { Button } from '@/components/ui/button'
 import { WeeklyScheduleEditor } from '@/components/availability'
 import { Clock } from 'lucide-react'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('app:onboarding:wizard:components:steps:Step5CalendarPreview')
 
 interface TimeSlot {
   startTime: string  // "HH:MM"
@@ -71,7 +74,7 @@ export function Step5CalendarPreview({ onNext, onBack, onSkip }: StepProps) {
       onNext()
     } catch (err) {
       setError('Failed to save availability. Please try again.')
-      console.error('Error saving availability:', err)
+      log.error('Error saving availability:', err)
     } finally {
       setIsSaving(false)
     }

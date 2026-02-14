@@ -9,6 +9,9 @@
  */
 
 import { NextResponse } from 'next/server'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:dev:switch-user')
 
 const CLERK_SECRET_KEY = process.env.CLERK_SECRET_KEY!
 
@@ -54,7 +57,7 @@ export async function POST(request: Request) {
       url: data.url,
     })
   } catch (error) {
-    console.error('[Dev API] Error switching user:', error)
+    log.error('Error switching user:', error)
 
     return NextResponse.json(
       {

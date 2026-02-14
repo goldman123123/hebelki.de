@@ -12,12 +12,16 @@ import { extractServicesFromContent } from '@/lib/ai-extractor'
 import { deduplicateServices } from '@/lib/ai-extractor/deduplicator'
 import type { ScrapedPage } from '@/lib/ai-extractor/types'
 import type { DetectedService } from '@/lib/ai-extractor/types'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('lib:service-detector:index')
 
 export type { DetectedService }
 
 interface DetectServicesOptions {
   url: string
   businessType: string
+  businessId?: string
   maxPages?: number
   selectedUrls?: string[] // If provided, only scrape these URLs
 }
@@ -38,9 +42,9 @@ interface DetectServicesResult {
 export async function detectServicesFromUrl(
   options: DetectServicesOptions
 ): Promise<DetectServicesResult> {
-  const { url, businessType, maxPages = 10, selectedUrls } = options
+  const { url, businessType, businessId, maxPages = 10, selectedUrls } = options
 
-  console.log(`[Service Detector] Starting detection from: ${url}`)
+  log.info(`Starting detection from: ${url}`)
 
   let pagesToScrape: string[]
   let source: 'sitemap' | 'homepage' = 'sitemap'
@@ -49,7 +53,7 @@ export async function detectServicesFromUrl(
   if (selectedUrls && selectedUrls.length > 0) {
     pagesToScrape = selectedUrls.slice(0, maxPages)
     source = 'homepage' // Mark as homepage since we're using user selection
-    console.log(`[Service Detector] Using ${pagesToScrape.length} user-selected URLs`)
+    log.info(`Using ${pagesToScrape.length} user-selected URLs`)
   } else {
     // Discover pages automatically
     let urlsToScrape: string[] = []
@@ -66,7 +70,7 @@ export async function detectServicesFromUrl(
       source = 'homepage'
     }
 
-    console.log(`[Service Detector] Discovered ${urlsToScrape.length} URLs via ${source}`)
+    log.info(`Discovered ${urlsToScrape.length} URLs via ${source}`)
 
     // Filter for service-related pages
     const serviceKeywords = [
@@ -85,7 +89,7 @@ export async function detectServicesFromUrl(
       ...urlsToScrape.filter(u => !priorityUrls.includes(u))
     ].slice(0, maxPages)
 
-    console.log(`[Service Detector] Scraping ${pagesToScrape.length} pages (${priorityUrls.length} priority)`)
+    log.info(`Scraping ${pagesToScrape.length} pages (${priorityUrls.length} priority)`)
   }
 
   // Scrape pages
@@ -105,12 +109,12 @@ export async function detectServicesFromUrl(
         },
       })
     } catch (error) {
-      console.warn(`[Service Detector] Failed to scrape ${pageUrl}:`, error)
+      log.warn(`Failed to scrape ${pageUrl}:`, error)
       pagesFailed++
     }
   }
 
-  console.log(`[Service Detector] Scraped ${scrapedPages.length} pages (${pagesFailed} failed)`)
+  log.info(`Scraped ${scrapedPages.length} pages (${pagesFailed} failed)`)
 
   if (scrapedPages.length === 0) {
     return {
@@ -122,10 +126,10 @@ export async function detectServicesFromUrl(
   }
 
   // Extract services using AI
-  const rawServices = await extractServicesFromContent(scrapedPages, businessType)
+  const rawServices = await extractServicesFromContent(scrapedPages, businessType, businessId)
   const services = deduplicateServices(rawServices)
 
-  console.log(`[Service Detector] Detected ${services.length} unique services`)
+  log.info(`Detected ${services.length} unique services`)
 
   return {
     services,

@@ -16,6 +16,8 @@ import { BrandingCard } from './components/BrandingCard'
 import { BookingRulesCard } from './components/BookingRulesCard'
 import { BillingCard } from './components/BillingCard'
 import { DomainCard } from './components/DomainCard'
+import { DataManagementCard } from './components/DataManagementCard'
+import { TeamPhonesCard } from './components/TeamPhonesCard'
 
 export default function UnternehmenPage() {
   const { user } = useUser()
@@ -199,6 +201,19 @@ export default function UnternehmenPage() {
           isSaving={isSaving}
         />
 
+        <TeamPhonesCard
+          business={business}
+          editing={editSection === 'teamPhones'}
+          onEdit={() => setEditSection('teamPhones')}
+          onCancel={() => setEditSection(null)}
+          onSave={handleSave}
+          isSaving={isSaving}
+          onRefresh={async () => {
+            await fetchBusiness()
+            setEditSection(null)
+          }}
+        />
+
         <BookingRulesCard
           business={business}
           editing={editSection === 'booking-rules'}
@@ -224,6 +239,8 @@ export default function UnternehmenPage() {
         />
 
         <BillingCard business={business} />
+
+        <DataManagementCard business={business} />
       </div>
     </div>
   )

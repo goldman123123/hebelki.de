@@ -35,6 +35,9 @@ import {
 } from '@/lib/db/schema'
 import { eq, and, or, ilike, isNotNull, sql, inArray } from 'drizzle-orm'
 import { augmentQuery, shouldAugmentQuery } from './query-augmentation'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('lib:search:hybrid-search')
 
 // ============================================
 // ACCESS CONTROL TYPES
@@ -206,13 +209,13 @@ export async function hybridSearch(
     actorType: 'customer',
   }
 
-  console.log(`\n=== HYBRID SEARCH ===`)
-  console.log(`Query: "${query}"`)
-  console.log(`Business ID: ${businessId}`)
-  console.log(`Category: ${category || 'none'}`)
-  console.log(`Min Score: ${minScore}`)
-  console.log(`Include Documents: ${includeDocuments}`)
-  console.log(`Actor Type: ${effectiveContext.actorType}`)
+  log.info(`\n=== HYBRID SEARCH ===`)
+  log.info(`Query: "${query}"`)
+  log.info(`Business ID: ${businessId}`)
+  log.info(`Category: ${category || 'none'}`)
+  log.info(`Min Score: ${minScore}`)
+  log.info(`Include Documents: ${includeDocuments}`)
+  log.info(`Actor Type: ${effectiveContext.actorType}`)
 
   // Check if query augmentation would help
   const useAugmentation = shouldAugmentQuery(query)
@@ -221,7 +224,7 @@ export async function hybridSearch(
   if (useAugmentation) {
     const augmented = augmentQuery(query)
     searchQueries = augmented.augmented.slice(0, 3) // Limit to top 3 variations
-    console.log(`[Hybrid Search] Augmented query with ${searchQueries.length} variations:`, searchQueries)
+    log.info(`Augmented query with ${searchQueries.length} variations:`, searchQueries)
   }
 
   // Run searches for all query variations in parallel
@@ -285,15 +288,15 @@ export async function hybridSearch(
   const dedupeDocVector = deduplicateResults(allDocVectorResults)
   const dedupeDocKeyword = deduplicateResults(allDocKeywordResults)
 
-  console.log(`Knowledge base - Vector: ${dedupeVector.length}, Keyword: ${dedupeKeyword.length}`)
-  console.log(`Documents - Vector: ${dedupeDocVector.length}, Keyword: ${dedupeDocKeyword.length}`)
+  log.info(`Knowledge base - Vector: ${dedupeVector.length}, Keyword: ${dedupeKeyword.length}`)
+  log.info(`Documents - Vector: ${dedupeDocVector.length}, Keyword: ${dedupeDocKeyword.length}`)
 
   if (dedupeVector.length === 0 && dedupeDocVector.length === 0) {
-    console.warn('⚠️ Vector search returned 0 results - possible embedding issues or low similarity')
+    log.warn('Vector search returned 0 results - possible embedding issues or low similarity')
   } else {
     const topVector = [...dedupeVector, ...dedupeDocVector].slice(0, 3)
     topVector.forEach((r, i) => {
-      console.log(`  [${i}] ${r.title} - score: ${r.score.toFixed(3)} (${r.source})`)
+      log.info(`  [${i}] ${r.title} - score: ${r.score.toFixed(3)} (${r.source})`)
     })
   }
 
@@ -308,23 +311,23 @@ export async function hybridSearch(
     { vectorWeight, keywordWeight }
   )
 
-  console.log(`Fused results: ${fusedResults.length}`)
+  log.info(`Fused results: ${fusedResults.length}`)
 
   // Filter by minimum score and limit
   const filteredResults = fusedResults.filter(r => r.score >= minScore)
   const belowThreshold = fusedResults.filter(r => r.score < minScore)
 
   if (belowThreshold.length > 0) {
-    console.log(`Filtered out ${belowThreshold.length} results below threshold ${minScore}:`)
+    log.info(`Filtered out ${belowThreshold.length} results below threshold ${minScore}:`)
     belowThreshold.slice(0, 3).forEach(r => {
-      console.log(`  ❌ ${r.title} - score: ${r.score.toFixed(3)}`)
+      log.info(`  ❌ ${r.title} - score: ${r.score.toFixed(3)}`)
     })
   }
 
   const finalResults = filteredResults.slice(0, limit)
 
-  console.log(`Final results: ${finalResults.length}`)
-  console.log(`=== END HYBRID SEARCH ===\n`)
+  log.info(`Final results: ${finalResults.length}`)
+  log.info(`=== END HYBRID SEARCH ===\n`)
 
   return finalResults
 }
@@ -511,7 +514,7 @@ function filterCompatibleEmbeddings<T extends { id: string } & EmbeddingMetadata
       compatible.push(r)
     } else {
       filteredCount++
-      console.warn(`${logPrefix}Incompatible embedding: ${r.id}`, {
+      log.warn(`${logPrefix}Incompatible embedding: ${r.id}`, {
         has: {
           model: r.embeddingModel,
           dim: r.embeddingDim,
@@ -675,7 +678,7 @@ async function performVectorSearch(
       }
     })
   } catch (error) {
-    console.error('[Vector Search] Error:', error)
+    log.error('Error:', error)
     return []
   }
 }
@@ -749,7 +752,7 @@ async function performKeywordSearch(
       }
     })
   } catch (error) {
-    console.error('[Keyword Search] Error:', error)
+    log.error('Error:', error)
     return []
   }
 }
@@ -919,7 +922,7 @@ async function performDocumentVectorSearch(
     // First, get accessible document IDs based on access context
     const accessCondition = buildDocumentAccessConditions(context)
 
-    console.log(`[Doc Vector Search] Query: "${query}", Business: ${businessId}, Actor: ${context.actorType}`)
+    log.info(`Query: "${query}", Business: ${businessId}, Actor: ${context.actorType}`)
 
     const accessibleDocs = await db
       .select({ id: documents.id, title: documents.title })
@@ -931,10 +934,10 @@ async function performDocumentVectorSearch(
 
     const accessibleDocIds = accessibleDocs.map(d => d.id)
 
-    console.log(`[Doc Vector Search] Accessible docs: ${accessibleDocIds.length}`, accessibleDocs.map(d => d.title))
+    log.info(`Accessible docs: ${accessibleDocIds.length}`, accessibleDocs.map(d => d.title))
 
     if (accessibleDocIds.length === 0) {
-      console.log(`[Doc Vector Search] No accessible documents found!`)
+      log.info(`No accessible documents found!`)
       return [] // No accessible documents
     }
 
@@ -1030,7 +1033,7 @@ async function performDocumentVectorSearch(
 
     return enrichedResults
   } catch (error) {
-    console.error('[Document Vector Search] Error:', error)
+    log.error('Error:', error)
     return []
   }
 }
@@ -1051,7 +1054,7 @@ async function performDocumentKeywordSearch(
     // First, get accessible document IDs based on access context
     const accessCondition = buildDocumentAccessConditions(context)
 
-    console.log(`[Doc Keyword Search] Query: "${query}", Business: ${businessId}, Actor: ${context.actorType}`)
+    log.info(`Query: "${query}", Business: ${businessId}, Actor: ${context.actorType}`)
 
     const accessibleDocs = await db
       .select({ id: documents.id, title: documents.title })
@@ -1063,10 +1066,10 @@ async function performDocumentKeywordSearch(
 
     const accessibleDocIds = accessibleDocs.map(d => d.id)
 
-    console.log(`[Doc Keyword Search] Accessible docs: ${accessibleDocIds.length}`, accessibleDocs.map(d => d.title))
+    log.info(`Accessible docs: ${accessibleDocIds.length}`, accessibleDocs.map(d => d.title))
 
     if (accessibleDocIds.length === 0) {
-      console.log(`[Doc Keyword Search] No accessible documents found!`)
+      log.info(`No accessible documents found!`)
       return [] // No accessible documents
     }
 
@@ -1166,7 +1169,7 @@ async function performDocumentKeywordSearch(
 
     return enrichedResults
   } catch (error) {
-    console.error('[Document Keyword Search] Error:', error)
+    log.error('Error:', error)
     return []
   }
 }
@@ -1254,7 +1257,7 @@ export async function hybridSearchWithMetadata(
       metadata.conflictDetected = true
       metadata.conflicts = conflicts
 
-      console.warn('[Hybrid Search] Conflicts detected:', conflicts.map(c => ({
+      log.warn('Conflicts detected:', conflicts.map(c => ({
         field: c.field,
         valueCount: c.values.length,
         values: c.values.map(v => v.value),
@@ -1304,7 +1307,7 @@ export async function checkStaleEmbeddings(
 
     return { staleCount, legacyCount, totalCount }
   } catch (error) {
-    console.error('[checkStaleEmbeddings] Error:', error)
+    log.error('Error:', error)
     return { staleCount: 0, legacyCount: 0, totalCount: 0 }
   }
 }

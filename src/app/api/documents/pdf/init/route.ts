@@ -14,6 +14,9 @@ import { documents, documentVersions, ingestionJobs } from '@/lib/db/schema'
 import { requireBusinessAccess, requireAuth } from '@/lib/auth-helpers'
 import { generateR2Key, getUploadUrl } from '@/lib/r2/client'
 import { z } from 'zod'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:documents:pdf:init')
 
 const initSchema = z.object({
   businessId: z.string().uuid(),
@@ -93,7 +96,7 @@ export async function POST(request: NextRequest) {
       expiresIn: 900, // seconds
     })
   } catch (error) {
-    console.error('[POST /api/documents/pdf/init] Error:', error)
+    log.error('[POST /api/documents/pdf/init] Error:', error)
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(

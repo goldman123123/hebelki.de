@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getBusinessBySlug } from '@/lib/db/queries'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:slug:config')
 
 export async function GET(
   request: NextRequest,
@@ -30,7 +33,7 @@ export async function GET(
       requireApproval: business.requireApproval,
     })
   } catch (error) {
-    console.error('Error fetching business config:', error)
+    log.error('Error fetching business config:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

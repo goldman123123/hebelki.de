@@ -9,6 +9,9 @@ import { requireBusinessAuth } from '@/lib/auth'
 import { verifyBookingOwnership, getBookingById } from '@/lib/db/queries'
 import { generateAndUploadLieferschein } from '@/lib/lieferschein'
 import { getDownloadUrl } from '@/lib/r2/client'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:lieferschein:id:pdf')
 
 export async function GET(
   request: NextRequest,
@@ -46,7 +49,7 @@ export async function GET(
     // Redirect to the presigned URL
     return NextResponse.redirect(downloadUrl)
   } catch (error) {
-    console.error('Error getting Lieferschein PDF:', error)
+    log.error('Error getting Lieferschein PDF:', error)
     const message = error instanceof Error ? error.message : 'Failed to get Lieferschein PDF'
     return NextResponse.json({ error: message }, { status: 500 })
   }

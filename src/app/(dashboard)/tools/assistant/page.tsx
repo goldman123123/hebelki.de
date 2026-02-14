@@ -7,6 +7,9 @@ import { Card } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion'
 import { VoiceRecorder } from '@/modules/chatbot/components/VoiceRecorder'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('dashboard:tools:assistant')
 
 const STORAGE_KEY = 'hebelki-assistant-conversation'
 
@@ -283,7 +286,7 @@ export default function VirtualAssistantPage() {
         fileSize: file.size,
       }])
     } catch (err) {
-      console.error('[Upload] Error:', err)
+      log.error('Error:', err)
       alert('Upload fehlgeschlagen. Bitte versuchen Sie es erneut.')
     } finally {
       setUploading(false)

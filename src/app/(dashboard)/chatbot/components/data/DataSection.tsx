@@ -15,6 +15,9 @@ import { UrlScrapeZone } from './UrlScrapeZone'
 import { DocumentList, DataPurpose } from './DocumentList'
 import { Document } from './DocumentCard'
 import { toast } from 'sonner'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('dashboard:chatbot:data:DataSection')
 
 interface DataSectionProps {
   businessId: string
@@ -62,7 +65,7 @@ export function DataSection({
         }
       }
     } catch (error) {
-      console.error('Failed to fetch documents:', error)
+      log.error('Failed to fetch documents:', error)
       toast.error('Fehler beim Laden der Dokumente')
     } finally {
       setLoading(false)
@@ -123,7 +126,7 @@ export function DataSection({
           }))
         }
       } catch (error) {
-        console.error('Polling error:', error)
+        log.error('Polling error:', error)
       }
     }, 2000)
   }

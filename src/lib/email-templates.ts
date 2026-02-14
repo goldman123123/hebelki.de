@@ -12,6 +12,7 @@ interface BookingEmailData {
   currency?: string
   bookingStatus?: string
   confirmationUrl?: string
+  manageUrl?: string
 }
 
 function formatDate(date: Date, timezone = 'Europe/Berlin'): string {
@@ -161,6 +162,15 @@ export function bookingConfirmationEmail(data: BookingEmailData): { subject: str
 
     <p>Bei Fragen können Sie diese E-Mail beantworten oder uns direkt kontaktieren.</p>
 
+    ${data.manageUrl ? `
+    <div style="text-align: center; margin: 20px 0; padding-top: 15px; border-top: 1px solid #e5e7eb;">
+      <a href="${data.manageUrl}" style="display: inline-block; background: #6b7280; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px;">
+        Termin verwalten
+      </a>
+      <p style="font-size: 12px; color: #9ca3af; margin-top: 8px;">Stornieren oder umbuchen</p>
+    </div>
+    ` : ''}
+
     <p>Mit freundlichen Grüßen,<br><strong>${data.businessName}</strong></p>
   </div>
   <div class="footer">
@@ -187,7 +197,7 @@ ${data.staffName ? `Mitarbeiter: ${data.staffName}\n` : ''}${data.price ? `Preis
 Buchungsnummer: ${data.confirmationToken}
 ${confirmButtonText}
 ${hintText}
-
+${data.manageUrl ? `\nTermin verwalten (stornieren oder umbuchen): ${data.manageUrl}\n` : ''}
 Mit freundlichen Grüßen,
 ${data.businessName}
 `
@@ -360,6 +370,128 @@ ${data.businessName}
   return { subject, html, text }
 }
 
+interface BookingRescheduledEmailData {
+  customerName: string
+  customerEmail: string
+  serviceName: string
+  staffName?: string
+  businessName: string
+  oldStartsAt: Date
+  oldEndsAt: Date
+  newStartsAt: Date
+  newEndsAt: Date
+  confirmationToken: string
+  manageUrl?: string
+}
+
+export function bookingRescheduledEmail(data: BookingRescheduledEmailData): { subject: string; html: string; text: string } {
+  const subject = `Termin umgebucht - ${data.serviceName} am ${formatDate(data.newStartsAt)}`
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>${baseStyles}</style>
+</head>
+<body>
+  <div class="header" style="background: #3B82F6;">
+    <h1>Termin umgebucht</h1>
+  </div>
+  <div class="content">
+    <p>Hallo ${data.customerName},</p>
+    <p>Ihr Termin bei <strong>${data.businessName}</strong> wurde erfolgreich umgebucht.</p>
+
+    <div class="details">
+      <h3 style="margin-top: 0;">Alter Termin</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280; width: 140px;">Datum:</td>
+          <td style="padding: 8px 0; text-decoration: line-through; color: #9ca3af;">${formatDate(data.oldStartsAt)}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;">Uhrzeit:</td>
+          <td style="padding: 8px 0; text-decoration: line-through; color: #9ca3af;">${formatTime(data.oldStartsAt)} - ${formatTime(data.oldEndsAt)} Uhr</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="details" style="border: 2px solid #3B82F6;">
+      <h3 style="margin-top: 0; color: #3B82F6;">Neuer Termin</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280; width: 140px;">Service:</td>
+          <td style="padding: 8px 0; font-weight: 600;">${data.serviceName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;">Datum:</td>
+          <td style="padding: 8px 0; font-weight: 600;">${formatDate(data.newStartsAt)}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;">Uhrzeit:</td>
+          <td style="padding: 8px 0; font-weight: 600;">${formatTime(data.newStartsAt)} - ${formatTime(data.newEndsAt)} Uhr</td>
+        </tr>
+        ${data.staffName ? `
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;">Mitarbeiter:</td>
+          <td style="padding: 8px 0; font-weight: 600;">${data.staffName}</td>
+        </tr>
+        ` : ''}
+      </table>
+    </div>
+
+    <div class="highlight" style="background: #dbeafe; border-left-color: #3B82F6;">
+      <strong>Umgebucht!</strong> Ihr neuer Termin ist reserviert. Wir freuen uns auf Ihren Besuch.
+    </div>
+
+    ${data.manageUrl ? `
+    <div style="text-align: center; margin: 20px 0; padding-top: 15px; border-top: 1px solid #e5e7eb;">
+      <a href="${data.manageUrl}" style="display: inline-block; background: #6b7280; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px;">
+        Termin verwalten
+      </a>
+      <p style="font-size: 12px; color: #9ca3af; margin-top: 8px;">Stornieren oder erneut umbuchen</p>
+    </div>
+    ` : ''}
+
+    <p>Mit freundlichen Grüßen,<br><strong>${data.businessName}</strong></p>
+  </div>
+  <div class="footer">
+    <p>Buchungsnummer: ${data.confirmationToken}</p>
+    <p>Powered by Hebelki</p>
+  </div>
+</body>
+</html>
+`
+
+  const text = `
+Termin umgebucht
+
+Hallo ${data.customerName},
+
+Ihr Termin bei ${data.businessName} wurde erfolgreich umgebucht.
+
+ALTER TERMIN (storniert)
+------------------------
+Datum: ${formatDate(data.oldStartsAt)}
+Uhrzeit: ${formatTime(data.oldStartsAt)} - ${formatTime(data.oldEndsAt)} Uhr
+
+NEUER TERMIN
+------------
+Service: ${data.serviceName}
+Datum: ${formatDate(data.newStartsAt)}
+Uhrzeit: ${formatTime(data.newStartsAt)} - ${formatTime(data.newEndsAt)} Uhr
+${data.staffName ? `Mitarbeiter: ${data.staffName}\n` : ''}
+Buchungsnummer: ${data.confirmationToken}
+
+Ihr neuer Termin ist reserviert. Wir freuen uns auf Ihren Besuch!
+${data.manageUrl ? `\nTermin verwalten (stornieren oder umbuchen): ${data.manageUrl}\n` : ''}
+Mit freundlichen Grüßen,
+${data.businessName}
+`
+
+  return { subject, html, text }
+}
+
 export function bookingConfirmedEmail(data: BookingEmailData): { subject: string; html: string; text: string } {
   const subject = `Termin bestätigt - ${data.serviceName} am ${formatDate(data.startsAt)}`
 
@@ -414,6 +546,15 @@ export function bookingConfirmedEmail(data: BookingEmailData): { subject: string
 
     <p>Bei Fragen können Sie diese E-Mail beantworten oder uns direkt kontaktieren.</p>
 
+    ${data.manageUrl ? `
+    <div style="text-align: center; margin: 20px 0; padding-top: 15px; border-top: 1px solid #e5e7eb;">
+      <a href="${data.manageUrl}" style="display: inline-block; background: #6b7280; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px;">
+        Termin verwalten
+      </a>
+      <p style="font-size: 12px; color: #9ca3af; margin-top: 8px;">Stornieren oder umbuchen</p>
+    </div>
+    ` : ''}
+
     <p>Mit freundlichen Grüßen,<br><strong>${data.businessName}</strong></p>
   </div>
   <div class="footer">
@@ -440,7 +581,7 @@ ${data.staffName ? `Mitarbeiter: ${data.staffName}\n` : ''}${data.price ? `Preis
 Buchungsnummer: ${data.confirmationToken}
 
 Wir freuen uns auf Ihren Besuch!
-
+${data.manageUrl ? `\nTermin verwalten (stornieren oder umbuchen): ${data.manageUrl}\n` : ''}
 Mit freundlichen Grüßen,
 ${data.businessName}
 `
@@ -494,6 +635,15 @@ export function bookingReminderEmail(data: BookingEmailData): { subject: string;
       <strong>Wichtig:</strong> Falls Sie den Termin nicht wahrnehmen können, bitten wir um rechtzeitige Absage.
     </div>
 
+    ${data.manageUrl ? `
+    <div style="text-align: center; margin: 20px 0;">
+      <a href="${data.manageUrl}" style="display: inline-block; background: #6b7280; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px;">
+        Termin verwalten
+      </a>
+      <p style="font-size: 12px; color: #9ca3af; margin-top: 8px;">Stornieren oder umbuchen</p>
+    </div>
+    ` : ''}
+
     <p>Wir freuen uns auf Sie!</p>
 
     <p>Mit freundlichen Grüßen,<br><strong>${data.businessName}</strong></p>
@@ -522,7 +672,7 @@ ${data.staffName ? `Mitarbeiter: ${data.staffName}\n` : ''}
 Buchungsnummer: ${data.confirmationToken}
 
 Falls Sie den Termin nicht wahrnehmen können, bitten wir um rechtzeitige Absage.
-
+${data.manageUrl ? `\nTermin verwalten (stornieren oder umbuchen): ${data.manageUrl}\n` : ''}
 Wir freuen uns auf Sie!
 
 Mit freundlichen Grüßen,
@@ -736,6 +886,105 @@ Bitte überweisen Sie den Betrag unter Angabe der Rechnungsnummer.
 
 Mit freundlichen Grüßen,
 ${data.businessName}
+`
+
+  return { subject, html, text }
+}
+
+// ============================================
+// MEMBER INVITATION EMAIL
+// ============================================
+
+interface MemberInvitedEmailData {
+  inviterName: string
+  businessName: string
+  role: string
+  inviteeName?: string
+  acceptUrl: string
+}
+
+export function memberInvitedEmail(data: MemberInvitedEmailData): { subject: string; html: string; text: string } {
+  const subject = `Einladung zu ${data.businessName} auf Hebelki`
+
+  const roleLabels: Record<string, string> = {
+    owner: 'Inhaber',
+    admin: 'Administrator',
+    staff: 'Mitarbeiter',
+  }
+  const roleLabel = roleLabels[data.role] || data.role
+
+  const greeting = data.inviteeName ? `Hallo ${data.inviteeName}` : 'Hallo'
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>${baseStyles}</style>
+</head>
+<body>
+  <div class="header" style="background: #8b5cf6;">
+    <h1>Einladung</h1>
+  </div>
+  <div class="content">
+    <p>${greeting},</p>
+    <p><strong>${data.inviterName}</strong> hat Sie eingeladen, dem Team von <strong>${data.businessName}</strong> als <strong>${roleLabel}</strong> beizutreten.</p>
+
+    <div class="details">
+      <h3 style="margin-top: 0;">Einladungsdetails</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280; width: 140px;">Unternehmen:</td>
+          <td style="padding: 8px 0; font-weight: 600;">${data.businessName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;">Rolle:</td>
+          <td style="padding: 8px 0; font-weight: 600;">${roleLabel}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;">Eingeladen von:</td>
+          <td style="padding: 8px 0; font-weight: 600;">${data.inviterName}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="text-align: center; margin: 20px 0;">
+      <a href="${data.acceptUrl}" class="button" style="display: inline-block; background: #8b5cf6; color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+        Einladung annehmen
+      </a>
+    </div>
+
+    <div class="highlight">
+      <strong>Hinweis:</strong> Falls Sie diese Einladung nicht erwartet haben, können Sie diese E-Mail ignorieren.
+    </div>
+
+    <p>Mit freundlichen Grüßen,<br><strong>Das Hebelki-Team</strong></p>
+  </div>
+  <div class="footer">
+    <p>Diese E-Mail wurde automatisch versendet.</p>
+    <p>Powered by Hebelki</p>
+  </div>
+</body>
+</html>`
+
+  const text = `Einladung zu ${data.businessName} auf Hebelki
+
+${greeting},
+
+${data.inviterName} hat Sie eingeladen, dem Team von ${data.businessName} als ${roleLabel} beizutreten.
+
+EINLADUNGSDETAILS
+-----------------
+Unternehmen: ${data.businessName}
+Rolle: ${roleLabel}
+Eingeladen von: ${data.inviterName}
+
+Einladung annehmen: ${data.acceptUrl}
+
+Falls Sie diese Einladung nicht erwartet haben, können Sie diese E-Mail ignorieren.
+
+Mit freundlichen Grüßen,
+Das Hebelki-Team
 `
 
   return { subject, html, text }

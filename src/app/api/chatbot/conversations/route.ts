@@ -9,6 +9,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { listConversations } from '@/modules/chatbot/lib/conversation'
 import { requireBusinessAccess } from '@/lib/auth-helpers'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:chatbot:conversations')
 
 export async function GET(request: NextRequest) {
   try {
@@ -34,7 +37,7 @@ export async function GET(request: NextRequest) {
       conversations,
     })
   } catch (error) {
-    console.error('[Chatbot API] Error:', error)
+    log.error('Error:', error)
 
     const message = error instanceof Error ? error.message : ''
     if (message.includes('Unauthorized') || message.includes('Access denied')) {

@@ -18,11 +18,20 @@ import fastifyWebsocket from '@fastify/websocket'
 import { WebSocket } from 'ws'
 import { mulawToLinear24k, linear24kToMulaw } from './audio-utils'
 import { executeVoiceToolCall } from './tool-bridge'
-import { buildVoiceSystemPrompt, getVoiceToolDefinitions } from '../modules/chatbot/lib/voice-prompt'
+import {
+  buildVoiceSystemPrompt,
+  getVoiceToolDefinitions,
+  buildOwnerVoiceSystemPrompt,
+  getOwnerVoiceToolDefinitions,
+} from '../modules/chatbot/lib/voice-prompt'
+import { getOwnerWhatsAppNumber } from '../lib/whatsapp-owner'
 import { tools } from '../modules/chatbot/lib/tools'
 import { db } from '../lib/db'
 import { businesses, services, chatbotConversations, chatbotMessages } from '../lib/db/schema'
 import { eq, and } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('voice:relay-server')
 
 const PORT = parseInt(process.env.VOICE_RELAY_PORT || '3006', 10)
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY
@@ -30,7 +39,7 @@ const OPENAI_REALTIME_URL = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realt
 const VOICE = 'sage' // OpenAI TTS voice: alloy, echo, fable, onyx, nova, shimmer, sage
 
 if (!OPENAI_API_KEY) {
-  console.error('[VoiceRelay] OPENAI_API_KEY is required')
+  log.error('OPENAI_API_KEY is required')
   process.exit(1)
 }
 
@@ -72,6 +81,7 @@ interface SessionState {
   businessId: string
   conversationId?: string
   openaiWs: WebSocket | null
+  actorType: 'customer' | 'staff' | 'owner'
 }
 
 // ============================================
@@ -194,7 +204,7 @@ function connectToOpenAI(
   session.openaiWs = openaiWs
 
   openaiWs.on('open', () => {
-    console.log(`[VoiceRelay] OpenAI Realtime connected (call: ${session.callSid})`)
+    log.info(`OpenAI Realtime connected (call: ${session.callSid})`)
 
     // Configure session
     openaiWs.send(
@@ -228,16 +238,16 @@ function connectToOpenAI(
       const event = JSON.parse(data.toString())
       await handleOpenAIEvent(event, session, twilioWs)
     } catch (error) {
-      console.error('[VoiceRelay] Error processing OpenAI message:', error)
+      log.error('Error processing OpenAI message:', error)
     }
   })
 
   openaiWs.on('error', (error) => {
-    console.error(`[VoiceRelay] OpenAI WebSocket error (call: ${session.callSid}):`, error.message)
+    log.error(`OpenAI WebSocket error (call: ${session.callSid}):`, error.message)
   })
 
   openaiWs.on('close', (code, reason) => {
-    console.log(`[VoiceRelay] OpenAI WebSocket closed (call: ${session.callSid}): ${code} ${reason}`)
+    log.info(`OpenAI WebSocket closed (call: ${session.callSid}): ${code} ${reason}`)
     session.openaiWs = null
   })
 
@@ -255,11 +265,15 @@ async function handleOpenAIEvent(
 ) {
   switch (event.type) {
     case 'session.created':
-      console.log(`[VoiceRelay] Session created (call: ${session.callSid})`)
+      log.info(`Session created (call: ${session.callSid})`)
       break
 
     case 'session.updated':
-      console.log(`[VoiceRelay] Session configured (call: ${session.callSid})`)
+      log.info(`Session configured (call: ${session.callSid})`)
+      // Trigger initial AI greeting so the assistant speaks first
+      if (session.openaiWs?.readyState === WebSocket.OPEN) {
+        session.openaiWs.send(JSON.stringify({ type: 'response.create' }))
+      }
       break
 
     case 'response.audio.delta': {
@@ -296,7 +310,7 @@ async function handleOpenAIEvent(
       // User speech transcribed — save to conversation
       const userTranscript = event.transcript as string
       if (userTranscript && session.conversationId) {
-        console.log(`[VoiceRelay] User said: "${userTranscript}" (call: ${session.callSid})`)
+        log.info(`User said: "${userTranscript}" (call: ${session.callSid})`)
         await saveVoiceMessage(session.conversationId, 'user', userTranscript, {
           channel: 'voice',
         })
@@ -310,12 +324,13 @@ async function handleOpenAIEvent(
       const toolName = event.name as string
       const toolArgs = event.arguments as string
 
-      console.log(`[VoiceRelay] Tool call: ${toolName} (call: ${session.callSid})`)
+      log.info(`Tool call: ${toolName} (call: ${session.callSid})`)
 
       const result = await executeVoiceToolCall(
         { call_id: callId, name: toolName, arguments: toolArgs },
         session.businessId,
         session.conversationId,
+        session.actorType,
       )
 
       // Save tool call and result to conversation
@@ -365,7 +380,7 @@ async function handleOpenAIEvent(
 
     case 'error': {
       const error = event.error as { message?: string; code?: string }
-      console.error(`[VoiceRelay] OpenAI error (call: ${session.callSid}):`, error)
+      log.error(`OpenAI error (call: ${session.callSid}):`, error)
       break
     }
   }
@@ -386,13 +401,14 @@ async function main() {
   // Twilio Media Stream WebSocket endpoint
   fastify.register(async (app) => {
     app.get('/media', { websocket: true }, (socket) => {
-      console.log('[VoiceRelay] Twilio WebSocket connected')
+      log.info('Twilio WebSocket connected')
 
       const session: SessionState = {
         streamSid: '',
         callSid: '',
         businessId: '',
         openaiWs: null,
+        actorType: 'customer',
       }
 
       socket.on('message', async (data) => {
@@ -401,7 +417,7 @@ async function main() {
 
           switch (msg.event) {
             case 'connected':
-              console.log('[VoiceRelay] Twilio stream connected')
+              log.info('Twilio stream connected')
               break
 
             case 'start': {
@@ -410,7 +426,7 @@ async function main() {
               session.callSid = msg.start!.callSid
 
               const params = msg.start!.customParameters || {}
-              console.log('[VoiceRelay] Stream started:', {
+              log.info('Stream started:', {
                 callSid: session.callSid,
                 streamSid: session.streamSid,
                 params,
@@ -420,7 +436,7 @@ async function main() {
               const businessId = await resolveBusinessId(params.calledNumber, params.businessId)
 
               if (!businessId) {
-                console.error('[VoiceRelay] Could not resolve businessId')
+                log.error('Could not resolve businessId')
                 socket.close()
                 return
               }
@@ -430,34 +446,50 @@ async function main() {
               // Load business context
               const ctx = await loadBusinessContext(businessId)
               if (!ctx) {
-                console.error(`[VoiceRelay] Business not found: ${businessId}`)
+                log.error(`Business not found: ${businessId}`)
                 socket.close()
                 return
               }
 
+              // Detect if caller is the owner
+              const callerNumber = params.callerNumber // Twilio's From number
+              let isOwnerCaller = false
+              if (callerNumber) {
+                const ownerPhone = await getOwnerWhatsAppNumber(businessId)
+                const normalizedCaller = callerNumber.replace(/\s+/g, '')
+                if (ownerPhone && normalizedCaller === ownerPhone) {
+                  isOwnerCaller = true
+                  session.actorType = 'owner'
+                  log.info(`Owner caller detected: ${callerNumber}`)
+                }
+              }
+
               // Create voice conversation for logging
               session.conversationId = await createVoiceConversation(businessId, session.callSid)
-              console.log(`[VoiceRelay] Conversation created: ${session.conversationId}`)
+              log.info(`Conversation created: ${session.conversationId}`)
 
-              // Build voice system prompt
-              const systemPrompt = buildVoiceSystemPrompt(
-                {
-                  name: ctx.business.name,
-                  type: ctx.business.type,
-                  email: ctx.business.email,
-                  phone: ctx.business.phone,
-                  services: ctx.services,
-                  policies: {
-                    minBookingNoticeHours: ctx.business.minBookingNoticeHours,
-                    cancellationPolicyHours: ctx.business.cancellationPolicyHours,
-                  },
-                  customInstructions: ctx.customInstructions,
+              // Build voice system prompt (owner gets assistant prompt, others get customer prompt)
+              const voiceContext = {
+                name: ctx.business.name,
+                type: ctx.business.type,
+                email: ctx.business.email,
+                phone: ctx.business.phone,
+                services: ctx.services,
+                policies: {
+                  minBookingNoticeHours: ctx.business.minBookingNoticeHours,
+                  cancellationPolicyHours: ctx.business.cancellationPolicyHours,
                 },
-                businessId,
-              )
+                customInstructions: ctx.customInstructions,
+              }
 
-              // Get voice tool definitions
-              const voiceTools = getVoiceToolDefinitions(tools)
+              const systemPrompt = isOwnerCaller
+                ? buildOwnerVoiceSystemPrompt(voiceContext, businessId)
+                : buildVoiceSystemPrompt(voiceContext, businessId)
+
+              // Get voice tool definitions (owner gets all tools, customers get subset)
+              const voiceTools = isOwnerCaller
+                ? getOwnerVoiceToolDefinitions(tools)
+                : getVoiceToolDefinitions(tools)
 
               // Connect to OpenAI Realtime
               connectToOpenAI(session, systemPrompt, voiceTools, socket as unknown as WebSocket)
@@ -481,7 +513,7 @@ async function main() {
             }
 
             case 'stop': {
-              console.log(`[VoiceRelay] Stream stopped (call: ${session.callSid})`)
+              log.info(`Stream stopped (call: ${session.callSid})`)
 
               // Close OpenAI connection
               if (session.openaiWs?.readyState === WebSocket.OPEN) {
@@ -496,12 +528,12 @@ async function main() {
             }
           }
         } catch (error) {
-          console.error('[VoiceRelay] Error processing Twilio message:', error)
+          log.error('Error processing Twilio message:', error)
         }
       })
 
       socket.on('close', async () => {
-        console.log(`[VoiceRelay] Twilio WebSocket closed (call: ${session.callSid})`)
+        log.info(`Twilio WebSocket closed (call: ${session.callSid})`)
 
         if (session.openaiWs?.readyState === WebSocket.OPEN) {
           session.openaiWs.close()
@@ -509,13 +541,13 @@ async function main() {
 
         if (session.conversationId) {
           await closeVoiceConversation(session.conversationId, session.callSid).catch((err) => {
-            console.error('[VoiceRelay] Error closing conversation:', err)
+            log.error('Error closing conversation:', err)
           })
         }
       })
 
       socket.on('error', (error) => {
-        console.error(`[VoiceRelay] Twilio WebSocket error:`, error)
+        log.error(`Twilio WebSocket error:`, error)
       })
     })
   })
@@ -523,11 +555,11 @@ async function main() {
   // Start server
   try {
     await fastify.listen({ port: PORT, host: '0.0.0.0' })
-    console.log(`[VoiceRelay] Server running on port ${PORT}`)
-    console.log(`[VoiceRelay] WebSocket endpoint: ws://localhost:${PORT}/media`)
-    console.log(`[VoiceRelay] Health check: http://localhost:${PORT}/health`)
+    log.info(`Server running on port ${PORT}`)
+    log.info(`WebSocket endpoint: ws://localhost:${PORT}/media`)
+    log.info(`Health check: http://localhost:${PORT}/health`)
   } catch (err) {
-    console.error('[VoiceRelay] Failed to start:', err)
+    log.error('Failed to start:', err)
     process.exit(1)
   }
 }

@@ -13,6 +13,9 @@ import { businesses, documents, documentChunks, chatbotKnowledge } from '@/lib/d
 import { eq, and, inArray } from 'drizzle-orm'
 import { deduplicateServices } from '@/lib/ai-extractor/deduplicator'
 import { ScrapedPage } from '@/lib/ai-extractor/types'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:admin:services:detect-from-documents')
 
 interface DetectFromDocsRequest {
   businessId: string
@@ -48,8 +51,8 @@ export async function POST(request: NextRequest) {
 
     const businessType = business.type || 'general'
 
-    console.log(`[Service Detection from Docs] Starting for business ${businessId}`)
-    console.log(`[Service Detection from Docs] Processing ${documentIds.length} documents`)
+    log.info(`Starting for business ${businessId}`)
+    log.info(`Processing ${documentIds.length} documents`)
 
     // Try to get content from document chunks first
     const chunks = await db
@@ -130,7 +133,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (scrapedPages.length === 0) {
-      console.log('[Service Detection from Docs] No content found in selected documents')
+      log.info('No content found in selected documents')
       return NextResponse.json({
         services: [],
         documentsProcessed: 0,
@@ -138,15 +141,15 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    console.log(`[Service Detection from Docs] Found ${scrapedPages.length} content pages to process`)
+    log.info(`Found ${scrapedPages.length} content pages to process`)
 
     // Extract services
-    const rawServices = await extractServicesFromContent(scrapedPages, businessType)
+    const rawServices = await extractServicesFromContent(scrapedPages, businessType, businessId)
 
     // Deduplicate
     const services = deduplicateServices(rawServices)
 
-    console.log(`[Service Detection from Docs] Found ${services.length} unique services`)
+    log.info(`Found ${services.length} unique services`)
 
     return NextResponse.json({
       services,
@@ -154,7 +157,7 @@ export async function POST(request: NextRequest) {
       pagesScraped: scrapedPages.length,
     })
   } catch (error) {
-    console.error('[Service Detection from Docs] Error:', error)
+    log.error('Error:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Detection failed' },
       { status: 500 }

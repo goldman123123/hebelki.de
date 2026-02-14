@@ -1,6 +1,6 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
-import { ArrowLeft, ExternalLink, Shield, CheckCircle, Globe, Server, MessageSquare, Lock, Database, Cloud, Cpu, Mail, Scale, Sparkles } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Shield, CheckCircle, Globe, Server, MessageSquare, Lock, Database, Cloud, Cpu, Mail, Scale, Sparkles, Mic, CreditCard } from 'lucide-react'
 
 export const metadata: Metadata = {
   title: 'Unterauftragsverarbeiter | Hebelki',
@@ -82,6 +82,38 @@ const subProcessors: SubProcessor[] = [
       'Transiente Verarbeitung nur während API-Anfrage',
     ],
     transferMechanism: 'Standard Contractual Clauses (SCCs)',
+  },
+  {
+    name: 'OpenAI',
+    purpose: 'Voice Realtime API + Whisper Transkription',
+    location: 'USA',
+    dpaStatus: 'scc',
+    dpaLink: 'https://openai.com/policies/data-processing-addendum',
+    icon: Mic,
+    details: [
+      'Voice Realtime API für Telefon-Assistent',
+      'Whisper Transkription (transient)',
+      'Zero Data Retention bei API-Nutzung',
+      'Keine Verwendung für Modelltraining',
+      'SOC 2 Type II zertifiziert',
+    ],
+    transferMechanism: 'Standard Contractual Clauses (SCCs)',
+  },
+  {
+    name: 'Stripe',
+    purpose: 'Zahlungsabwicklung',
+    location: 'USA',
+    dpaStatus: 'certified',
+    dpaLink: 'https://stripe.com/legal/dpa',
+    icon: CreditCard,
+    details: [
+      'EU-US Data Privacy Framework (DPF) zertifiziert',
+      'PCI DSS Level 1 zertifiziert',
+      'SOC 2 Type II zertifiziert',
+      'Verschlüsselung aller Zahlungsdaten',
+      'Kein Zugriff auf vollständige Kartendaten durch Hebelki',
+    ],
+    transferMechanism: 'Data Privacy Framework + SCCs',
   },
   {
     name: 'Clerk',

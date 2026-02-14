@@ -13,17 +13,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { chatbotConversations, chatbotMessages } from '@/lib/db/schema'
 import { eq, and, lt, sql } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:cron:cleanup-conversations')
 
 export async function GET(request: NextRequest) {
   try {
     // Verify cron secret for security
     const authHeader = request.headers.get('authorization')
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      console.warn('[CLEANUP-CRON] Unauthorized access attempt')
+      log.warn('Unauthorized access attempt')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    console.log('[CLEANUP-CRON] Starting conversation cleanup...')
+    log.info('Starting conversation cleanup...')
 
     // Find conversations marked for deletion or past retention period
     // Default retention: 90 days from last update
@@ -44,7 +47,7 @@ export async function GET(request: NextRequest) {
       )
 
     if (deletionCandidates.length === 0) {
-      console.log('[CLEANUP-CRON] No conversations to clean up')
+      log.info('No conversations to clean up')
       return NextResponse.json({
         success: true,
         deletedCount: 0,
@@ -52,7 +55,7 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    console.log(`[CLEANUP-CRON] Found ${deletionCandidates.length} conversations to delete`)
+    log.info(`Found ${deletionCandidates.length} conversations to delete`)
 
     // Delete conversations and their messages
     let deletedConversations = 0
@@ -74,11 +77,11 @@ export async function GET(request: NextRequest) {
         deletedConversations++
         deletedMessages += messages.length
 
-        console.log(
+        log.info(
           `[CLEANUP-CRON] Deleted conversation ${conversation.id} (${messages.length} messages)`
         )
       } catch (error) {
-        console.error(
+        log.error(
           `[CLEANUP-CRON] Error deleting conversation ${conversation.id}:`,
           error
         )
@@ -86,7 +89,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    console.log(
+    log.info(
       `[CLEANUP-CRON] Cleanup complete: ${deletedConversations} conversations, ${deletedMessages} messages deleted`
     )
 
@@ -97,7 +100,7 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
-    console.error('[CLEANUP-CRON] Error:', error)
+    log.error('Error:', error)
 
     return NextResponse.json(
       {

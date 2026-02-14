@@ -14,6 +14,11 @@ import {
   type ToolCall,
 } from './openrouter'
 import { tools, executeTool } from './tools'
+import { getAIConfig } from '@/lib/ai/config'
+import { logAIUsage } from '@/lib/ai/usage'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('chatbot:conversation')
 
 // ============================================
 // CONVERSATION MEMORY SYSTEM
@@ -208,7 +213,7 @@ Zusammenfassung (auf Deutsch, max 3 Sätze):`
     const summary = response.choices[0]?.message?.content || ''
     return summary.trim()
   } catch (error) {
-    console.error('[generateConversationSummary] Error:', error)
+    log.error('Error:', error)
     return ''
   }
 }
@@ -254,7 +259,7 @@ async function updateSummaryIfNeeded(conversationId: string, currentMessageCount
   }
 
   // Time to generate a summary
-  console.log(`[Memory] Generating summary for conversation ${conversationId} (${currentMessageCount} messages)`)
+  log.info(`Generating summary for conversation ${conversationId} (${currentMessageCount} messages)`)
 
   const summary = await generateConversationSummary(conversationId)
 
@@ -272,7 +277,7 @@ async function updateSummaryIfNeeded(conversationId: string, currentMessageCount
         .then(() => {})
     )
 
-    console.log(`[Memory] Summary generated: "${summary.substring(0, 100)}..."`)
+    log.info(`Summary generated: "${summary.substring(0, 100)}..."`)
   }
 }
 
@@ -312,7 +317,7 @@ export async function updateConversationIntent(
     })
     .where(eq(chatbotConversations.id, conversationId))
 
-  console.log(`[Intent] Updated conversation ${conversationId}: ${currentIntent.state} -> ${newIntent.state}`)
+  log.info(`Updated conversation ${conversationId}: ${currentIntent.state} -> ${newIntent.state}`)
 }
 
 /**
@@ -673,6 +678,8 @@ export async function handleChatMessage(params: {
   accessContext?: ChatAccessContext
   // Virtual Assistant mode
   isAssistant?: boolean
+  // Per-member tool capabilities (overrides role defaults when set)
+  memberCapabilities?: { allowedTools?: string[] }
   // Uploaded files attached to this message
   attachedFiles?: Array<{
     documentId: string
@@ -687,7 +694,7 @@ export async function handleChatMessage(params: {
   response: string
   metadata?: Record<string, unknown>
 }> {
-  const { businessId, message, channel = 'web', customerId, adminContext, accessContext, isAssistant, attachedFiles } = params
+  const { businessId, message, channel = 'web', customerId, adminContext, accessContext, isAssistant, memberCapabilities, attachedFiles } = params
 
   // Determine user role
   let userRole: UserRole = 'customer'
@@ -882,10 +889,13 @@ export async function handleChatMessage(params: {
     'get_download_link',
   ]
 
-  // Select tools based on role
+  // Select tools based on role (with per-member capability overrides)
   let allowedToolNames: string[]
   if (isAssistant) {
     allowedToolNames = assistantTools
+  } else if (memberCapabilities?.allowedTools) {
+    // Custom per-member capabilities — always include customer baseline
+    allowedToolNames = [...new Set([...customerTools, ...memberCapabilities.allowedTools])]
   } else {
     switch (userRole) {
       case 'owner':
@@ -943,9 +953,10 @@ export async function handleChatMessage(params: {
   ]
 
   // 9. Call AI with tool support
+  const aiConfig = await getAIConfig(businessId)
   const completionOpts = isAssistant
-    ? { model: 'openai/gpt-4o', temperature: 0.5, max_tokens: 2000 }
-    : { temperature: 0.7, max_tokens: 1000 }
+    ? { model: aiConfig.chatbotModel, apiKey: aiConfig.apiKey, temperature: 0.5, max_tokens: 2000 }
+    : { model: aiConfig.chatbotModel, apiKey: aiConfig.apiKey, temperature: 0.7, max_tokens: 1000 }
 
   let response = await createChatCompletion({
     messages,
@@ -953,9 +964,19 @@ export async function handleChatMessage(params: {
     ...completionOpts,
   })
 
+  // Fire-and-forget usage logging (never await in chatbot path)
+  logAIUsage({
+    businessId,
+    channel: 'chatbot',
+    model: response.model || aiConfig.chatbotModel,
+    promptTokens: response.usage?.prompt_tokens,
+    completionTokens: response.usage?.completion_tokens,
+    totalTokens: response.usage?.total_tokens,
+  })
+
   // Validate response structure
   if (!response || !response.choices || !response.choices[0]) {
-    console.error('[Conversation] Invalid OpenRouter response structure:', {
+    log.error('Invalid OpenRouter response structure:', {
       hasResponse: !!response,
       hasChoices: !!response?.choices,
       choicesLength: response?.choices?.length,
@@ -999,7 +1020,7 @@ export async function handleChatMessage(params: {
       const parseResult = parseToolArguments(rawArgs)
 
       if (!parseResult.success) {
-        console.error(`[Chatbot] Parse failed for ${toolName}:`, parseResult.error)
+        log.error(`Parse failed for ${toolName}:`, parseResult.error)
 
         // Return error to model so it can retry
         const errorResponse = {
@@ -1066,7 +1087,7 @@ export async function handleChatMessage(params: {
         }
 
         if (missing.length > 0) {
-          console.error(`[Chatbot] Missing required args for ${toolName}:`, missing)
+          log.error(`Missing required args for ${toolName}:`, missing)
 
           const errorResponse = {
             success: false,
@@ -1111,11 +1132,13 @@ export async function handleChatMessage(params: {
           actorId: effectiveAccessContext.actorId,
           customerScopeId: effectiveAccessContext.customerScopeId,
         },
+        // Per-member capabilities for defense-in-depth
+        ...(memberCapabilities?.allowedTools ? { _memberCapabilities: memberCapabilities } : {}),
         // Memory: Pass conversationId for intent tracking
         _conversationId: conversationId,
       }
 
-      console.log(`[Chatbot] Executing tool: ${toolName}`, {
+      log.info(`Executing tool: ${toolName}`, {
         originalBusinessId: toolArgs.businessId,
         injectedBusinessId: safeToolArgs.businessId,
         actorType: effectiveAccessContext.actorType,
@@ -1144,7 +1167,7 @@ export async function handleChatMessage(params: {
           },
         })
       } catch (error) {
-        console.error(`[Chatbot] Tool execution error:`, error)
+        log.error(`Tool execution error:`, error)
 
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
 
@@ -1184,9 +1207,19 @@ export async function handleChatMessage(params: {
       ...completionOpts,
     })
 
+    // Fire-and-forget usage logging (never await in chatbot path)
+    logAIUsage({
+      businessId,
+      channel: 'chatbot',
+      model: response.model || aiConfig.chatbotModel,
+      promptTokens: response.usage?.prompt_tokens,
+      completionTokens: response.usage?.completion_tokens,
+      totalTokens: response.usage?.total_tokens,
+    })
+
     // Validate response structure
     if (!response || !response.choices || !response.choices[0]) {
-      console.error('[Conversation] Invalid OpenRouter response structure:', {
+      log.error('Invalid OpenRouter response structure:', {
         hasResponse: !!response,
         hasChoices: !!response?.choices,
         choicesLength: response?.choices?.length,
@@ -1221,7 +1254,7 @@ export async function handleChatMessage(params: {
       finalResponse = 'Entschuldigung, ich konnte keine passende Antwort generieren. Wie kann ich Ihnen weiterhelfen?'
     }
 
-    console.warn('[Conversation] AI failed to generate response, using fallback', {
+    log.warn('AI failed to generate response, using fallback', {
       conversationId,
       hadToolErrors,
       toolRound,
@@ -1255,7 +1288,7 @@ export async function handleChatMessage(params: {
 
   // Update summary in background (non-blocking)
   updateSummaryIfNeeded(conversationId, newMessageCount).catch(err => {
-    console.error('[Memory] Summary update failed:', err)
+    log.error('Summary update failed:', err)
   })
 
   return {

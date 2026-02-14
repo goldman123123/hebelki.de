@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireBusinessAuth } from '@/lib/auth'
 import { generatePost } from '@/modules/posts/lib/generate-post'
 import type { PostType, Platform } from '@/modules/posts/lib/generate-post'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:admin:posts:generate')
 
 const VALID_POST_TYPES: PostType[] = [
   'service_spotlight',
@@ -46,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ post, model })
   } catch (error) {
-    console.error('[POST /api/admin/posts/generate] Failed:', error)
+    log.error('[POST /api/admin/posts/generate] Failed:', error)
     return NextResponse.json({ error: 'Post generation failed' }, { status: 500 })
   }
 }

@@ -3,6 +3,9 @@ import { auth } from '@clerk/nextjs/server'
 import { db } from '@/lib/db'
 import { staff, availabilityTemplates, availabilitySlots } from '@/lib/db/schema'
 import { requireBusinessAccess } from '@/lib/auth-helpers'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:onboarding:staff')
 
 interface TimeSlot {
   startTime: string
@@ -40,12 +43,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify user has access to business
-    console.log(`[Staff API] Verifying access for user ${userId} to business ${businessId}`)
+    log.info(`Verifying access for user ${userId} to business ${businessId}`)
     try {
       await requireBusinessAccess(businessId)
-      console.log(`[Staff API] Access verified successfully`)
+      log.info(`Access verified successfully`)
     } catch (accessError) {
-      console.error(`[Staff API] Access verification failed:`, accessError)
+      log.error(`Access verification failed:`, accessError)
       throw accessError
     }
 
@@ -115,7 +118,7 @@ export async function POST(request: NextRequest) {
       message: `${createdStaff.length} staff member(s) created`,
     })
   } catch (error) {
-    console.error('Error creating staff:', error)
+    log.error('Error creating staff:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to create staff members' },
       { status: 500 }

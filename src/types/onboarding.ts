@@ -37,7 +37,7 @@ export interface BusinessData {
   email?: string
   address?: string
   website?: string
-  settings?: Record<string, any>
+  settings?: Record<string, unknown>
   onboardingState?: OnboardingState
   createdAt?: Date
   updatedAt?: Date

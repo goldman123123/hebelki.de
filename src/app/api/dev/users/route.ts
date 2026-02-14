@@ -11,6 +11,9 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { businessMembers } from '@/lib/db/schema'
 import { clerkClient } from '@clerk/nextjs/server'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:dev:users')
 
 export async function GET() {
   // Only allow in development
@@ -46,7 +49,7 @@ export async function GET() {
             name: clerkUser.fullName || clerkUser.firstName || 'Unknown',
           }
         } catch (error) {
-          console.error(`Failed to fetch Clerk user ${member.clerkUserId}:`, error)
+          log.error(`Failed to fetch Clerk user ${member.clerkUserId}:`, error)
           return {
             clerkUserId: member.clerkUserId,
             role: member.role,
@@ -63,7 +66,7 @@ export async function GET() {
       users: usersWithDetails,
     })
   } catch (error) {
-    console.error('[Dev API] Error fetching users:', error)
+    log.error('Error fetching users:', error)
 
     return NextResponse.json(
       {

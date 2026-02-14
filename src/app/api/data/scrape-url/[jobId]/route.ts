@@ -10,6 +10,9 @@ import { db } from '@/lib/db'
 import { ingestionJobs } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { requireBusinessAccess } from '@/lib/auth-helpers'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:data:scrape-url:jobId')
 
 export async function GET(
   request: NextRequest,
@@ -68,7 +71,7 @@ export async function GET(
       completedAt: job.completedAt,
     })
   } catch (error) {
-    console.error('[Scrape Status] Error:', error)
+    log.error('Error:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to get job status' },
       { status: 500 }

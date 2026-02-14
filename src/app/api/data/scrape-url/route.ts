@@ -9,6 +9,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { ingestionJobs } from '@/lib/db/schema'
 import { requireBusinessAccess } from '@/lib/auth-helpers'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:data:scrape-url')
 
 interface ScrapeRequest {
   businessId: string
@@ -62,7 +65,7 @@ export async function POST(request: NextRequest) {
       maxAttempts: 3,
     }).returning({ id: ingestionJobs.id })
 
-    console.log(`[Scrape] Created job ${job.id} for ${selectedUrls.length} URLs`)
+    log.info(`Created job ${job.id} for ${selectedUrls.length} URLs`)
 
     return NextResponse.json({
       jobId: job.id,
@@ -70,7 +73,7 @@ export async function POST(request: NextRequest) {
       urlCount: selectedUrls.length,
     })
   } catch (error) {
-    console.error('[Scrape] Error:', error)
+    log.error('Error:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to create scrape job' },
       { status: 500 }

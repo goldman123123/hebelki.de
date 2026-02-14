@@ -16,6 +16,9 @@ import { chatbotConversations, chatbotMessages, customers } from '@/lib/db/schem
 import { eq, and } from 'drizzle-orm'
 import { sendWhatsAppMessage } from '@/lib/twilio-client'
 import { formatTwilioWhatsAppNumber } from '@/lib/whatsapp-phone-formatter'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:chatbot:support:conversations:id:reply')
 
 export async function POST(
   request: NextRequest,
@@ -111,7 +114,7 @@ export async function POST(
         }
       } catch (whatsappError) {
         // Log but don't fail the HTTP response — message is saved in DB regardless
-        console.error('[Support Reply] WhatsApp relay failed:', whatsappError)
+        log.error('WhatsApp relay failed:', whatsappError)
       }
     }
 
@@ -126,7 +129,7 @@ export async function POST(
       },
     })
   } catch (error) {
-    console.error('[Support Reply API] Error:', error)
+    log.error('Error:', error)
     return NextResponse.json(
       { error: 'Fehler beim Senden der Antwort' },
       { status: 500 }

@@ -13,7 +13,6 @@ import {
   availabilityOverrides,
   customers,
   bookings,
-  waitlist,
 } from '../src/lib/db/schema'
 
 const sql = neon(process.env.DATABASE_URL!)
@@ -27,7 +26,6 @@ async function seed() {
 
   // Clear existing data (in reverse order of dependencies)
   console.log('Clearing existing data...')
-  await db.delete(waitlist)
   await db.delete(bookings)
   await db.delete(customers)
   await db.delete(availabilityOverrides)

@@ -14,6 +14,9 @@ import { businesses } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { hasFeature } from '@/modules/core/entitlements'
 import { z } from 'zod'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:admin:domains:add')
 
 const VERCEL_TOKEN = process.env.VERCEL_TOKEN || 'lFYBJ0tJSy62euJmtn8Z5Lbt'
 const VERCEL_TEAM_ID = 'fabians-projects-0c8534c0'
@@ -75,7 +78,7 @@ export async function POST(request: NextRequest) {
     if (!vercelRes.ok) {
       // Vercel returns specific error codes
       const errorMsg = vercelData?.error?.message || 'Vercel API-Fehler'
-      console.error('[Domains] Vercel API error:', vercelData)
+      log.error('Vercel API error:', vercelData)
       return NextResponse.json(
         { error: `Domain konnte nicht hinzugefügt werden: ${errorMsg}` },
         { status: 400 }
@@ -98,7 +101,7 @@ export async function POST(request: NextRequest) {
       verified: vercelData.verified || false,
     })
   } catch (error) {
-    console.error('[Domains] Error adding domain:', error)
+    log.error('Error adding domain:', error)
     return NextResponse.json(
       { error: 'Interner Serverfehler' },
       { status: 500 }

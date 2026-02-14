@@ -14,6 +14,9 @@ import { db } from '@/lib/db'
 import { chatbotConversations, chatbotMessages } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { requireBusinessAccess } from '@/lib/auth-helpers'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:chatbot:conversations:id')
 
 export async function GET(
   request: NextRequest,
@@ -48,7 +51,7 @@ export async function GET(
       messages,
     })
   } catch (error) {
-    console.error('[Chatbot API] Error:', error)
+    log.error('Error:', error)
 
     const message = error instanceof Error ? error.message : ''
     if (message.includes('Unauthorized') || message.includes('Access denied')) {
@@ -101,14 +104,14 @@ export async function DELETE(
       .delete(chatbotConversations)
       .where(eq(chatbotConversations.id, id))
 
-    console.log(`[CONVERSATION-DELETE] Deleted conversation ${id} with ${deletedMessages.length} messages`)
+    log.info(`Deleted conversation ${id} with ${deletedMessages.length} messages`)
 
     return NextResponse.json({
       success: true,
       deletedMessages: deletedMessages.length,
     })
   } catch (error) {
-    console.error('[Conversation Delete API] Error:', error)
+    log.error('Error:', error)
 
     return NextResponse.json(
       { error: 'Löschen fehlgeschlagen' },

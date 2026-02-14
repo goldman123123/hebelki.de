@@ -14,6 +14,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { ingestionJobs, documents, documentVersions } from '@/lib/db/schema'
 import { eq, and, lt, sql, inArray } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:cron:process-documents')
 
 // Thresholds
 const STUCK_JOB_THRESHOLD_MINUTES = 10
@@ -26,7 +29,7 @@ export async function GET(request: NextRequest) {
     const cronSecret = process.env.CRON_SECRET
 
     if (!cronSecret) {
-      console.error('[Cron] CRON_SECRET not configured')
+      log.error('CRON_SECRET not configured')
       return NextResponse.json({ error: 'Cron not configured' }, { status: 500 })
     }
 
@@ -72,7 +75,7 @@ export async function GET(request: NextRequest) {
         )
 
       results.stuckJobsReset = stuckJobs.length
-      console.log(`[Cron] Reset ${stuckJobs.length} stuck jobs`)
+      log.info(`Reset ${stuckJobs.length} stuck jobs`)
     }
 
     // 2. Count pending jobs (waiting for worker)
@@ -140,7 +143,7 @@ export async function GET(request: NextRequest) {
       results.alerts.push(`${pendingDeletion} documents pending cleanup`)
     }
 
-    console.log('[Cron] Document processing health check:', results)
+    log.info('Document processing health check:', results)
 
     return NextResponse.json({
       success: true,
@@ -148,7 +151,7 @@ export async function GET(request: NextRequest) {
       ...results,
     })
   } catch (error) {
-    console.error('[Cron] Error in process-documents:', error)
+    log.error('Error in process-documents:', error)
     return NextResponse.json(
       {
         success: false,

@@ -9,6 +9,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireBusinessAuth } from '@/lib/auth'
 import { getInvoiceByBookingId, updateInvoiceFromBooking, generateAndUploadInvoicePdf } from '@/lib/invoices'
 import { verifyBookingOwnership } from '@/lib/db/queries'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:bookings:id:invoice')
 
 export async function GET(
   request: NextRequest,
@@ -33,7 +36,7 @@ export async function GET(
 
     return NextResponse.json({ invoice })
   } catch (error) {
-    console.error('Error getting booking invoice:', error)
+    log.error('Error getting booking invoice:', error)
     return NextResponse.json({ error: 'Failed to get invoice' }, { status: 500 })
   }
 }
@@ -85,7 +88,7 @@ export async function PATCH(
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to recreate invoice'
-    console.error('Error recreating invoice:', error)
+    log.error('Error recreating invoice:', error)
     return NextResponse.json({ error: message }, { status: 400 })
   }
 }

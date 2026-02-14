@@ -11,6 +11,9 @@ import { requireBusinessAuth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { businesses } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:admin:domains:remove')
 
 const VERCEL_TOKEN = process.env.VERCEL_TOKEN || 'lFYBJ0tJSy62euJmtn8Z5Lbt'
 const VERCEL_TEAM_ID = 'fabians-projects-0c8534c0'
@@ -44,7 +47,7 @@ export async function DELETE() {
 
     if (!vercelRes.ok && vercelRes.status !== 404) {
       const vercelData = await vercelRes.json()
-      console.error('[Domains] Vercel API error removing domain:', vercelData)
+      log.error('Vercel API error removing domain:', vercelData)
       // Continue anyway - clear from DB even if Vercel removal fails
     }
 
@@ -59,7 +62,7 @@ export async function DELETE() {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('[Domains] Error removing domain:', error)
+    log.error('Error removing domain:', error)
     return NextResponse.json(
       { error: 'Interner Serverfehler' },
       { status: 500 }

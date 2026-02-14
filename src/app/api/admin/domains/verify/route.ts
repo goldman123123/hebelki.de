@@ -8,6 +8,9 @@
 
 import { NextResponse } from 'next/server'
 import { requireBusinessAuth } from '@/lib/auth'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:admin:domains:verify')
 
 const VERCEL_TOKEN = process.env.VERCEL_TOKEN || 'lFYBJ0tJSy62euJmtn8Z5Lbt'
 const VERCEL_TEAM_ID = 'fabians-projects-0c8534c0'
@@ -63,7 +66,7 @@ export async function POST() {
       configuredBy: configData.cnames || null,
     })
   } catch (error) {
-    console.error('[Domains] Error verifying domain:', error)
+    log.error('Error verifying domain:', error)
     return NextResponse.json(
       { error: 'Interner Serverfehler' },
       { status: 500 }

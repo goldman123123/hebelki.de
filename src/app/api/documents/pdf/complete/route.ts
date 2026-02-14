@@ -14,6 +14,9 @@ import { requireBusinessAccess } from '@/lib/auth-helpers'
 import { fileExists } from '@/lib/r2/client'
 import { eq, and } from 'drizzle-orm'
 import { z } from 'zod'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:documents:pdf:complete')
 
 const completeSchema = z.object({
   businessId: z.string().uuid(),
@@ -116,7 +119,7 @@ export async function POST(request: NextRequest) {
       message: 'Upload complete. Processing will begin shortly.',
     })
   } catch (error) {
-    console.error('[POST /api/documents/pdf/complete] Error:', error)
+    log.error('[POST /api/documents/pdf/complete] Error:', error)
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(

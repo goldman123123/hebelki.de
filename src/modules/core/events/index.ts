@@ -25,6 +25,7 @@ export type EventType =
   | 'booking.confirmed'
   | 'booking.cancelled'
   | 'booking.reminded'
+  | 'booking.rescheduled'
   | 'booking.completed'
   | 'booking.no_show'
 
@@ -97,6 +98,20 @@ export interface BookingCancelledPayload {
   endsAt: string
   reason?: string
   cancelledBy: 'customer' | 'staff' | 'system'
+}
+
+export interface BookingRescheduledPayload {
+  bookingId: string
+  customerEmail: string
+  customerName: string
+  serviceName: string
+  businessName: string
+  staffName?: string
+  oldStartsAt: string
+  oldEndsAt: string
+  newStartsAt: string
+  newEndsAt: string
+  confirmationToken?: string
 }
 
 export interface BookingRemindedPayload {
@@ -174,6 +189,7 @@ export type EventPayload<T extends EventType> =
   T extends 'booking.created' ? BookingCreatedPayload :
   T extends 'booking.confirmed' ? BookingConfirmedPayload :
   T extends 'booking.cancelled' ? BookingCancelledPayload :
+  T extends 'booking.rescheduled' ? BookingRescheduledPayload :
   T extends 'booking.reminded' ? BookingRemindedPayload :
   T extends 'member.invited' ? MemberInvitedPayload :
   T extends 'member.joined' ? MemberJoinedPayload :
@@ -246,6 +262,7 @@ export function getEventTypeDescription(eventType: EventType): string {
     'booking.created': 'Buchung erstellt',
     'booking.confirmed': 'Buchung bestätigt',
     'booking.cancelled': 'Buchung storniert',
+    'booking.rescheduled': 'Buchung umgebucht',
     'booking.reminded': 'Buchung erinnert',
     'booking.completed': 'Buchung abgeschlossen',
     'booking.no_show': 'Kunde nicht erschienen',

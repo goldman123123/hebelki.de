@@ -11,6 +11,9 @@ import { bookings } from '@/lib/db/schema'
 import { emitEventStandalone } from '@/modules/core/events'
 import { processEvents } from '@/modules/core/events/processor'
 import { bookingLimiter } from '@/lib/rate-limit'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:slug:book')
 
 export async function POST(
   request: NextRequest,
@@ -207,7 +210,7 @@ export async function POST(
     try {
       await processEvents(10) // Process up to 10 pending events
     } catch (emailError) {
-      console.error('Error processing events after booking creation:', emailError)
+      log.error('Error processing events after booking creation:', emailError)
       // Don't fail the booking if email processing fails
     }
 
@@ -219,7 +222,7 @@ export async function POST(
       endsAt: booking.endsAt,
     })
   } catch (error) {
-    console.error('Error creating booking:', error)
+    log.error('Error creating booking:', error)
 
     // Handle double-booking constraint violation
     if (error && typeof error === 'object' && 'constraint' in error) {

@@ -11,6 +11,9 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Mic, Square, Loader2 } from 'lucide-react'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('chatbot:VoiceRecorder')
 
 interface VoiceRecorderProps {
   onTranscription: (text: string) => void
@@ -156,7 +159,7 @@ export function VoiceRecorder({
 
       // Handle errors
       mediaRecorder.onerror = (event) => {
-        console.error('[VoiceRecorder] Recording error:', event)
+        log.error('Recording error:', event)
         setError('Aufnahmefehler')
         setState('idle')
       }
@@ -173,7 +176,7 @@ export function VoiceRecorder({
       // Permission was granted if we got here
       setPermission('granted')
     } catch (err) {
-      console.error('[VoiceRecorder] Error starting recording:', err)
+      log.error('Error starting recording:', err)
 
       if (err instanceof Error) {
         if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
@@ -252,7 +255,7 @@ export function VoiceRecorder({
           setError('Keine Sprache erkannt')
         }
       } catch (err) {
-        console.error('[VoiceRecorder] Transcription error:', err)
+        log.error('Transcription error:', err)
         setError(err instanceof Error ? err.message : 'Transkription fehlgeschlagen')
       } finally {
         setState('idle')

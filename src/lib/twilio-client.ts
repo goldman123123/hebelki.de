@@ -12,6 +12,9 @@ import { db } from '@/lib/db'
 import { businesses } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { decrypt } from '@/lib/crypto'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('lib:twilio-client')
 
 // --- Types ---
 
@@ -133,7 +136,7 @@ export async function sendWhatsAppMessage(
       body,
     })
 
-    console.log('[Twilio] WhatsApp message sent:', {
+    log.info('WhatsApp message sent:', {
       sid: message.sid,
       to: toNumber,
       status: message.status,
@@ -147,7 +150,7 @@ export async function sendWhatsAppMessage(
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error(String(error))
     const twilioErr = error as { code?: string; moreInfo?: string }
-    console.error('[Twilio] Error sending WhatsApp message:', {
+    log.error('Error sending WhatsApp message:', {
       error: err.message,
       code: twilioErr.code,
       moreInfo: twilioErr.moreInfo,
@@ -169,7 +172,7 @@ export function validateTwilioWebhook(
   authToken: string,
   twilioSignature: string,
   url: string,
-  params: Record<string, any>
+  params: Record<string, string>
 ): boolean {
   return twilio.validateRequest(authToken, twilioSignature, url, params)
 }

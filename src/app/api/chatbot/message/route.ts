@@ -23,6 +23,9 @@ import {
 } from '@/lib/whatsapp-compliance'
 import { chatbotLimiter } from '@/lib/rate-limit'
 import { sql } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:chatbot:message')
 
 // ============================================
 // HELPER FUNCTIONS: Contact Info Validation
@@ -74,7 +77,7 @@ export async function POST(request: NextRequest) {
     try {
       await chatbotLimiter.check(identifier, 10) // 10 messages per minute
     } catch (error) {
-      console.warn(`[CHATBOT-RATE-LIMIT] ${identifier} exceeded rate limit`)
+      log.warn(`${identifier} exceeded rate limit`)
       return NextResponse.json(
         {
           error: channel === 'whatsapp'
@@ -110,7 +113,7 @@ export async function POST(request: NextRequest) {
       .then(rows => rows[0])
 
     if (!business) {
-      console.error('[Chatbot API] Business not found:', businessId)
+      log.error('Business not found:', businessId)
       return NextResponse.json(
         { error: 'Business nicht gefunden' },
         { status: 404 }
@@ -130,7 +133,7 @@ export async function POST(request: NextRequest) {
         .then(rows => rows[0])
 
       if (conversation && conversation.businessId !== businessId) {
-        console.error('[Chatbot API] businessId mismatch:', {
+        log.error('businessId mismatch:', {
           requestBusinessId: businessId,
           conversationBusinessId: conversation.businessId,
         })
@@ -232,7 +235,7 @@ export async function POST(request: NextRequest) {
           })
           .where(eq(chatbotConversations.id, conversationId))
 
-        console.log(`[ESCALATION] Contact info collected for conversation ${conversationId}`)
+        log.info(`Contact info collected for conversation ${conversationId}`)
 
         // Return confirmation (skip AI processing)
         return NextResponse.json({
@@ -302,7 +305,7 @@ export async function POST(request: NextRequest) {
       businessSettings?.aiLiteracyVersion === AI_LITERACY_VERSION
 
     if (!aiLiteracyAcknowledged) {
-      console.warn('[Chatbot API] AI literacy not acknowledged for business:', businessId)
+      log.warn('AI literacy not acknowledged for business:', businessId)
       return NextResponse.json({
         success: true,
         conversationId: conversationId || null,
@@ -324,7 +327,7 @@ export async function POST(request: NextRequest) {
       // Handle STOP keywords (opt-out)
       if (detectOptOutKeyword(trimmedMessage)) {
         await handleOptOut(customerId, trimmedMessage)
-        console.log('[WHATSAPP-COMPLIANCE] Opt-out processed for customer:', customerId)
+        log.info('Opt-out processed for customer:', customerId)
 
         return NextResponse.json({
           success: true,
@@ -337,7 +340,7 @@ export async function POST(request: NextRequest) {
       // Handle START keywords (opt-in)
       if (detectOptInKeyword(trimmedMessage)) {
         await handleOptIn(customerId, trimmedMessage)
-        console.log('[WHATSAPP-COMPLIANCE] Opt-in processed for customer:', customerId)
+        log.info('Opt-in processed for customer:', customerId)
 
         return NextResponse.json({
           success: true,
@@ -353,7 +356,7 @@ export async function POST(request: NextRequest) {
       if (!hasOptedIn) {
         // First message - grant implicit opt-in
         await handleImplicitOptIn(customerId, trimmedMessage)
-        console.log('[WHATSAPP-COMPLIANCE] Implicit opt-in granted for customer:', customerId)
+        log.info('Implicit opt-in granted for customer:', customerId)
       }
     }
 
@@ -385,7 +388,7 @@ export async function POST(request: NextRequest) {
       metadata: result.metadata,
     })
   } catch (error) {
-    console.error('[Chatbot API] Error:', error)
+    log.error('Error:', error)
 
     return NextResponse.json(
       {

@@ -10,6 +10,9 @@ import { db } from '@/lib/db'
 import { customers } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { z } from 'zod'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:customers:id')
 
 const updateCustomerSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -60,7 +63,7 @@ export async function PATCH(
 
     return NextResponse.json({ customer: updated })
   } catch (error) {
-    console.error('Error updating customer:', error)
+    log.error('Error updating customer:', error)
     return NextResponse.json({ error: 'Failed to update customer' }, { status: 500 })
   }
 }
@@ -92,7 +95,7 @@ export async function GET(
 
     return NextResponse.json({ customer })
   } catch (error) {
-    console.error('Error getting customer:', error)
+    log.error('Error getting customer:', error)
     return NextResponse.json({ error: 'Failed to get customer' }, { status: 500 })
   }
 }

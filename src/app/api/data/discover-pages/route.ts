@@ -10,6 +10,9 @@ import { fetchSitemap } from '@/lib/scraper/sitemap-parser'
 import { crawlHomepageLinks } from '@/lib/scraper/link-crawler'
 import { categorizePages, type CategorizedPage } from '@/lib/scraper/page-categorizer'
 import { requireBusinessAccess } from '@/lib/auth-helpers'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:data:discover-pages')
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,21 +49,21 @@ export async function POST(request: NextRequest) {
     let source: 'sitemap' | 'homepage' = 'sitemap'
 
     // Try sitemap first
-    console.log(`[Discover] Trying sitemap for: ${normalizedUrl}`)
+    log.info(`Trying sitemap for: ${normalizedUrl}`)
     const sitemapUrls = await fetchSitemap(normalizedUrl)
 
     if (sitemapUrls.length > 0) {
       const links = sitemapUrls.map(u => ({ url: u.url, title: null }))
       pages = categorizePages(links)
       source = 'sitemap'
-      console.log(`[Discover] Found ${pages.length} pages via sitemap`)
+      log.info(`Found ${pages.length} pages via sitemap`)
     } else {
       // Fall back to homepage crawling
-      console.log(`[Discover] Falling back to homepage crawl`)
+      log.info(`Falling back to homepage crawl`)
       const crawledLinks = await crawlHomepageLinks(normalizedUrl)
       pages = categorizePages(crawledLinks)
       source = 'homepage'
-      console.log(`[Discover] Found ${pages.length} pages via homepage crawl`)
+      log.info(`Found ${pages.length} pages via homepage crawl`)
     }
 
     // Limit to 100 pages max
@@ -74,7 +77,7 @@ export async function POST(request: NextRequest) {
       total: pages.length,
     })
   } catch (error) {
-    console.error('[Discover] Error:', error)
+    log.error('Error:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Discovery failed' },
       { status: 500 }

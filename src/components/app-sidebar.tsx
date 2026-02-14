@@ -16,6 +16,7 @@ import {
   Globe,
   FileText,
   Bot,
+  Brain,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -68,6 +69,7 @@ const navGroups = [
     label: 'Einstellungen',
     items: [
       { name: 'Mein Betrieb', href: '/unternehmen', icon: Building2 },
+      { name: 'KI-Einstellungen', href: '/ai-settings', icon: Brain },
     ],
   },
 ]

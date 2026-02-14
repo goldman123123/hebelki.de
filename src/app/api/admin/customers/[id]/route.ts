@@ -17,6 +17,9 @@ import {
 } from '@/lib/db/schema'
 import { eq, and, desc, count, sql } from 'drizzle-orm'
 import { z } from 'zod'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:admin:customers:id')
 
 // Validation schema for updating a customer
 const updateCustomerSchema = z.object({
@@ -138,7 +141,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
     })
   } catch (error) {
-    console.error('[GET /api/admin/customers/[id]] Error:', error)
+    log.error('[GET /api/admin/customers/[id]] Error:', error)
     return NextResponse.json(
       { error: 'Fehler beim Laden des Kunden' },
       { status: 500 }
@@ -229,7 +232,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ customer: updated })
   } catch (error) {
-    console.error('[PATCH /api/admin/customers/[id]] Error:', error)
+    log.error('[PATCH /api/admin/customers/[id]] Error:', error)
     return NextResponse.json(
       { error: 'Fehler beim Aktualisieren des Kunden' },
       { status: 500 }
@@ -270,7 +273,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('[DELETE /api/admin/customers/[id]] Error:', error)
+    log.error('[DELETE /api/admin/customers/[id]] Error:', error)
     return NextResponse.json(
       { error: 'Fehler beim Löschen des Kunden' },
       { status: 500 }

@@ -21,15 +21,18 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Separator } from '@/components/ui/separator'
-import { Book, MessageSquare, Settings, Loader2, FileText, Building2, User, Database, Code, Shield } from 'lucide-react'
+import { Book, MessageSquare, Settings, Loader2, FileText, Building2, User, Database, Code } from 'lucide-react'
 import { KnowledgeBaseTab } from './components/KnowledgeBaseTab'
 import { ConversationsTab } from './components/ConversationsTab'
 import { SettingsTab } from './components/SettingsTab'
 import { EmbedCodeTab } from './components/EmbedCodeTab'
-import { DeletionRequestsTab } from './components/DeletionRequestsTab'
+
 import { DataSection } from './components/data/DataSection'
 import { AiLiteracyBanner } from '@/components/dashboard/AiLiteracyBanner'
 import Link from 'next/link'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('dashboard:chatbot')
 
 interface Business {
   id: string
@@ -57,7 +60,6 @@ const chatbotTabs = [
   { value: 'kunden', label: 'Kunden', shortLabel: 'Kunden', icon: User, group: 'data' },
   { value: 'archiv', label: 'Archiv', shortLabel: 'Archiv', icon: Database, group: 'data' },
   { value: 'integration', label: 'Integration', shortLabel: 'Embed', icon: Code, group: 'data' },
-  { value: 'gdpr', label: 'Löschanfragen', shortLabel: 'DSGVO', icon: Shield, group: 'data' },
 ] as const
 
 const countBadgeColors: Record<string, string> = {
@@ -95,7 +97,7 @@ export default function ChatbotDashboardPage() {
           })
         }
       } catch (error) {
-        console.error('Failed to fetch business:', error)
+        log.error('Failed to fetch business:', error)
       } finally {
         setLoading(false)
       }
@@ -130,7 +132,7 @@ export default function ChatbotDashboardPage() {
         archiv: archivData.count ?? archivData.documents?.length ?? 0,
       })
     } catch (error) {
-      console.error('Failed to fetch counts:', error)
+      log.error('Failed to fetch counts:', error)
     }
   }, [business?.id])
 
@@ -289,9 +291,6 @@ export default function ChatbotDashboardPage() {
           />
         </TabsContent>
 
-        <TabsContent value="gdpr">
-          <DeletionRequestsTab businessId={business.id} />
-        </TabsContent>
       </Tabs>
     </div>
   )

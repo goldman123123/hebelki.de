@@ -5,6 +5,9 @@
  */
 
 import { z } from 'zod'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('lib:validation:wizard-state')
 
 export const businessDataSchema = z.object({
   id: z.string().uuid(),
@@ -109,7 +112,7 @@ export function validateWizardState(state: unknown): WizardState {
   const result = wizardStateSchema.safeParse(state)
 
   if (!result.success) {
-    console.warn('Invalid wizard state, using defaults:', result.error.issues)
+    log.warn('Invalid wizard state, using defaults:', result.error.issues)
     return getDefaultWizardState()
   }
 

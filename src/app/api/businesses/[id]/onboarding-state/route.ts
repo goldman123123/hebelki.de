@@ -3,6 +3,9 @@ import { db } from '@/lib/db'
 import { businesses } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { requireAuth } from '@/lib/auth-helpers'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:businesses:id:onboarding-state')
 
 export async function PATCH(
   request: NextRequest,
@@ -45,7 +48,7 @@ export async function PATCH(
       business: updated,
     })
   } catch (error) {
-    console.error('Error updating onboarding state:', error)
+    log.error('Error updating onboarding state:', error)
     return NextResponse.json(
       {
         error: 'Failed to update onboarding state',
@@ -84,7 +87,7 @@ export async function GET(
       onboarding: (business[0].settings as Record<string, unknown>)?.onboarding || {},
     })
   } catch (error) {
-    console.error('Error fetching onboarding state:', error)
+    log.error('Error fetching onboarding state:', error)
     return NextResponse.json(
       {
         error: 'Failed to fetch onboarding state',

@@ -19,6 +19,9 @@ import {
 import { Loader2, MessageSquare, User, Bot, UserCheck, Calendar, Globe, MessageCircle } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('dashboard:chatbot:ConversationsTab')
 
 interface Conversation {
   id: string
@@ -58,7 +61,7 @@ export function ConversationsTab({ businessId }: ConversationsTabProps) {
         setConversations(data.conversations || [])
       }
     } catch (error) {
-      console.error('Failed to fetch conversations:', error)
+      log.error('Failed to fetch conversations:', error)
     } finally {
       setLoading(false)
     }
@@ -74,7 +77,7 @@ export function ConversationsTab({ businessId }: ConversationsTabProps) {
         setMessages(data.messages || [])
       }
     } catch (error) {
-      console.error('Failed to fetch messages:', error)
+      log.error('Failed to fetch messages:', error)
     } finally {
       setLoadingMessages(false)
     }

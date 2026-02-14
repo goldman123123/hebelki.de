@@ -19,6 +19,9 @@ import {
   Info,
   Loader2
 } from 'lucide-react'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('app:onboarding:wizard:components:steps:Step3StaffSetup')
 
 interface TimeSlot {
   startTime: string
@@ -247,7 +250,7 @@ export function Step3StaffSetup({ onNext, onBack, onSkip }: StepProps) {
 
       onNext()
     } catch (err) {
-      console.error('Error saving staff:', err)
+      log.error('Error saving staff:', err)
       setError(err instanceof Error ? err.message : 'Failed to save staff members')
     } finally {
       setIsSaving(false)

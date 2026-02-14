@@ -6,6 +6,70 @@
  */
 
 /**
+ * Metadata Types
+ */
+
+export interface KnowledgeMetadata {
+  url?: string
+  documentName?: string
+  embeddingVectorId?: string
+  [key: string]: string | number | boolean | undefined
+}
+
+export interface ConversationMetadata {
+  aiModel?: string
+  totalTokens?: number
+  isInternal?: boolean
+  teamPhone?: string
+  actorRole?: string
+  actorName?: string
+  pinVerified?: boolean
+  pinVerifiedAt?: string
+  handoffStatus?: string
+  ownerNotifiedAt?: string
+  customerPhone?: string
+  ownerTimeoutSeconds?: number
+  liveQueuedAt?: string
+  [key: string]: string | number | boolean | undefined
+}
+
+export interface MessageMetadata {
+  toolCalls?: ToolCallData[]
+  model?: string
+  tokens?: number
+  intent?: string
+  confidence?: number
+  staffName?: string
+  staffClerkUserId?: string
+  viaWhatsApp?: boolean
+  [key: string]: string | number | boolean | ToolCallData[] | undefined
+}
+
+export interface ToolCallData {
+  id: string
+  name: string
+  arguments?: string
+  result?: unknown
+}
+
+export interface ScrapeJobMetadata {
+  source?: string
+  extractionModel?: string
+  [key: string]: string | number | boolean | undefined
+}
+
+export interface ScrapeEventData {
+  url?: string
+  pageCount?: number
+  chunkCount?: number
+  entryCount?: number
+  progress?: number
+  total?: number
+  error?: string
+  [key: string]: string | number | boolean | undefined
+}
+
+/**
  * Knowledge Base Types
  */
 
@@ -36,7 +100,7 @@ export interface KnowledgeEntry {
   title: string
   content: string
   category: KnowledgeCategory | null
-  metadata: Record<string, any>
+  metadata: KnowledgeMetadata
   embedding?: number[]
   isActive: boolean
   createdAt: Date
@@ -67,7 +131,7 @@ export interface Conversation {
   customerId?: string
   channel: ConversationChannel
   status: ConversationStatus
-  metadata: Record<string, any>
+  metadata: ConversationMetadata
   createdAt: Date
   updatedAt: Date
 }
@@ -79,7 +143,7 @@ export interface Message {
   conversationId: string
   role: MessageRole
   content: string
-  metadata: Record<string, any>
+  metadata: MessageMetadata
   createdAt: Date
 }
 
@@ -115,7 +179,7 @@ export interface ScrapedPage {
   description: string | null
   markdown: string
   html: string | null
-  metadata: Record<string, any>
+  metadata: KnowledgeMetadata
   isActive: boolean
   scrapedAt: Date
   createdAt?: Date
@@ -209,7 +273,7 @@ export interface ScrapeJob {
   status: 'pending' | 'scraping' | 'extracting' | 'completed' | 'failed'
   scrapedPages: ScrapedPage[]
   failedUrls: string[]
-  metadata?: Record<string, any>
+  metadata?: ScrapeJobMetadata
   createdAt: Date
   updatedAt?: Date
 }
@@ -225,5 +289,5 @@ export interface ScrapeEvent {
     | 'extraction_progress'
     | 'complete'
     | 'error'
-  data: Record<string, any>
+  data: ScrapeEventData
 }

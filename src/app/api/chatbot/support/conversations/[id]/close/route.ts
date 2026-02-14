@@ -12,6 +12,9 @@ import { requireBusinessAuth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { chatbotConversations, chatbotMessages } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:chatbot:support:conversations:id:close')
 
 export async function POST(
   request: NextRequest,
@@ -59,7 +62,7 @@ export async function POST(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('[Support Close API] Error:', error)
+    log.error('Error:', error)
     return NextResponse.json(
       { error: 'Fehler beim Schließen des Gesprächs' },
       { status: 500 }

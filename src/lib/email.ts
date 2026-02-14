@@ -1,4 +1,7 @@
 import nodemailer from 'nodemailer'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('lib:email')
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -23,11 +26,11 @@ interface SendEmailOptions {
 }
 
 export async function sendEmail(options: SendEmailOptions) {
-  console.log('[Email] Sending email...')
-  console.log('[Email] SMTP configured:', !!process.env.SMTP_HOST && !!process.env.SMTP_USER)
+  log.info('Sending email...')
+  log.info('SMTP configured:', !!process.env.SMTP_HOST && !!process.env.SMTP_USER)
 
   if (!process.env.SMTP_HOST || !process.env.SMTP_USER) {
-    console.warn('[Email] Email not configured - skipping email send')
+    log.warn('Email not configured - skipping email send')
     return null
   }
 
@@ -36,10 +39,10 @@ export async function sendEmail(options: SendEmailOptions) {
       from: process.env.SMTP_FROM || process.env.SMTP_USER,
       ...options,
     })
-    console.log('[Email] Email sent successfully, messageId:', result.messageId)
+    log.info('Email sent successfully, messageId:', result.messageId)
     return result
   } catch (error) {
-    console.error('[Email] Failed to send email:', error)
+    log.error('Failed to send email:', error)
     throw error
   }
 }
@@ -59,10 +62,10 @@ interface SendCustomEmailOptions {
 export async function sendCustomEmail(options: SendCustomEmailOptions) {
   const { to, subject, body, customerName, businessName } = options
 
-  console.log('[Email] Sending custom email...')
+  log.info('Sending custom email...')
 
   if (!process.env.SMTP_HOST || !process.env.SMTP_USER) {
-    console.warn('[Email] Email not configured - skipping email send')
+    log.warn('Email not configured - skipping email send')
     return null
   }
 
@@ -99,10 +102,10 @@ export async function sendCustomEmail(options: SendCustomEmailOptions) {
         contentType: a.contentType,
       })),
     })
-    console.log('[Email] Custom email sent successfully, messageId:', result.messageId)
+    log.info('Custom email sent successfully, messageId:', result.messageId)
     return result
   } catch (error) {
-    console.error('[Email] Failed to send custom email:', error)
+    log.error('Failed to send custom email:', error)
     throw error
   }
 }

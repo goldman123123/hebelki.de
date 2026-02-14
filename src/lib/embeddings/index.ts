@@ -10,6 +10,9 @@
  */
 
 import { createHash } from 'crypto'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('lib:embeddings:index')
 
 // ============================================
 // EMBEDDING CONFIGURATION
@@ -108,11 +111,12 @@ function getApiKey(): string {
  * Generate embedding with full provenance metadata
  */
 export async function generateEmbeddingWithMetadata(
-  text: string
+  text: string,
+  apiKey?: string
 ): Promise<EmbeddingResult> {
   const normalized = normalizeText(text)
   const contentHash = hashContent(normalized)
-  const embedding = await generateEmbeddingRaw(normalized)
+  const embedding = await generateEmbeddingRaw(normalized, apiKey)
 
   return {
     embedding,
@@ -128,16 +132,16 @@ export async function generateEmbeddingWithMetadata(
  * Generate embedding for text (legacy API - returns just the vector)
  * @deprecated Use generateEmbeddingWithMetadata for new code
  */
-export async function generateEmbedding(text: string): Promise<number[]> {
+export async function generateEmbedding(text: string, apiKey?: string): Promise<number[]> {
   // For backward compatibility, normalize and embed
   const normalized = normalizeText(text)
-  return generateEmbeddingRaw(normalized)
+  return generateEmbeddingRaw(normalized, apiKey)
 }
 
 /**
  * Internal: Call OpenRouter API for embeddings
  */
-async function generateEmbeddingRaw(normalizedText: string): Promise<number[]> {
+async function generateEmbeddingRaw(normalizedText: string, apiKey?: string): Promise<number[]> {
   const OPENROUTER_SITE_URL = process.env.OPENROUTER_SITE_URL || 'https://www.hebelki.de'
   const OPENROUTER_SITE_NAME = process.env.OPENROUTER_SITE_NAME || 'Hebelki'
 
@@ -145,7 +149,7 @@ async function generateEmbeddingRaw(normalizedText: string): Promise<number[]> {
     const response = await fetch('https://openrouter.ai/api/v1/embeddings', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${getApiKey()}`,
+        'Authorization': `Bearer ${apiKey || getApiKey()}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': OPENROUTER_SITE_URL,
         'X-Title': OPENROUTER_SITE_NAME,
@@ -161,10 +165,10 @@ async function generateEmbeddingRaw(normalizedText: string): Promise<number[]> {
       throw new Error(`OpenRouter embeddings failed: ${JSON.stringify(error)}`)
     }
 
-    const data = await response.json()
+    const data = await response.json() as { data: { embedding: number[] }[] }
     return data.data[0].embedding
   } catch (error) {
-    console.error('Error generating embedding:', error)
+    log.error('Error generating embedding:', error)
     throw error
   }
 }
@@ -173,7 +177,8 @@ async function generateEmbeddingRaw(normalizedText: string): Promise<number[]> {
  * Generate embeddings for multiple texts with full metadata
  */
 export async function generateEmbeddingsWithMetadata(
-  texts: string[]
+  texts: string[],
+  apiKey?: string
 ): Promise<EmbeddingResult[]> {
   if (texts.length === 0) return []
 
@@ -182,7 +187,7 @@ export async function generateEmbeddingsWithMetadata(
   const hashes = normalized.map(hashContent)
 
   // Batch API call
-  const embeddings = await generateEmbeddingsRaw(normalized)
+  const embeddings = await generateEmbeddingsRaw(normalized, apiKey)
 
   // Return with full metadata
   return embeddings.map((embedding, i) => ({
@@ -199,15 +204,15 @@ export async function generateEmbeddingsWithMetadata(
  * Generate embeddings for multiple texts (legacy API)
  * @deprecated Use generateEmbeddingsWithMetadata for new code
  */
-export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
+export async function generateEmbeddings(texts: string[], apiKey?: string): Promise<number[][]> {
   const normalized = texts.map(normalizeText)
-  return generateEmbeddingsRaw(normalized)
+  return generateEmbeddingsRaw(normalized, apiKey)
 }
 
 /**
  * Internal: Batch API call for embeddings
  */
-async function generateEmbeddingsRaw(normalizedTexts: string[]): Promise<number[][]> {
+async function generateEmbeddingsRaw(normalizedTexts: string[], apiKey?: string): Promise<number[][]> {
   if (normalizedTexts.length === 0) return []
 
   const OPENROUTER_SITE_URL = process.env.OPENROUTER_SITE_URL || 'https://www.hebelki.de'
@@ -217,7 +222,7 @@ async function generateEmbeddingsRaw(normalizedTexts: string[]): Promise<number[
     const response = await fetch('https://openrouter.ai/api/v1/embeddings', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${getApiKey()}`,
+        'Authorization': `Bearer ${apiKey || getApiKey()}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': OPENROUTER_SITE_URL,
         'X-Title': OPENROUTER_SITE_NAME,
@@ -233,10 +238,10 @@ async function generateEmbeddingsRaw(normalizedTexts: string[]): Promise<number[
       throw new Error(`OpenRouter embeddings failed: ${JSON.stringify(error)}`)
     }
 
-    const data = await response.json()
-    return data.data.map((item: { embedding: number[] }) => item.embedding)
+    const data = await response.json() as { data: { embedding: number[] }[] }
+    return data.data.map((item) => item.embedding)
   } catch (error) {
-    console.error('Error generating embeddings:', error)
+    log.error('Error generating embeddings:', error)
     throw error
   }
 }
@@ -246,13 +251,14 @@ async function generateEmbeddingsRaw(normalizedTexts: string[]): Promise<number[
  */
 export async function generateEmbeddingsBatchedWithMetadata(
   texts: string[],
-  batchSize: number = 50
+  batchSize: number = 50,
+  apiKey?: string
 ): Promise<EmbeddingResult[]> {
   const allResults: EmbeddingResult[] = []
 
   for (let i = 0; i < texts.length; i += batchSize) {
     const batch = texts.slice(i, i + batchSize)
-    const results = await generateEmbeddingsWithMetadata(batch)
+    const results = await generateEmbeddingsWithMetadata(batch, apiKey)
     allResults.push(...results)
 
     // Small delay between batches to avoid rate limits

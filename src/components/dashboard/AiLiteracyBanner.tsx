@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { AlertTriangle, X, ExternalLink, Bot } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('ui:dashboard:AiLiteracyBanner')
 
 interface AiLiteracyBannerProps {
   businessId?: string
@@ -28,7 +31,7 @@ export function AiLiteracyBanner({ businessId }: AiLiteracyBannerProps) {
           setIsAcknowledged(acknowledged)
         }
       } catch (error) {
-        console.error('Failed to check AI literacy status:', error)
+        log.error('Failed to check AI literacy status:', error)
         setIsAcknowledged(false)
       }
     }

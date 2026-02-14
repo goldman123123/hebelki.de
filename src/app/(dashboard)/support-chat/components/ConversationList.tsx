@@ -5,6 +5,9 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('dashboard:support-chat:ConversationList')
 
 interface Conversation {
   id: string
@@ -60,7 +63,7 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
         setConversations(data.conversations)
       }
     } catch (error) {
-      console.error('Failed to fetch conversations:', error)
+      log.error('Failed to fetch conversations:', error)
     } finally {
       setLoading(false)
     }

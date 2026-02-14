@@ -13,6 +13,9 @@ import { auth } from '@clerk/nextjs/server'
 import { db } from '@/lib/db'
 import { businesses, businessMembers } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:dev:add-me')
 
 export async function POST() {
   // Development only
@@ -73,7 +76,7 @@ export async function POST() {
       },
     })
   } catch (error) {
-    console.error('[Dev API] Error adding user:', error)
+    log.error('Error adding user:', error)
 
     return NextResponse.json(
       {

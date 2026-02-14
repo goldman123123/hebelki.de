@@ -40,6 +40,9 @@ import {
 import { format, formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { toast } from 'sonner'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('dashboard:customers:[id]:CustomerOverviewTab')
 
 interface Message {
   id: string
@@ -143,7 +146,7 @@ export function CustomerOverviewTab({
         setConversationMessages(data.messages || [])
       }
     } catch (error) {
-      console.error('Failed to fetch messages:', error)
+      log.error('Failed to fetch messages:', error)
     } finally {
       setLoadingMessages(false)
     }
@@ -193,7 +196,7 @@ export function CustomerOverviewTab({
         toast.error(data.error || 'Fehler beim Speichern')
       }
     } catch (error) {
-      console.error('Failed to save customer:', error)
+      log.error('Failed to save customer:', error)
       toast.error('Fehler beim Speichern')
     } finally {
       setSaving(false)
@@ -215,7 +218,7 @@ export function CustomerOverviewTab({
         toast.error(data.error || 'Fehler beim Löschen')
       }
     } catch (error) {
-      console.error('Failed to delete customer:', error)
+      log.error('Failed to delete customer:', error)
       toast.error('Fehler beim Löschen')
     } finally {
       setDeleting(false)

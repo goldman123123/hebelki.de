@@ -17,6 +17,9 @@ import { db } from '@/lib/db'
 import { businesses, chatbotKnowledge } from '@/lib/db/schema'
 import { eq, and, desc } from 'drizzle-orm'
 import { ScrapedPage } from '@/lib/ai-extractor/types'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:admin:services:detect-from-knowledge')
 
 interface DetectFromKnowledgeRequest {
   businessId: string
@@ -51,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     const businessType = business.type || 'general'
 
-    console.log(`[Service Detection from Knowledge] Starting for business ${businessId}`)
+    log.info(`Starting for business ${businessId}`)
 
     // Query recent knowledge entries from website scraping
     const knowledge = await db
@@ -69,7 +72,7 @@ export async function POST(request: NextRequest) {
       .orderBy(desc(chatbotKnowledge.createdAt))
       .limit(50) // Limit to most recent entries to avoid processing too much
 
-    console.log(`[Service Detection from Knowledge] Found ${knowledge.length} knowledge entries`)
+    log.info(`Found ${knowledge.length} knowledge entries`)
 
     if (knowledge.length === 0) {
       return NextResponse.json({
@@ -87,24 +90,24 @@ export async function POST(request: NextRequest) {
       metadata: { title: k.title || '' },
     }))
 
-    console.log(`[Service Detection from Knowledge] Processing ${scrapedPages.length} content pages`)
+    log.info(`Processing ${scrapedPages.length} content pages`)
 
     // Extract services using AI
-    const rawServices = await extractServicesFromContent(scrapedPages, businessType)
+    const rawServices = await extractServicesFromContent(scrapedPages, businessType, businessId)
 
-    console.log(`[Service Detection from Knowledge] Extracted ${rawServices.length} raw services`)
+    log.info(`Extracted ${rawServices.length} raw services`)
 
     // Deduplicate services
     const services = deduplicateServices(rawServices)
 
-    console.log(`[Service Detection from Knowledge] Found ${services.length} unique services after deduplication`)
+    log.info(`Found ${services.length} unique services after deduplication`)
 
     return NextResponse.json({
       services,
       knowledgeProcessed: knowledge.length,
     })
   } catch (error) {
-    console.error('[Service Detection from Knowledge] Error:', error)
+    log.error('Error:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Detection failed' },
       { status: 500 }

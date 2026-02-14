@@ -9,6 +9,9 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { chatbotLimiter } from '@/lib/rate-limit'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:chatbot:transcribe')
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB (well under OpenAI's 25MB limit)
@@ -17,7 +20,7 @@ export async function POST(request: NextRequest) {
   try {
     // Check for API key
     if (!OPENAI_API_KEY) {
-      console.error('[Transcribe API] OPENAI_API_KEY not configured')
+      log.error('OPENAI_API_KEY not configured')
       return NextResponse.json(
         { error: 'Spracherkennung ist nicht konfiguriert' },
         { status: 503 }
@@ -33,7 +36,7 @@ export async function POST(request: NextRequest) {
     try {
       await chatbotLimiter.check(identifier, 10) // 10 requests per minute
     } catch {
-      console.warn(`[TRANSCRIBE-RATE-LIMIT] ${identifier} exceeded rate limit`)
+      log.warn(`${identifier} exceeded rate limit`)
       return NextResponse.json(
         {
           error: 'Zu viele Anfragen. Bitte versuchen Sie es später erneut.',
@@ -79,14 +82,14 @@ export async function POST(request: NextRequest) {
     ]
 
     if (!validTypes.includes(baseType)) {
-      console.warn('[Transcribe API] Invalid audio type:', audioFile.type)
+      log.warn('Invalid audio type:', audioFile.type)
       return NextResponse.json(
         { error: `Ungültiges Audioformat: ${audioFile.type}` },
         { status: 400 }
       )
     }
 
-    console.log('[Transcribe API] Processing audio:', {
+    log.info('Processing audio:', {
       businessId,
       fileType: audioFile.type,
       baseType,
@@ -112,7 +115,7 @@ export async function POST(request: NextRequest) {
 
     if (!whisperResponse.ok) {
       const errorData = await whisperResponse.json().catch(() => ({}))
-      console.error('[Transcribe API] Whisper API error:', {
+      log.error('Whisper API error:', {
         status: whisperResponse.status,
         error: errorData,
       })
@@ -132,7 +135,7 @@ export async function POST(request: NextRequest) {
 
     const result = await whisperResponse.json()
 
-    console.log('[Transcribe API] Transcription successful:', {
+    log.info('Transcription successful:', {
       textLength: result.text?.length,
     })
 
@@ -142,7 +145,7 @@ export async function POST(request: NextRequest) {
       duration: result.duration,
     })
   } catch (error) {
-    console.error('[Transcribe API] Error:', error)
+    log.error('Error:', error)
 
     return NextResponse.json(
       {

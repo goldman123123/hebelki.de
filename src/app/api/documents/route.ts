@@ -12,6 +12,9 @@ import { db } from '@/lib/db'
 import { documents, documentVersions, ingestionJobs, customers } from '@/lib/db/schema'
 import { requireBusinessAccess } from '@/lib/auth-helpers'
 import { eq, and, desc, ne } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:documents')
 
 export async function GET(request: NextRequest) {
   try {
@@ -169,7 +172,7 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('[GET /api/documents] Error:', error)
+    log.error('[GET /api/documents] Error:', error)
 
     if (error instanceof Error) {
       if (error.message.includes('Unauthorized')) {

@@ -9,20 +9,23 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { processEvents } from '@/modules/core/events/processor'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:cron:process-events')
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60 // 60 seconds (Vercel hobby/pro limits)
 
 export async function GET(request: NextRequest) {
-  console.log('[Cron] Event processing cron job triggered')
+  log.info('Event processing cron job triggered')
 
   // Verify cron secret
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
 
   if (!cronSecret) {
-    console.error('[Cron] CRON_SECRET not configured')
+    log.error('CRON_SECRET not configured')
     return NextResponse.json(
       { error: 'Cron not configured' },
       { status: 500 }
@@ -32,7 +35,7 @@ export async function GET(request: NextRequest) {
   // Check authorization header format: "Bearer <secret>"
   const expectedAuth = `Bearer ${cronSecret}`
   if (authHeader !== expectedAuth) {
-    console.error('[Cron] Invalid or missing authorization header')
+    log.error('Invalid or missing authorization header')
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }
@@ -47,7 +50,7 @@ export async function GET(request: NextRequest) {
 
     const duration = Date.now() - startTime
 
-    console.log(`[Cron] Event processing completed: ${processed} events processed in ${duration}ms`)
+    log.info(`Event processing completed: ${processed} events processed in ${duration}ms`)
 
     return NextResponse.json({
       success: true,
@@ -56,7 +59,7 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
-    console.error('[Cron] Event processing failed:', error)
+    log.error('Event processing failed:', error)
 
     return NextResponse.json(
       {

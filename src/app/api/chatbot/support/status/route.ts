@@ -10,6 +10,9 @@
 import { NextResponse } from 'next/server'
 import { requireBusinessAuth } from '@/lib/auth'
 import { getOnlineStaffCount } from '@/lib/staff-online'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:chatbot:support:status')
 
 export async function GET() {
   try {
@@ -27,7 +30,7 @@ export async function GET() {
       isAnyOnline: staffOnline > 0,
     })
   } catch (error) {
-    console.error('[Support Status API] Error:', error)
+    log.error('Error:', error)
     return NextResponse.json(
       { error: 'Fehler beim Laden des Status' },
       { status: 500 }

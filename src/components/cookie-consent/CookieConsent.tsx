@@ -19,6 +19,9 @@ import { useEffect } from 'react'
 import 'vanilla-cookieconsent/dist/cookieconsent.css'
 import './cookie-consent-custom.css'
 import * as CookieConsent from 'vanilla-cookieconsent'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('ui:cookie-consent:CookieConsent')
 
 export function CookieConsentBanner() {
   useEffect(() => {
@@ -230,25 +233,25 @@ export function CookieConsentBanner() {
 
       // Callback when user accepts/rejects cookies
       onConsent: ({ cookie }) => {
-        console.log('[CookieConsent] User consent recorded:', cookie)
+        log.info('User consent recorded:', cookie)
 
         // Track consent event (for analytics if enabled)
         if (cookie.categories.includes('analytics')) {
-          console.log('[CookieConsent] Analytics cookies accepted')
+          log.info('Analytics cookies accepted')
           // Initialize Google Analytics here when implemented
         }
       },
 
       // Callback when user changes preferences
       onChange: ({ changedCategories, changedServices }) => {
-        console.log('[CookieConsent] Preferences changed:', {
+        log.info('Preferences changed:', {
           changedCategories,
           changedServices,
         })
 
         // Handle analytics opt-out
         if (changedCategories.includes('analytics')) {
-          console.log('[CookieConsent] Analytics preferences changed')
+          log.info('Analytics preferences changed')
           // Disable/enable analytics tracking
         }
       },

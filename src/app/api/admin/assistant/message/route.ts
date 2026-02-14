@@ -10,6 +10,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireBusinessAuth } from '@/lib/auth'
 import { handleChatMessage } from '@/modules/chatbot/lib/conversation'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:admin:assistant:message')
 
 export async function POST(request: NextRequest) {
   const authResult = await requireBusinessAuth()
@@ -57,7 +60,7 @@ export async function POST(request: NextRequest) {
       metadata: result.metadata,
     })
   } catch (error) {
-    console.error('[Assistant API] Error:', error)
+    log.error('Error:', error)
     return NextResponse.json(
       { error: 'Assistent-Fehler' },
       { status: 500 }

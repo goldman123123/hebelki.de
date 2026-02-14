@@ -22,6 +22,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Loader2, Save, ExternalLink, AlertCircle, Bot, Headphones, MessageSquare, Phone } from 'lucide-react'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('dashboard:chatbot:SettingsTab')
 
 interface Business {
   id: string
@@ -130,7 +133,7 @@ export function SettingsTab({ business }: SettingsTabProps) {
         alert(`Fehler: ${data.error}`)
       }
     } catch (error) {
-      console.error('Save error:', error)
+      log.error('Save error:', error)
       alert('Fehler beim Speichern')
     } finally {
       setSaving(false)

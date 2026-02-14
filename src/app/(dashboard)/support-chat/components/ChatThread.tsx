@@ -6,6 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Send, Bot, User, UserCheck, X, ArrowLeft } from 'lucide-react'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('dashboard:support-chat:ChatThread')
 
 interface Message {
   id: string
@@ -57,7 +60,7 @@ export function ChatThread({ conversationId, onClose, showBackButton, onBack }: 
         }
       }
     } catch (error) {
-      console.error('Failed to fetch messages:', error)
+      log.error('Failed to fetch messages:', error)
     } finally {
       setLoading(false)
     }
@@ -81,7 +84,7 @@ export function ChatThread({ conversationId, onClose, showBackButton, onBack }: 
         lastMessageTime.current = data.messages[data.messages.length - 1].createdAt
       }
     } catch (error) {
-      console.error('Failed to poll messages:', error)
+      log.error('Failed to poll messages:', error)
     }
   }
 
@@ -124,7 +127,7 @@ export function ChatThread({ conversationId, onClose, showBackButton, onBack }: 
         }
       }
     } catch (error) {
-      console.error('Failed to send reply:', error)
+      log.error('Failed to send reply:', error)
     } finally {
       setSending(false)
     }
@@ -144,7 +147,7 @@ export function ChatThread({ conversationId, onClose, showBackButton, onBack }: 
         onClose()
       }
     } catch (error) {
-      console.error('Failed to close conversation:', error)
+      log.error('Failed to close conversation:', error)
     } finally {
       setClosing(false)
     }

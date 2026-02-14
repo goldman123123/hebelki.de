@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getBusinessBySlug, getServiceById } from '@/lib/db/queries'
 import { getAvailableSlots, getAvailableDates, getAvailableSlotsWithStaff } from '@/lib/availability'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:slug:availability')
 
 export async function GET(
   request: NextRequest,
@@ -95,7 +98,7 @@ export async function GET(
       dates: dates.map((d) => d.toISOString().split('T')[0]),
     })
   } catch (error) {
-    console.error('Error fetching availability:', error)
+    log.error('Error fetching availability:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -15,6 +15,9 @@ import { db } from '@/lib/db'
 import { businesses } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import twilio from 'twilio'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:admin:whatsapp:test')
 
 export async function POST() {
   try {
@@ -74,14 +77,14 @@ export async function POST() {
       })
     } catch (twilioError: unknown) {
       const msg = twilioError instanceof Error ? twilioError.message : String(twilioError)
-      console.error('[WhatsApp Test] Twilio API error:', msg)
+      log.error('Twilio API error:', msg)
       return NextResponse.json({
         success: false,
         error: `Twilio-Verbindung fehlgeschlagen: ${msg}`,
       })
     }
   } catch (error: unknown) {
-    console.error('[WhatsApp Test] Error:', error)
+    log.error('Error:', error)
     return NextResponse.json(
       { success: false, error: 'Interner Serverfehler' },
       { status: 500 }

@@ -5,6 +5,9 @@
  */
 
 import { toast } from 'sonner'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('lib:errors:error-handler')
 
 /**
  * Base application error class
@@ -205,7 +208,7 @@ export function handleError(error: unknown, context?: string): void {
   const appError = parseError(error)
 
   // Log to console
-  console.error(`[${appError.code}]${context ? ` ${context}:` : ''}`, appError.message, appError.details)
+  log.error(`[${appError.code}]${context ? ` ${context}:` : ''}`, appError.message, appError.details)
 
   // Show toast to user
   toast.error(appError.getUserMessage(), {
@@ -240,7 +243,7 @@ const defaultRetryOptions: Required<RetryOptions> = {
   backoffMultiplier: 2,
   shouldRetry: (error) => error.isRetryable(),
   onRetry: (error, attempt) => {
-    console.log(`[RETRY] Attempt ${attempt} after error:`, error.code)
+    log.info(`Attempt ${attempt} after error:`, error.code)
   },
 }
 

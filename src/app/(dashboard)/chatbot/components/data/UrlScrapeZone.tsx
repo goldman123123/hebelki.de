@@ -20,6 +20,9 @@ import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { DataPurpose } from './DocumentList'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('dashboard:chatbot:data:UrlScrapeZone')
 
 interface CategorizedPage {
   url: string
@@ -94,7 +97,7 @@ export function UrlScrapeZone({
           })
         }
       } catch (err) {
-        console.error('Poll error:', err)
+        log.error('Poll error:', err)
       }
     }, 2000)
 

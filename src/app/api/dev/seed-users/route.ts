@@ -12,6 +12,9 @@ import { auth } from '@clerk/nextjs/server'
 import { db } from '@/lib/db'
 import { businesses, businessMembers } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:dev:seed-users')
 
 export async function POST() {
   // Development only
@@ -90,7 +93,7 @@ export async function POST() {
       note: 'Placeholder users will show "Unknown User" in the DevUserSwitcher since they don\'t exist in Clerk',
     })
   } catch (error) {
-    console.error('[Dev API] Error seeding users:', error)
+    log.error('Error seeding users:', error)
 
     return NextResponse.json(
       {

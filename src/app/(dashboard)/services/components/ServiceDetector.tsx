@@ -36,6 +36,9 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('dashboard:services:ServiceDetector')
 
 // ============================================
 // Types
@@ -154,7 +157,7 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
         setDocuments(completedDocs)
       }
     } catch (err) {
-      console.error('Failed to load documents:', err)
+      log.error('Failed to load documents:', err)
     } finally {
       setLoadingDocs(false)
     }

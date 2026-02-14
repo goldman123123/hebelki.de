@@ -17,6 +17,9 @@ import {
 import { requireBusinessAccess } from '@/lib/auth-helpers'
 import { getDownloadUrl } from '@/lib/r2/client'
 import { eq, and, desc, inArray } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:documents:id')
 
 type Params = Promise<{ id: string }>
 
@@ -159,7 +162,7 @@ export async function GET(
       },
     })
   } catch (error) {
-    console.error('[GET /api/documents/[id]] Error:', error)
+    log.error('[GET /api/documents/[id]] Error:', error)
 
     if (error instanceof Error) {
       if (error.message.includes('Unauthorized')) {
@@ -274,7 +277,7 @@ export async function DELETE(
       message: 'Document marked for deletion. Cleanup will complete shortly.',
     })
   } catch (error) {
-    console.error('[DELETE /api/documents/[id]] Error:', error)
+    log.error('[DELETE /api/documents/[id]] Error:', error)
 
     if (error instanceof Error) {
       if (error.message.includes('Unauthorized')) {
@@ -511,7 +514,7 @@ export async function PATCH(
       reindexing,
     })
   } catch (error) {
-    console.error('[PATCH /api/documents/[id]] Error:', error)
+    log.error('[PATCH /api/documents/[id]] Error:', error)
 
     if (error instanceof Error) {
       if (error.message.includes('Unauthorized')) {

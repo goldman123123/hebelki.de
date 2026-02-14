@@ -1,6 +1,9 @@
 import { db } from './index'
 import { bookingHolds, bookings, bookingActions, businesses, staff } from './schema'
 import { eq, and, gte, lte, lt } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('lib:db:holds')
 
 /**
  * Create a hold on a time slot (5-minute expiration by default)
@@ -230,7 +233,7 @@ export async function cancelHold(holdId: string, businessId: string) {
  */
 export async function cleanupExpiredHolds() {
   const deleted = await db.delete(bookingHolds).where(lt(bookingHolds.expiresAt, new Date())).returning()
-  console.log(`[Holds] Cleaned up ${deleted.length} expired holds`)
+  log.info(`Cleaned up ${deleted.length} expired holds`)
   return deleted.length
 }
 

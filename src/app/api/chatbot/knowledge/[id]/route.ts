@@ -20,6 +20,9 @@ import {
   ExternalAPIError,
   withRetry,
 } from '@/lib/errors/error-handler'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:chatbot:knowledge:id')
 
 interface RouteContext {
   params: Promise<{
@@ -80,7 +83,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       const newContent = validated.content ?? entry.content
       const embeddingText = `${newTitle}\n${newContent}`
 
-      console.log(`[Knowledge Update] Regenerating embedding for: "${newTitle}"`)
+      log.info(`Regenerating embedding for: "${newTitle}"`)
 
       const embedding = await withRetry(
         async () => {
@@ -99,13 +102,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           initialDelay: 1000,
           maxDelay: 5000,
           onRetry: (error, attempt) => {
-            console.log(`[Knowledge Update] Retrying embedding generation (attempt ${attempt})`)
+            log.info(`Retrying embedding generation (attempt ${attempt})`)
           },
         }
       )
 
       updates.embedding = embedding // ✅ REGENERATED
-      console.log(`[Knowledge Update] ✅ Updated entry ${id} with new embedding`)
+      log.info(`✅ Updated entry ${id} with new embedding`)
     }
 
     // Update the entry with retry
@@ -142,7 +145,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   } catch (error) {
     // Handle validation errors specially
     if (error instanceof ZodError) {
-      console.error('[Knowledge PATCH] Validation error:', error.issues)
+      log.error('Validation error:', error.issues)
       return NextResponse.json(
         {
           success: false,
@@ -155,7 +158,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     const appError = parseError(error)
-    console.error('[Knowledge PATCH]', appError.code, appError.message, appError.details)
+    log.error('', appError.code, appError.message, appError.details)
 
     return NextResponse.json(
       {
@@ -221,7 +224,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       }
     )
 
-    console.log(`[Knowledge DELETE] ✅ Deleted entry ${id}`)
+    log.info(`✅ Deleted entry ${id}`)
 
     return NextResponse.json({
       success: true,
@@ -229,7 +232,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     })
   } catch (error) {
     const appError = parseError(error)
-    console.error('[Knowledge DELETE]', appError.code, appError.message, appError.details)
+    log.error('', appError.code, appError.message, appError.details)
 
     return NextResponse.json(
       {

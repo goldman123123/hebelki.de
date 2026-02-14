@@ -25,6 +25,9 @@ import {
   ExternalAPIError,
   withRetry,
 } from '@/lib/errors/error-handler'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:chatbot:knowledge')
 
 /**
  * GET /api/chatbot/knowledge?businessId=xxx
@@ -78,7 +81,7 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     const appError = parseError(error)
-    console.error('[Knowledge GET]', appError.code, appError.message, appError.details)
+    log.error('', appError.code, appError.message, appError.details)
 
     return NextResponse.json(
       {
@@ -110,7 +113,7 @@ export async function POST(request: NextRequest) {
     // Consistent header pattern: {Title}\n\n{Content}
     // This matches document chunk format for consistent embedding space
     const embeddingText = `${validated.title}\n\n${validated.content}`
-    console.log(`[Knowledge Create] Generating embedding for: "${validated.title}"`)
+    log.info(`Generating embedding for: "${validated.title}"`)
 
     // Generate embedding with full metadata for provenance tracking
     const embeddingResult = await withRetry(
@@ -131,7 +134,7 @@ export async function POST(request: NextRequest) {
         initialDelay: 1000,
         maxDelay: 5000,
         onRetry: (error, attempt) => {
-          console.log(`[Knowledge Create] Retrying embedding generation (attempt ${attempt})`)
+          log.info(`Retrying embedding generation (attempt ${attempt})`)
         },
       }
     )
@@ -184,7 +187,7 @@ export async function POST(request: NextRequest) {
       }
     )
 
-    console.log(`[Knowledge Create] ✅ Created entry ${entry.id}`, {
+    log.info(`✅ Created entry ${entry.id}`, {
       model: embeddingResult.model,
       preprocessVersion: embeddingResult.preprocessVersion,
       contentHash: embeddingResult.contentHash.substring(0, 16) + '...',
@@ -197,7 +200,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     // Handle validation errors specially
     if (error instanceof ZodError) {
-      console.error('[Knowledge POST] Validation error:', error.issues)
+      log.error('Validation error:', error.issues)
       return NextResponse.json(
         {
           success: false,
@@ -210,7 +213,7 @@ export async function POST(request: NextRequest) {
     }
 
     const appError = parseError(error)
-    console.error('[Knowledge POST]', appError.code, appError.message, appError.details)
+    log.error('', appError.code, appError.message, appError.details)
 
     return NextResponse.json(
       {

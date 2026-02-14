@@ -46,6 +46,9 @@ import { de } from 'date-fns/locale'
 import { toast } from 'sonner'
 import { DocumentCardActions } from './DocumentCardActions'
 import { ChangeScopeModal } from './ChangeScopeModal'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('dashboard:chatbot:data:DocumentCard')
 
 export interface Document {
   id: string
@@ -209,7 +212,7 @@ export function DocumentCard({
         throw new Error(data.error || 'Fehler beim Löschen')
       }
     } catch (error) {
-      console.error('Delete error:', error)
+      log.error('Delete error:', error)
       toast.error(error instanceof Error ? error.message : 'Fehler beim Löschen')
     } finally {
       setDeleting(false)

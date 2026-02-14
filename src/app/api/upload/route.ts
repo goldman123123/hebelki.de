@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireBusinessAuth } from '@/lib/auth'
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:upload')
 
 // R2 client configuration
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID
@@ -79,7 +82,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ url, key: r2Key })
   } catch (error) {
-    console.error('Upload error:', error)
+    log.error('Upload error:', error)
     return NextResponse.json(
       { error: 'Failed to upload file' },
       { status: 500 }

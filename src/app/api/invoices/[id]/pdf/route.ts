@@ -11,6 +11,9 @@ import { getDownloadUrl } from '@/lib/r2/client'
 import { db } from '@/lib/db'
 import { invoices } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:invoices:id:pdf')
 
 export async function GET(
   request: NextRequest,
@@ -49,7 +52,7 @@ export async function GET(
     // Redirect to the presigned URL
     return NextResponse.redirect(downloadUrl)
   } catch (error) {
-    console.error('Error getting invoice PDF:', error)
+    log.error('Error getting invoice PDF:', error)
     const message = error instanceof Error ? error.message : 'Failed to get invoice PDF'
     return NextResponse.json({ error: message }, { status: 500 })
   }

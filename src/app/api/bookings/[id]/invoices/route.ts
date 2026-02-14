@@ -8,6 +8,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireBusinessAuth } from '@/lib/auth'
 import { verifyBookingOwnership } from '@/lib/db/queries'
 import { getAllInvoicesForBooking } from '@/lib/invoices'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:bookings:id:invoices')
 
 export async function GET(
   request: NextRequest,
@@ -30,7 +33,7 @@ export async function GET(
 
     return NextResponse.json({ invoices: allInvoices })
   } catch (error) {
-    console.error('Error getting invoices history:', error)
+    log.error('Error getting invoices history:', error)
     return NextResponse.json({ error: 'Failed to get invoices' }, { status: 500 })
   }
 }

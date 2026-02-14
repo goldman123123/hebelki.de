@@ -32,6 +32,9 @@ import {
   UploadClassificationPanel,
   ClassificationOptions,
 } from './UploadClassificationPanel'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('ui:documents:UploadModal')
 
 export interface UploadModalProps {
   open: boolean
@@ -276,7 +279,7 @@ export function UploadModal({
         onUploadComplete?.()
       }, 1000)
     } catch (error) {
-      console.error('Upload error:', error)
+      log.error('Upload error:', error)
       toast.error(error instanceof Error ? error.message : 'Fehler beim Hochladen')
     } finally {
       setUploading(false)

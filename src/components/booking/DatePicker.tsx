@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react'
 import { Calendar } from '@/components/ui/calendar'
 import { Loader2 } from 'lucide-react'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('ui:booking:DatePicker')
 
 interface DatePickerProps {
   businessSlug: string
@@ -46,7 +49,7 @@ export function DatePicker({
           }))
         }
       } catch (error) {
-        console.error('Failed to fetch availability:', error)
+        log.error('Failed to fetch availability:', error)
       } finally {
         setIsLoading(false)
       }

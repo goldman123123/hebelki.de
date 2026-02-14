@@ -2,6 +2,9 @@
 
 import { Component, ReactNode } from 'react'
 import { AlertCircle, RefreshCw } from 'lucide-react'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('app:onboarding:wizard:components:ErrorBoundary')
 
 interface Props {
   children: ReactNode
@@ -24,7 +27,7 @@ export class WizardErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Wizard Error:', error, errorInfo)
+    log.error('Wizard Error:', error, errorInfo)
   }
 
   handleReset = () => {

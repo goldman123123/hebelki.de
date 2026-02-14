@@ -1,6 +1,10 @@
 import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
+import { createLogger } from '@/lib/logger';
+import { validateEnv } from '@/lib/env-check';
 import * as schema from './schema';
+
+validateEnv();
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -8,6 +12,8 @@ if (!process.env.DATABASE_URL) {
     `Current env keys: ${Object.keys(process.env).filter(k => k.includes('DATABASE')).join(', ')}`
   );
 }
+
+const log = createLogger('db');
 
 /**
  * Check if any error in the .cause chain is a transient network failure.
@@ -42,7 +48,7 @@ function withRetry(fn: () => Promise<unknown>): Promise<unknown> {
   for (const delay of retryDelays) {
     chain = chain.catch(async (err: unknown) => {
       if (isTransientError(err)) {
-        console.warn(`[DB] Transient error, retrying in ${delay}ms...`);
+        log.warn(`Transient error, retrying in ${delay}ms...`);
         await new Promise(r => setTimeout(r, delay));
         return fn();
       }

@@ -3,6 +3,9 @@
  * Fetches and parses sitemap.xml to get URLs with metadata
  */
 import axios from 'axios'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('lib:scraper:sitemap-parser')
 
 interface SitemapUrl {
   url: string
@@ -16,7 +19,7 @@ export async function fetchSitemap(baseUrl: string): Promise<SitemapUrl[]> {
     const url = new URL(baseUrl)
     const sitemapUrl = new URL('/sitemap.xml', url.origin)
 
-    console.log(`🔍 Fetching sitemap from: ${sitemapUrl}`)
+    log.info(`Fetching sitemap from: ${sitemapUrl}`)
 
     const response = await axios.get(sitemapUrl.toString(), {
       timeout: 10000,
@@ -26,7 +29,7 @@ export async function fetchSitemap(baseUrl: string): Promise<SitemapUrl[]> {
     })
 
     if (!response.data) {
-      console.log('❌ Sitemap response empty')
+      log.info('Sitemap response empty')
       return []
     }
 
@@ -36,7 +39,7 @@ export async function fetchSitemap(baseUrl: string): Promise<SitemapUrl[]> {
     const locMatches = xml.match(/<loc>(.*?)<\/loc>/g)
 
     if (!locMatches) {
-      console.log('❌ No URLs found in sitemap')
+      log.info('No URLs found in sitemap')
       return []
     }
 
@@ -47,11 +50,11 @@ export async function fetchSitemap(baseUrl: string): Promise<SitemapUrl[]> {
       })
       .filter((entry: SitemapUrl) => entry.url.length > 0)
 
-    console.log(`✅ Found ${urls.length} URLs in sitemap`)
+    log.info(`Found ${urls.length} URLs in sitemap`)
     return urls
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error)
-    console.log(`⚠️ No sitemap.xml found: ${message}`)
+    log.info(`No sitemap.xml found: ${message}`)
     return []
   }
 }

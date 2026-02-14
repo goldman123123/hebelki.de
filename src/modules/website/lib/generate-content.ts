@@ -3,6 +3,11 @@ import { db } from '@/lib/db'
 import { businesses, services, staff, chatbotKnowledge, businessWebsites } from '@/lib/db/schema'
 import type { WebsiteSectionContent, TemplateId } from '@/lib/db/schema'
 import { eq, and, isNull } from 'drizzle-orm'
+import { getAIConfig } from '@/lib/ai/config'
+import { logAIUsage } from '@/lib/ai/usage'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('website:generate-content')
 
 interface BusinessData {
   business: typeof businesses.$inferSelect
@@ -235,12 +240,23 @@ export async function generateWebsiteContent(
   const data = await fetchBusinessData(businessId)
   const prompt = buildPrompt(data, templateId)
 
-  const model = 'google/gemini-2.5-flash'
+  const aiConfig = await getAIConfig(businessId)
+  const model = aiConfig.websiteModel
   const response = await createChatCompletion({
     model,
+    apiKey: aiConfig.apiKey,
     messages: [{ role: 'user', content: prompt }],
     temperature: 0.7,
     max_tokens: 5000,
+  })
+
+  await logAIUsage({
+    businessId,
+    channel: 'website',
+    model: response.model || model,
+    promptTokens: response.usage?.prompt_tokens,
+    completionTokens: response.usage?.completion_tokens,
+    totalTokens: response.usage?.total_tokens,
   })
 
   const raw = response.choices[0]?.message?.content || '{}'
@@ -252,7 +268,7 @@ export async function generateWebsiteContent(
   try {
     parsed = JSON.parse(cleaned)
   } catch {
-    console.error('[generateWebsiteContent] Failed to parse AI response:', cleaned.substring(0, 500))
+    log.error('Failed to parse AI response:', cleaned.substring(0, 500))
     parsed = {}
   }
 
@@ -297,11 +313,22 @@ Tone: ${styleHints[templateId]}
 Expected fields: ${sectionContext[sectionName] || 'title, content'}
 Return ONLY valid JSON for this single section (no markdown).`
 
+  const aiConfig = await getAIConfig(businessId)
   const response = await createChatCompletion({
-    model: 'google/gemini-2.5-flash',
+    model: aiConfig.websiteModel,
+    apiKey: aiConfig.apiKey,
     messages: [{ role: 'user', content: prompt }],
     temperature: 0.8,
     max_tokens: 2000,
+  })
+
+  await logAIUsage({
+    businessId,
+    channel: 'website',
+    model: response.model || aiConfig.websiteModel,
+    promptTokens: response.usage?.prompt_tokens,
+    completionTokens: response.usage?.completion_tokens,
+    totalTokens: response.usage?.total_tokens,
   })
 
   const raw = response.choices[0]?.message?.content || '{}'
@@ -310,7 +337,7 @@ Return ONLY valid JSON for this single section (no markdown).`
   try {
     return JSON.parse(cleaned)
   } catch {
-    console.error('[regenerateSection] Failed to parse AI response')
+    log.error('Failed to parse AI response')
     return {}
   }
 }

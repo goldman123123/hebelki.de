@@ -1,3 +1,6 @@
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('chatbot:openrouter')
 /**
  * OpenRouter API Client
  *
@@ -45,6 +48,7 @@ export interface ChatCompletionOptions {
   temperature?: number
   max_tokens?: number
   stream?: boolean
+  apiKey?: string
 }
 
 export interface ChatCompletionResponse {
@@ -69,14 +73,14 @@ export interface ChatCompletionResponse {
 export async function createChatCompletion(
   options: ChatCompletionOptions
 ): Promise<ChatCompletionResponse> {
-  const apiKey = process.env.OPENROUTER_API_KEY
+  const apiKey = options.apiKey || process.env.OPENROUTER_API_KEY
   if (!apiKey) {
     throw new Error('OPENROUTER_API_KEY not configured')
   }
 
   const model = options.model || process.env.OPENROUTER_MODEL || 'openai/gpt-4o-2024-08-06'
 
-  console.log(`[OPENROUTER] Request: model=${model}, messages=${options.messages.length}, tools=${options.tools?.length || 0}`)
+  log.info(`Request: model=${model}, messages=${options.messages.length}, tools=${options.tools?.length || 0}`)
 
   const requestBody = {
     model,
@@ -101,12 +105,12 @@ export async function createChatCompletion(
 
   if (!response.ok) {
     const error = await response.text()
-    console.error('[OPENROUTER] API error:', response.status)
+    log.error('API error:', response.status)
     throw new Error(`OpenRouter API error: ${response.status} - ${error}`)
   }
 
-  const result = await response.json()
-  console.log('[OPENROUTER] Response received, tool_calls:', !!result.choices?.[0]?.message?.tool_calls)
+  const result = await response.json() as ChatCompletionResponse
+  log.info('Response received, tool_calls:', !!result.choices?.[0]?.message?.tool_calls)
 
   // Validate response structure
   if (!result || typeof result !== 'object') {
@@ -114,7 +118,7 @@ export async function createChatCompletion(
   }
 
   if (!result.choices || !Array.isArray(result.choices) || result.choices.length === 0) {
-    console.error('[OPENROUTER] Missing or empty choices array')
+    log.error('Missing or empty choices array')
     throw new Error('OpenRouter response missing choices array')
   }
 
@@ -138,7 +142,7 @@ export function parseToolArguments<T = Record<string, unknown>>(
 ): ParseResult<T> {
   // Handle undefined/null
   if (args === undefined || args === null) {
-    console.error('[parseToolArguments] Tool arguments are undefined or null')
+    log.error('Tool arguments are undefined or null')
     return {
       success: false,
       error: 'Tool arguments are undefined',
@@ -147,7 +151,7 @@ export function parseToolArguments<T = Record<string, unknown>>(
 
   // Handle non-string types
   if (typeof args !== 'string') {
-    console.error('[parseToolArguments] Tool arguments must be string, got:', typeof args)
+    log.error('Tool arguments must be string, got:', typeof args)
     return {
       success: false,
       error: `Tool arguments must be string, got ${typeof args}`,
@@ -156,7 +160,7 @@ export function parseToolArguments<T = Record<string, unknown>>(
 
   // Handle empty strings
   if (args.trim() === '') {
-    console.error('[parseToolArguments] Tool arguments are empty string')
+    log.error('Tool arguments are empty string')
     return {
       success: false,
       error: 'Tool arguments are empty string',
@@ -171,7 +175,7 @@ export function parseToolArguments<T = Record<string, unknown>>(
       data: parsed,
     }
   } catch (error) {
-    console.error('[parseToolArguments] Failed to parse tool arguments:', {
+    log.error('Failed to parse tool arguments:', {
       rawArgs: args,
       argsLength: args.length,
       argsPreview: args.substring(0, 200),

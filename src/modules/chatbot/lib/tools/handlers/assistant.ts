@@ -16,6 +16,9 @@ import { sendWhatsAppMessage } from '@/lib/twilio-client'
 import { generateEmbeddingWithMetadata } from '@/lib/embeddings'
 import { downloadFile, getDownloadUrl } from '@/lib/r2/client'
 import { sendCustomEmail } from '@/lib/email'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('chatbot:tools:handlers:assistant')
 
 /**
  * Assistant tool handlers
@@ -101,7 +104,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[search_invoices] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Suchen von Rechnungen' }
     }
   },
@@ -161,7 +164,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[get_invoice_details] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Abrufen der Rechnungsdetails' }
     }
   },
@@ -218,7 +221,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[get_booking_documents] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Abrufen der Dokumente' }
     }
   },
@@ -411,7 +414,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[get_monthly_schedule] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Abrufen der Monatsübersicht' }
     }
   },
@@ -452,7 +455,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[block_day] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Blockieren des Tages' }
     }
   },
@@ -512,7 +515,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[send_whatsapp] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Senden der WhatsApp-Nachricht' }
     }
   },
@@ -571,7 +574,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[add_knowledge_entry] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Erstellen des Wissenseintrags' }
     }
   },
@@ -681,7 +684,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[update_booking] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Aktualisieren der Buchung' }
     }
   },
@@ -781,7 +784,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[get_affected_bookings] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Abrufen der betroffenen Buchungen' }
     }
   },
@@ -861,7 +864,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[block_staff_period] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Blockieren des Zeitraums' }
     }
   },
@@ -905,7 +908,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[create_service] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Erstellen der Dienstleistung' }
     }
   },
@@ -978,7 +981,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[update_service] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Aktualisieren der Dienstleistung' }
     }
   },
@@ -1007,7 +1010,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[delete_service] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Deaktivieren der Dienstleistung' }
     }
   },
@@ -1048,7 +1051,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[create_staff] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Erstellen des Mitarbeiters' }
     }
   },
@@ -1131,7 +1134,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[update_staff] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Aktualisieren des Mitarbeiters' }
     }
   },
@@ -1195,7 +1198,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[delete_staff] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Löschen des Mitarbeiters' }
     }
   },
@@ -1263,7 +1266,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[assign_staff_to_service] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Zuweisen des Mitarbeiters zur Dienstleistung' }
     }
   },
@@ -1323,7 +1326,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[remove_staff_from_service] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Entfernen der Zuweisung' }
     }
   },
@@ -1379,7 +1382,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[get_availability_template] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Abrufen des Wochenplans' }
     }
   },
@@ -1423,7 +1426,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[update_availability_template] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Aktualisieren des Wochenplans' }
     }
   },
@@ -1508,7 +1511,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[update_business_profile] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Aktualisieren des Geschäftsprofils' }
     }
   },
@@ -1583,7 +1586,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[update_booking_rules] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Aktualisieren der Buchungsrichtlinien' }
     }
   },
@@ -1676,7 +1679,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[update_knowledge_entry] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Aktualisieren des Wissenseintrags' }
     }
   },
@@ -1717,7 +1720,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[delete_knowledge_entry] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Löschen des Wissenseintrags' }
     }
   },
@@ -1774,7 +1777,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[delete_customer] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Löschen des Kunden' }
     }
   },
@@ -1829,7 +1832,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[update_staff_service_priority] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Aktualisieren der Prioritäten' }
     }
   },
@@ -1920,7 +1923,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[classify_uploaded_document] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Klassifizieren des Dokuments' }
     }
   },
@@ -1983,7 +1986,7 @@ export const assistantHandlers = {
               contentType,
             })
           } catch (dlError) {
-            console.error(`[send_email_with_attachments] Failed to download ${att.r2Key}:`, dlError)
+            log.error(`Failed to download ${att.r2Key}:`, dlError)
             return {
               success: false,
               error: `Datei "${att.filename}" konnte nicht geladen werden`,
@@ -2012,7 +2015,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[send_email_with_attachments] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Senden der E-Mail mit Anhängen' }
     }
   },
@@ -2055,7 +2058,7 @@ export const assistantHandlers = {
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unbekannter Fehler'
-      console.error('[create_invoice] Error:', error)
+      log.error('Error:', error)
       if (msg.includes('already exists') || msg.includes('bereits')) {
         return { success: false, error: 'Für diese Buchung existiert bereits eine aktive Rechnung. Verwende get_booking_documents um sie zu finden.' }
       }
@@ -2094,7 +2097,7 @@ export const assistantHandlers = {
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unbekannter Fehler'
-      console.error('[send_invoice] Error:', error)
+      log.error('Error:', error)
       if (msg.includes('draft') || msg.includes('Entwurf')) {
         return { success: false, error: 'Nur Rechnungen im Status "Entwurf" können versendet werden.' }
       }
@@ -2137,7 +2140,7 @@ export const assistantHandlers = {
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unbekannter Fehler'
-      console.error('[mark_invoice_paid] Error:', error)
+      log.error('Error:', error)
       if (msg.includes('sent') || msg.includes('versendet')) {
         return { success: false, error: 'Nur versendete Rechnungen können als bezahlt markiert werden.' }
       }
@@ -2173,7 +2176,7 @@ export const assistantHandlers = {
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unbekannter Fehler'
-      console.error('[cancel_invoice_storno] Error:', error)
+      log.error('Error:', error)
       if (msg.includes('storno') || msg.includes('Storno')) {
         return { success: false, error: 'Diese Rechnung ist bereits eine Stornorechnung und kann nicht erneut storniert werden.' }
       }
@@ -2229,7 +2232,7 @@ export const assistantHandlers = {
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unbekannter Fehler'
-      console.error('[create_replacement_invoice] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: `Fehler beim Erstellen der Ersatzrechnung: ${msg}` }
     }
   },
@@ -2266,7 +2269,7 @@ export const assistantHandlers = {
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unbekannter Fehler'
-      console.error('[generate_lieferschein] Error:', error)
+      log.error('Error:', error)
       if (msg.includes('Positionen') || msg.includes('items')) {
         return { success: false, error: 'Keine Positionen vorhanden. Bitte zuerst Positionen mit update_booking_items hinzufügen.' }
       }
@@ -2379,7 +2382,7 @@ export const assistantHandlers = {
         },
       }
     } catch (error) {
-      console.error('[update_booking_items] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Aktualisieren der Positionen' }
     }
   },
@@ -2452,7 +2455,7 @@ export const assistantHandlers = {
         return { success: false, error: `Unbekannter Dokumenttyp: ${args.documentType}. Verwende "invoice" oder "lieferschein".` }
       }
     } catch (error) {
-      console.error('[get_download_link] Error:', error)
+      log.error('Error:', error)
       return { success: false, error: 'Fehler beim Erstellen des Download-Links' }
     }
   },

@@ -97,6 +97,77 @@ WICHTIG: Verwende für alle Tool-Aufrufe diese businessId: ${businessId}`
 }
 
 /**
+ * Build voice system prompt for owner/admin callers.
+ *
+ * Uses the assistant prompt style but adapted for phone:
+ * - No URLs or links
+ * - Concise spoken format
+ * - Full admin tool access
+ */
+export function buildOwnerVoiceSystemPrompt(
+  context: VoiceBusinessContext,
+  businessId: string,
+): string {
+  return `Du bist der interne Geschäftsassistent für ${context.name}, am Telefon mit dem Inhaber/Administrator.
+Du unterstützt bei allen betrieblichen Aufgaben. Antworte IMMER auf Deutsch.
+
+${context.customInstructions || ''}
+
+TELEFONVERHALTEN:
+- Halte Antworten KURZ und KLAR — maximal 2-3 Sätze pro Antwort
+- Sprich natürlich und professionell, verwende "Du" (internes Gespräch)
+- Sage "Einen Moment, ich prüfe das..." bevor du Tools aufrufst
+- Sage Daten immer ausgeschrieben: "Montag, der dritte März"
+- Sage Uhrzeiten klar: "um zehn Uhr" oder "um vierzehn Uhr dreißig"
+- Nenne KEINE URLs oder Links — der Anrufer kann nichts anklicken
+- Am Gesprächsende: "Alles klar! Noch etwas? Dann einen schönen Tag!"
+
+DU HAST ZUGRIFF AUF:
+- Buchungskalender, Kundendaten, Rechnungen
+- Monatsplanung, Wissensdatenbank
+- E-Mail- und WhatsApp-Kommunikation
+- Tagesübersicht und Statistiken
+- Mitarbeiterverwaltung und Terminplanung
+- Dienstleistungsverwaltung
+
+VERHALTEN:
+- Sei proaktiv und strukturiert
+- Bei Tagesübersicht: get_daily_summary + get_todays_bookings
+- Bei Kundenfragen: search_customers → get_customer_bookings
+- Bei Rechnungsfragen: search_invoices → get_invoice_details
+- Erfinde KEINE Daten — verwende NUR Tool-Ergebnisse
+
+WICHTIG: Verwende für alle Tool-Aufrufe diese businessId: ${businessId}`
+}
+
+/**
+ * Get all assistant tool definitions for voice (owner/admin callers).
+ *
+ * Returns all tools in OpenAI Realtime tool format.
+ */
+export function getOwnerVoiceToolDefinitions(tools: Array<{
+  type: string
+  function: {
+    name: string
+    description: string
+    parameters: Record<string, unknown>
+  }
+}>): Array<{
+  type: 'function'
+  name: string
+  description: string
+  parameters: Record<string, unknown>
+}> {
+  // All tools available for owner — same as assistantTools in conversation.ts
+  return tools.map((t) => ({
+    type: 'function' as const,
+    name: t.function.name,
+    description: t.function.description,
+    parameters: t.function.parameters,
+  }))
+}
+
+/**
  * Get the list of voice-available tool definitions.
  *
  * Returns only customer-safe tools in OpenAI Realtime tool format.

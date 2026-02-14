@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getBusinessBySlug, getServicesByBusiness } from '@/lib/db/queries'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:slug:services')
 
 export async function GET(
   request: NextRequest,
@@ -30,7 +33,7 @@ export async function GET(
       })),
     })
   } catch (error) {
-    console.error('Error fetching services:', error)
+    log.error('Error fetching services:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

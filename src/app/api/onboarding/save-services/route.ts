@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { services as servicesTable, staffServices } from '@/lib/db/schema'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api:onboarding:save-services')
 
 export async function POST(request: NextRequest) {
   try {
@@ -58,7 +61,7 @@ export async function POST(request: NextRequest) {
       return insertedServices
     })
 
-    console.log(`Saved ${result.length} services for business ${businessId}`)
+    log.info(`Saved ${result.length} services for business ${businessId}`)
 
     return NextResponse.json({
       success: true,
@@ -66,7 +69,7 @@ export async function POST(request: NextRequest) {
       services: result
     })
   } catch (error) {
-    console.error('Error saving services:', error)
+    log.error('Error saving services:', error)
     return NextResponse.json(
       {
         error: 'Failed to save services',
