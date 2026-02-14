@@ -126,17 +126,6 @@ export interface BookingRemindedPayload {
   confirmationToken?: string
 }
 
-export interface MemberInvitedPayload {
-  memberId: string
-  businessId: string
-  businessName: string
-  inviteeEmail: string
-  inviteeName?: string
-  inviterName: string
-  role: string
-  invitationUrl: string
-}
-
 export interface MemberJoinedPayload {
   memberId: string
   businessId: string
@@ -191,7 +180,6 @@ export type EventPayload<T extends EventType> =
   T extends 'booking.cancelled' ? BookingCancelledPayload :
   T extends 'booking.rescheduled' ? BookingRescheduledPayload :
   T extends 'booking.reminded' ? BookingRemindedPayload :
-  T extends 'member.invited' ? MemberInvitedPayload :
   T extends 'member.joined' ? MemberJoinedPayload :
   T extends 'invoice.sent' ? InvoiceSentPayload :
   T extends 'customer.created' ? CustomerCreatedPayload :

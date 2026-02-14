@@ -64,6 +64,34 @@ export async function POST(req: NextRequest) {
 
   log.info(`Received event: ${eventType}`)
 
+  // Handle user.created event — resolve pending invitations
+  if (eventType === 'user.created') {
+    const userId = evt.data.id
+    const email = (evt.data.email_addresses as Array<{ email_address: string }>)?.[0]?.email_address
+
+    if (email) {
+      try {
+        const pendingMembers = await db
+          .update(businessMembers)
+          .set({
+            clerkUserId: userId,
+            status: 'active',
+            joinedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(businessMembers.clerkUserId, `pending:${email}`))
+          .returning()
+
+        if (pendingMembers.length > 0) {
+          log.info(`Activated ${pendingMembers.length} membership(s) for ${email}`)
+        }
+      } catch (error) {
+        log.error('Error resolving pending memberships:', error)
+        return new Response('Error processing webhook', { status: 500 })
+      }
+    }
+  }
+
   // Handle user.deleted event
   if (eventType === 'user.deleted') {
     const userId = evt.data.id

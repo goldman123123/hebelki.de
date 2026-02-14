@@ -20,7 +20,6 @@ import {
   invoiceSentEmail,
   liveChatRequestEmail,
   chatEscalatedEmail,
-  memberInvitedEmail,
 } from '@/lib/email-templates'
 import { getDownloadUrl } from '@/lib/r2/client'
 import type {
@@ -30,7 +29,6 @@ import type {
   BookingCancelledPayload,
   BookingRescheduledPayload,
   BookingRemindedPayload,
-  MemberInvitedPayload,
   InvoiceSentPayload,
   ChatLiveRequestedPayload,
   ChatEscalatedPayload,
@@ -170,10 +168,6 @@ async function handleEvent(eventType: EventType, payload: Record<string, unknown
 
     case 'booking.reminded':
       await handleBookingReminded(payload as unknown as BookingRemindedPayload)
-      break
-
-    case 'member.invited':
-      await handleMemberInvited(payload as unknown as MemberInvitedPayload)
       break
 
     case 'invoice.sent':
@@ -396,30 +390,6 @@ async function handleBookingReminded(payload: BookingRemindedPayload): Promise<v
   })
 
   log.info('Booking reminder email sent')
-}
-
-/**
- * Handle member.invited event: Send invitation email.
- */
-async function handleMemberInvited(payload: MemberInvitedPayload): Promise<void> {
-  log.info('Handling member.invited event')
-
-  const email = memberInvitedEmail({
-    inviterName: payload.inviterName,
-    businessName: payload.businessName,
-    role: payload.role,
-    inviteeName: payload.inviteeName,
-    acceptUrl: payload.invitationUrl,
-  })
-
-  await sendEmail({
-    to: payload.inviteeEmail,
-    subject: email.subject,
-    html: email.html,
-    text: email.text,
-  })
-
-  log.info('Member invitation email sent')
 }
 
 /**

@@ -11,7 +11,6 @@ import { getBusinessMembers, createBusinessMember } from '@/lib/db/queries'
 import { requirePermission } from '@/modules/core/permissions'
 import { requireSeatsAvailable } from '@/modules/core/entitlements'
 import { getMembership } from '@/modules/core/auth'
-import { emitEventStandalone } from '@/modules/core/events'
 import { clerkClient } from '@clerk/nextjs/server'
 import { z } from 'zod'
 import { createLogger } from '@/lib/logger'
@@ -112,48 +111,42 @@ export async function POST(request: NextRequest) {
     // Look up Clerk user by email to get clerkUserId
     const client = await clerkClient()
     let clerkUserId = `pending:${email}`
-    let inviteeName: string | undefined
+    let memberStatus: 'invited' | 'active' = 'invited'
 
     try {
       const userList = await client.users.getUserList({ emailAddress: [email] })
       if (userList.data.length > 0) {
         const foundUser = userList.data[0]
+        // User already has Clerk account — activate immediately
         clerkUserId = foundUser.id
-        inviteeName = foundUser.fullName || foundUser.firstName || undefined
+        memberStatus = 'active'
       }
     } catch {
       // User not found in Clerk - will use pending placeholder
     }
 
-    // Create member invitation
+    // Create member
     const newMember = await createBusinessMember({
       businessId: authResult.business.id,
       clerkUserId,
       role,
-      status: 'invited',
+      status: memberStatus,
       invitedBy: member.id,
     })
 
-    // Get inviter name from Clerk
-    let inviterName = 'Team'
-    try {
-      const inviterUser = await client.users.getUser(authResult.userId)
-      inviterName = inviterUser.fullName || inviterUser.firstName || 'Team'
-    } catch {
-      // Fallback to generic name
-    }
-
-    // Emit member.invited event (send invitation email)
-    await emitEventStandalone(authResult.business.id, 'member.invited', {
-      memberId: newMember.id,
-      businessId: authResult.business.id,
-      businessName: authResult.business.name,
-      inviteeEmail: email,
-      inviteeName,
-      inviterName,
-      role,
-      invitationUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.hebelki.de'}/accept-invitation/${newMember.id}`,
+    // Send invitation via Clerk (Clerk handles the email + sign-up flow)
+    await client.invitations.createInvitation({
+      emailAddress: email,
+      redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.hebelki.de'}/dashboard`,
+      publicMetadata: {
+        businessId: authResult.business.id,
+        businessName: authResult.business.name,
+        role,
+        invitedBy: member.id,
+      },
     })
+
+    log.info(`Clerk invitation sent to ${email} for business ${authResult.business.id}`)
 
     return NextResponse.json({ member: newMember }, { status: 201 })
   } catch (error) {
