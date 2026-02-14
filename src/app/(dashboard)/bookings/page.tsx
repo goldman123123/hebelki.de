@@ -18,7 +18,8 @@ import { CreateBookingDialog } from '@/components/dashboard/CreateBookingDialog'
 import { BookingCard } from './components/BookingCard'
 import { formatDate, formatTime, formatCurrency } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { Loader2, Plus } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Loader2, Plus, Search } from 'lucide-react'
 
 interface Booking {
   booking: {
@@ -36,6 +37,7 @@ interface Booking {
 export default function BookingsPage() {
   const [filter, setFilter] = useState('all')
   const [bookings, setBookings] = useState<Booking[]>([])
+  const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [timezone, setTimezone] = useState('Europe/Berlin')
@@ -80,6 +82,18 @@ export default function BookingsPage() {
     fetchBookings()
   }, [fetchBookings])
 
+  const filteredBookings = search.trim()
+    ? bookings.filter((b) => {
+        const q = search.toLowerCase()
+        return (
+          b.customer?.name?.toLowerCase().includes(q) ||
+          b.customer?.email?.toLowerCase().includes(q) ||
+          b.service?.name?.toLowerCase().includes(q) ||
+          b.staffMember?.name?.toLowerCase().includes(q)
+        )
+      })
+    : bookings
+
   return (
     <div>
       <div className="mb-6 md:mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -105,12 +119,21 @@ export default function BookingsPage() {
         </Button>
       </div>
 
-      <div className="mb-6">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <BookingFilters
           activeFilter={filter}
           onFilterChange={setFilter}
           counts={counts}
         />
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Input
+            placeholder="Kunde, Service, Mitarbeiter..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
       </div>
 
       <Card>
@@ -124,7 +147,10 @@ export default function BookingsPage() {
              `${filter.charAt(0).toUpperCase() + filter.slice(1)} Buchungen`}
           </CardTitle>
           <CardDescription>
-            {bookings.length} Buchung{bookings.length !== 1 ? 'en' : ''} gefunden
+            {filteredBookings.length} Buchung{filteredBookings.length !== 1 ? 'en' : ''} gefunden
+            {search.trim() && filteredBookings.length !== bookings.length && (
+              <span className="text-gray-400"> (von {bookings.length})</span>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -132,14 +158,14 @@ export default function BookingsPage() {
             <div className="flex justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
             </div>
-          ) : bookings.length === 0 ? (
+          ) : filteredBookings.length === 0 ? (
             <p className="py-8 text-center text-gray-500">
               Keine Buchungen gefunden.
             </p>
           ) : isMobile ? (
             /* Mobile: Card list */
             <div className="space-y-3">
-              {bookings.map((b) => (
+              {filteredBookings.map((b) => (
                 <BookingCard
                   key={b.booking.id}
                   booking={b}
@@ -163,7 +189,7 @@ export default function BookingsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {bookings.map(({ booking, service, staffMember, customer }) => (
+                {filteredBookings.map(({ booking, service, staffMember, customer }) => (
                   <TableRow key={booking.id}>
                     <TableCell>
                       <div className="font-medium">
