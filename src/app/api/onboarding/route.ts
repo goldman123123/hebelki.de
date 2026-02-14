@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth, clerkClient } from '@clerk/nextjs/server'
 import { createBusinessForUser, getBusinessForUser, getBusinessBySlug } from '@/lib/db/queries'
 import { parseBody } from '@/lib/api-response'
+import { getUiLocale } from '@/lib/locale'
 import { z } from 'zod'
 
 const onboardingSchema = z.object({
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
     businessEmail = user.primaryEmailAddress?.emailAddress
   }
 
+  const locale = await getUiLocale()
   const business = await createBusinessForUser({
     clerkUserId: userId,
     name: parsed.data.name,
@@ -53,6 +55,7 @@ export async function POST(request: NextRequest) {
     type: parsed.data.type,
     timezone: parsed.data.timezone,
     email: businessEmail || undefined,
+    language: locale,
   })
 
   return NextResponse.json({ business }, { status: 201 })

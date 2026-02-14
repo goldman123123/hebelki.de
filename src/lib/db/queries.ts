@@ -70,6 +70,7 @@ export async function createBusinessForUser(data: {
   type: string
   timezone?: string
   email?: string
+  language?: string
 }) {
   // Step 1: Create the business (without clerkUserId field)
   const businessResult = await db
@@ -81,6 +82,7 @@ export async function createBusinessForUser(data: {
       type: data.type,
       timezone: data.timezone || 'Europe/Berlin',
       email: data.email,
+      settings: data.language ? { language: data.language } : {},
     })
     .returning()
 
