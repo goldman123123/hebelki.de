@@ -11,6 +11,7 @@
 
 import { createHash } from 'crypto'
 import { createLogger } from '@/lib/logger'
+import { logAIUsage } from '@/lib/ai/usage'
 
 const log = createLogger('lib:embeddings:index')
 
@@ -112,11 +113,12 @@ function getApiKey(): string {
  */
 export async function generateEmbeddingWithMetadata(
   text: string,
-  apiKey?: string
+  apiKey?: string,
+  businessId?: string
 ): Promise<EmbeddingResult> {
   const normalized = normalizeText(text)
   const contentHash = hashContent(normalized)
-  const embedding = await generateEmbeddingRaw(normalized, apiKey)
+  const embedding = await generateEmbeddingRaw(normalized, apiKey, businessId)
 
   return {
     embedding,
@@ -132,16 +134,16 @@ export async function generateEmbeddingWithMetadata(
  * Generate embedding for text (legacy API - returns just the vector)
  * @deprecated Use generateEmbeddingWithMetadata for new code
  */
-export async function generateEmbedding(text: string, apiKey?: string): Promise<number[]> {
+export async function generateEmbedding(text: string, apiKey?: string, businessId?: string): Promise<number[]> {
   // For backward compatibility, normalize and embed
   const normalized = normalizeText(text)
-  return generateEmbeddingRaw(normalized, apiKey)
+  return generateEmbeddingRaw(normalized, apiKey, businessId)
 }
 
 /**
  * Internal: Call OpenRouter API for embeddings
  */
-async function generateEmbeddingRaw(normalizedText: string, apiKey?: string): Promise<number[]> {
+async function generateEmbeddingRaw(normalizedText: string, apiKey?: string, businessId?: string): Promise<number[]> {
   const OPENROUTER_SITE_URL = process.env.OPENROUTER_SITE_URL || 'https://www.hebelki.de'
   const OPENROUTER_SITE_NAME = process.env.OPENROUTER_SITE_NAME || 'Hebelki'
 
@@ -165,7 +167,23 @@ async function generateEmbeddingRaw(normalizedText: string, apiKey?: string): Pr
       throw new Error(`OpenRouter embeddings failed: ${JSON.stringify(error)}`)
     }
 
-    const data = await response.json() as { data: { embedding: number[] }[] }
+    const data = await response.json() as {
+      data: { embedding: number[] }[]
+      usage?: { prompt_tokens?: number; total_tokens?: number }
+    }
+
+    // Fire-and-forget usage logging
+    if (businessId && data.usage) {
+      logAIUsage({
+        businessId,
+        channel: 'embedding',
+        model: EMBEDDING_CONFIG.model,
+        promptTokens: data.usage.prompt_tokens || 0,
+        completionTokens: 0,
+        totalTokens: data.usage.total_tokens || data.usage.prompt_tokens || 0,
+      })
+    }
+
     return data.data[0].embedding
   } catch (error) {
     log.error('Error generating embedding:', error)
@@ -178,7 +196,8 @@ async function generateEmbeddingRaw(normalizedText: string, apiKey?: string): Pr
  */
 export async function generateEmbeddingsWithMetadata(
   texts: string[],
-  apiKey?: string
+  apiKey?: string,
+  businessId?: string
 ): Promise<EmbeddingResult[]> {
   if (texts.length === 0) return []
 
@@ -187,7 +206,7 @@ export async function generateEmbeddingsWithMetadata(
   const hashes = normalized.map(hashContent)
 
   // Batch API call
-  const embeddings = await generateEmbeddingsRaw(normalized, apiKey)
+  const embeddings = await generateEmbeddingsRaw(normalized, apiKey, businessId)
 
   // Return with full metadata
   return embeddings.map((embedding, i) => ({
@@ -204,15 +223,15 @@ export async function generateEmbeddingsWithMetadata(
  * Generate embeddings for multiple texts (legacy API)
  * @deprecated Use generateEmbeddingsWithMetadata for new code
  */
-export async function generateEmbeddings(texts: string[], apiKey?: string): Promise<number[][]> {
+export async function generateEmbeddings(texts: string[], apiKey?: string, businessId?: string): Promise<number[][]> {
   const normalized = texts.map(normalizeText)
-  return generateEmbeddingsRaw(normalized, apiKey)
+  return generateEmbeddingsRaw(normalized, apiKey, businessId)
 }
 
 /**
  * Internal: Batch API call for embeddings
  */
-async function generateEmbeddingsRaw(normalizedTexts: string[], apiKey?: string): Promise<number[][]> {
+async function generateEmbeddingsRaw(normalizedTexts: string[], apiKey?: string, businessId?: string): Promise<number[][]> {
   if (normalizedTexts.length === 0) return []
 
   const OPENROUTER_SITE_URL = process.env.OPENROUTER_SITE_URL || 'https://www.hebelki.de'
@@ -238,7 +257,23 @@ async function generateEmbeddingsRaw(normalizedTexts: string[], apiKey?: string)
       throw new Error(`OpenRouter embeddings failed: ${JSON.stringify(error)}`)
     }
 
-    const data = await response.json() as { data: { embedding: number[] }[] }
+    const data = await response.json() as {
+      data: { embedding: number[] }[]
+      usage?: { prompt_tokens?: number; total_tokens?: number }
+    }
+
+    // Fire-and-forget usage logging
+    if (businessId && data.usage) {
+      logAIUsage({
+        businessId,
+        channel: 'embedding',
+        model: EMBEDDING_CONFIG.model,
+        promptTokens: data.usage.prompt_tokens || 0,
+        completionTokens: 0,
+        totalTokens: data.usage.total_tokens || data.usage.prompt_tokens || 0,
+      })
+    }
+
     return data.data.map((item) => item.embedding)
   } catch (error) {
     log.error('Error generating embeddings:', error)
@@ -252,13 +287,14 @@ async function generateEmbeddingsRaw(normalizedTexts: string[], apiKey?: string)
 export async function generateEmbeddingsBatchedWithMetadata(
   texts: string[],
   batchSize: number = 50,
-  apiKey?: string
+  apiKey?: string,
+  businessId?: string
 ): Promise<EmbeddingResult[]> {
   const allResults: EmbeddingResult[] = []
 
   for (let i = 0; i < texts.length; i += batchSize) {
     const batch = texts.slice(i, i + batchSize)
-    const results = await generateEmbeddingsWithMetadata(batch, apiKey)
+    const results = await generateEmbeddingsWithMetadata(batch, apiKey, businessId)
     allResults.push(...results)
 
     // Small delay between batches to avoid rate limits

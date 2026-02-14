@@ -621,7 +621,7 @@ async function performVectorSearch(
 ): Promise<Array<SearchResult & { rank: number; authorityLevel?: string | null; embeddingModel?: string | null; embeddingDim?: number | null; preprocessVersion?: string | null }>> {
   try {
     // Generate embedding for query
-    const queryEmbedding = await generateEmbedding(query)
+    const queryEmbedding = await generateEmbedding(query, undefined, businessId)
 
     // Build access control condition
     const accessCondition = buildKnowledgeAccessConditions(context)
@@ -917,7 +917,7 @@ async function performDocumentVectorSearch(
 ): Promise<Array<SearchResult & { rank: number }>> {
   try {
     // Generate embedding for query
-    const queryEmbedding = await generateEmbedding(query)
+    const queryEmbedding = await generateEmbedding(query, undefined, businessId)
 
     // First, get accessible document IDs based on access context
     const accessCondition = buildDocumentAccessConditions(context)

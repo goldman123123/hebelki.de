@@ -90,7 +90,7 @@ export async function reEmbedLegacyKnowledgeEntries(
     try {
       // Consistent header pattern: {Title}\n\n{Content}
       const embeddingText = `${entry.title}\n\n${entry.content}`
-      const result = await generateEmbeddingWithMetadata(embeddingText)
+      const result = await generateEmbeddingWithMetadata(embeddingText, undefined, businessId)
 
       await db
         .update(chatbotKnowledge)
@@ -199,7 +199,7 @@ export async function reEmbedLegacyDocumentChunks(
 
       // Consistent header pattern: {DocumentTitle}\n\n{Content}
       const embeddingText = `${documentTitle}\n\n${chunk.content}`
-      const result = await generateEmbeddingWithMetadata(embeddingText)
+      const result = await generateEmbeddingWithMetadata(embeddingText, undefined, businessId)
 
       await db
         .update(chunkEmbeddings)

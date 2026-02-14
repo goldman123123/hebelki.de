@@ -537,7 +537,7 @@ export const assistantHandlers = {
       const embeddingText = `${args.title}\n\n${args.content}`
 
       // Generate embedding with metadata
-      const embeddingResult = await generateEmbeddingWithMetadata(embeddingText)
+      const embeddingResult = await generateEmbeddingWithMetadata(embeddingText, undefined, args.businessId)
 
       // Insert into chatbotKnowledge
       const [entry] = await db
@@ -1652,7 +1652,7 @@ export const assistantHandlers = {
         const newTitle = args.title ?? existing.title ?? ''
         const newContent = args.content ?? existing.content
         const embeddingText = `${newTitle}\n\n${newContent}`
-        const embeddingResult = await generateEmbeddingWithMetadata(embeddingText)
+        const embeddingResult = await generateEmbeddingWithMetadata(embeddingText, undefined, args.businessId)
 
         updateData.embedding = embeddingResult.embedding
         updateData.embeddingProvider = embeddingResult.provider

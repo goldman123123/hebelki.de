@@ -88,7 +88,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       const embedding = await withRetry(
         async () => {
           try {
-            return await generateEmbedding(embeddingText)
+            return await generateEmbedding(embeddingText, undefined, entry.businessId)
           } catch (error) {
             throw new ExternalAPIError(
               'OpenRouter',

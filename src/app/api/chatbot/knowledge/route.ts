@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
     const embeddingResult = await withRetry(
       async () => {
         try {
-          return await generateEmbeddingWithMetadata(embeddingText)
+          return await generateEmbeddingWithMetadata(embeddingText, undefined, validated.businessId)
         } catch (error) {
           // Wrap embedding errors in ExternalAPIError for proper retry logic
           throw new ExternalAPIError(
