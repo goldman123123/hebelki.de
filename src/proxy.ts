@@ -17,6 +17,7 @@ const isPublicRoute = createRouteMatcher([
   '/datenschutz', // Privacy Policy (GDPR required)
   '/allgemeine-geschaeftsbedingungen', // Terms of Service
   '/impressum', // Legal Notice (German Impressumspflicht)
+  '/legal/(.*)', // Legal pages (DPIA, subprocessors, etc.)
   '/api/(.*)/config',
   '/api/(.*)/services',
   '/api/(.*)/staff',
