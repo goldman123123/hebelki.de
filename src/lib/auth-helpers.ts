@@ -9,6 +9,7 @@ import { db } from './db'
 import { businessMembers, businesses } from './db/schema'
 import { eq, and } from 'drizzle-orm'
 import { createLogger } from '@/lib/logger'
+import { isPlatformAdminId } from './platform-auth'
 
 const log = createLogger('lib:auth-helpers')
 
@@ -33,6 +34,8 @@ export async function requireAuth() {
  */
 export async function requireBusinessAccess(businessId: string) {
   const userId = await requireAuth()
+
+  if (isPlatformAdminId(userId)) return // platform admins bypass membership check
 
   log.info(`Checking access for user ${userId} to business ${businessId}`)
 

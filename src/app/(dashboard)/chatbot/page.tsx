@@ -16,6 +16,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -51,16 +52,31 @@ interface TabCounts {
   archiv: number
 }
 
-const chatbotTabs = [
-  { value: 'knowledge', label: 'Wissensdatenbank', shortLabel: 'Wissen', icon: Book, group: 'main' },
-  { value: 'conversations', label: 'Gespräche', shortLabel: 'Chats', icon: MessageSquare, group: 'main' },
-  { value: 'settings', label: 'Einstellungen', shortLabel: 'Einstell.', icon: Settings, group: 'main' },
-  { value: 'dokumente', label: 'Dokumente', shortLabel: 'Doku.', icon: FileText, group: 'data' },
-  { value: 'intern', label: 'Intern', shortLabel: 'Intern', icon: Building2, group: 'data' },
-  { value: 'kunden', label: 'Kunden', shortLabel: 'Kunden', icon: User, group: 'data' },
-  { value: 'archiv', label: 'Archiv', shortLabel: 'Archiv', icon: Database, group: 'data' },
-  { value: 'integration', label: 'Integration', shortLabel: 'Embed', icon: Code, group: 'data' },
+const TAB_KEYS = [
+  'knowledge', 'conversations', 'settings', 'dokumente', 'intern', 'kunden', 'archiv', 'integration',
 ] as const
+
+const TAB_ICONS = {
+  knowledge: Book,
+  conversations: MessageSquare,
+  settings: Settings,
+  dokumente: FileText,
+  intern: Building2,
+  kunden: User,
+  archiv: Database,
+  integration: Code,
+}
+
+const TAB_GROUPS: Record<string, string> = {
+  knowledge: 'main',
+  conversations: 'main',
+  settings: 'main',
+  dokumente: 'data',
+  intern: 'data',
+  kunden: 'data',
+  archiv: 'data',
+  integration: 'data',
+}
 
 const countBadgeColors: Record<string, string> = {
   dokumente: 'bg-green-100 text-green-700',
@@ -70,6 +86,7 @@ const countBadgeColors: Record<string, string> = {
 }
 
 export default function ChatbotDashboardPage() {
+  const t = useTranslations('dashboard.chatbot')
   const [business, setBusiness] = useState<Business | null>(null)
   const [loading, setLoading] = useState(true)
   const [counts, setCounts] = useState<TabCounts>({ dokumente: 0, intern: 0, kunden: 0, archiv: 0 })
@@ -149,7 +166,7 @@ export default function ChatbotDashboardPage() {
       <div className="flex min-h-[400px] items-center justify-center">
         <div className="flex items-center gap-2 text-gray-500">
           <Loader2 className="h-5 w-5 animate-spin" />
-          <span>Lädt...</span>
+          <span>{t('loading')}</span>
         </div>
       </div>
     )
@@ -160,10 +177,10 @@ export default function ChatbotDashboardPage() {
       <div className="flex min-h-[400px] items-center justify-center">
         <Card className="p-8 text-center">
           <h2 className="text-lg font-semibold text-gray-900">
-            Kein Unternehmen gefunden
+            {t('noBusinessFound')}
           </h2>
           <p className="mt-2 text-sm text-gray-500">
-            Bitte erstellen Sie zuerst ein Unternehmen, um den Chatbot zu nutzen.
+            {t('noBusinessFoundDesc')}
           </p>
         </Card>
       </div>
@@ -177,12 +194,12 @@ export default function ChatbotDashboardPage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Chatbot & Daten</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{t('title')}</h1>
         <p className="mt-1 text-sm md:text-base text-gray-600">
-          Verwalten Sie Ihre Wissensdatenbank, Gespräche, Einstellungen und Dokumente
+          {t('subtitle')}
         </p>
         <p className="mt-1 text-sm text-gray-600">
-          Chatbot-URL:{' '}
+          {t('chatbotUrl')}:{' '}
           <Link
             href={`/${business.slug}/chat`}
             className="text-primary hover:underline"
@@ -200,30 +217,31 @@ export default function ChatbotDashboardPage() {
             {/* Scroll fade indicators */}
             <div className="pointer-events-none absolute right-0 top-0 bottom-0 z-10 w-8 bg-gradient-to-l from-gray-50 to-transparent sm:hidden" />
             <TabsList className="flex w-full overflow-x-auto gap-0.5 justify-start no-scrollbar">
-              {chatbotTabs.map((tab, index) => {
-                const Icon = tab.icon
-                const count = tab.value in counts ? counts[tab.value as keyof TabCounts] : undefined
-                const showSeparator = index === 2 // After "Einstellungen", before data tabs
+              {TAB_KEYS.map((tabKey, index) => {
+                const Icon = TAB_ICONS[tabKey]
+                const count = tabKey in counts ? counts[tabKey as keyof TabCounts] : undefined
+                const showSeparator = index === 3 // Before data tabs
+                const label = t(`tabs.${tabKey}`)
 
                 return (
-                  <div key={tab.value} className="flex items-center shrink-0">
+                  <div key={tabKey} className="flex items-center shrink-0">
                     {showSeparator && (
                       <Separator orientation="vertical" className="mx-1 h-5" />
                     )}
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <TabsTrigger value={tab.value} className="flex shrink-0 items-center gap-1.5 px-2.5 sm:px-3">
+                        <TabsTrigger value={tabKey} className="flex shrink-0 items-center gap-1.5 px-2.5 sm:px-3">
                           <Icon className="h-4 w-4 shrink-0" />
-                          <span className="hidden sm:inline text-xs lg:text-sm">{tab.label}</span>
+                          <span className="hidden sm:inline text-xs lg:text-sm">{label}</span>
                           {count !== undefined && count > 0 && (
-                            <span className={`ml-0.5 text-[10px] px-1.5 py-0 rounded-full ${countBadgeColors[tab.value] || 'bg-gray-100 text-gray-700'}`}>
+                            <span className={`ml-0.5 text-[10px] px-1.5 py-0 rounded-full ${countBadgeColors[tabKey] || 'bg-gray-100 text-gray-700'}`}>
                               {count}
                             </span>
                           )}
                         </TabsTrigger>
                       </TooltipTrigger>
                       <TooltipContent side="bottom" className="sm:hidden">
-                        {tab.label}
+                        {label}
                       </TooltipContent>
                     </Tooltip>
                   </div>

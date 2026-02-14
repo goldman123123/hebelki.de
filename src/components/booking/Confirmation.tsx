@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { formatDate, formatTime } from '@/lib/utils'
 import { CheckCircle2, Calendar, Clock, User, Building2 } from 'lucide-react'
@@ -24,6 +25,7 @@ export function Confirmation({
   requireApproval,
   onBookAnother,
 }: ConfirmationProps) {
+  const t = useTranslations('booking')
   return (
     <div className="text-center">
       {/* Success icon */}
@@ -33,20 +35,20 @@ export function Confirmation({
 
       {/* Title */}
       <h2 className="mb-2 text-xl font-semibold text-gray-900">
-        {requireApproval ? 'Buchungsanfrage gesendet!' : 'Buchung bestätigt!'}
+        {requireApproval ? t('requestSentTitle') : t('confirmedTitle')}
       </h2>
 
       {/* Message */}
       <p className="mb-6 text-gray-600">
         {requireApproval
-          ? `Ihre Buchungsanfrage wurde an ${businessName} gesendet. Sie erhalten eine Bestätigungs-E-Mail, sobald sie genehmigt wurde.`
-          : `Ihr Termin wurde bestätigt. Eine Bestätigungs-E-Mail wurde an Ihre Adresse gesendet.`}
+          ? t('requestSentMessage', { businessName })
+          : t('confirmedMessage')}
       </p>
 
       {/* Booking details */}
       <div className="mb-6 rounded-lg bg-gray-50 p-4 text-left">
         <h3 className="mb-3 text-sm font-medium text-gray-700">
-          Buchungsdetails
+          {t('bookingDetails')}
         </h3>
         <div className="space-y-2 text-sm">
           <div className="flex items-center gap-2 text-gray-600">
@@ -77,7 +79,7 @@ export function Confirmation({
         {/* Booking reference */}
         <div className="mt-4 border-t border-gray-200 pt-3">
           <p className="text-xs text-gray-500">
-            Buchungsnummer:{' '}
+            {t('bookingRef')}{' '}
             <span className="font-mono font-medium text-gray-700">
               {bookingId.slice(0, 8).toUpperCase()}
             </span>
@@ -92,7 +94,7 @@ export function Confirmation({
           className="w-full"
           onClick={onBookAnother}
         >
-          Weiteren Termin buchen
+          {t('bookAnother')}
         </Button>
       </div>
     </div>

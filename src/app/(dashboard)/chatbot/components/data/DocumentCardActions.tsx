@@ -31,6 +31,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { Document } from './DocumentCard'
 import { createLogger } from '@/lib/logger'
 
@@ -53,6 +54,7 @@ export function DocumentCardActions({
   onDelete,
   onOpenChangeScopeModal,
 }: DocumentCardActionsProps) {
+  const t = useTranslations('dashboard.chatbot.data.actions')
   const [loading, setLoading] = useState<string | null>(null)
 
   const isKnowledge = doc.dataClass === 'knowledge'
@@ -68,11 +70,11 @@ export function DocumentCardActions({
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Fehler beim Laden')
+        throw new Error(data.error || t('loadError'))
       }
 
       if (!data.downloadUrl) {
-        throw new Error('Keine Download-URL verfügbar')
+        throw new Error(t('noDownloadUrl'))
       }
 
       if (action === 'view') {
@@ -90,7 +92,7 @@ export function DocumentCardActions({
       }
     } catch (error) {
       log.error(`${action} error:`, error)
-      toast.error(error instanceof Error ? error.message : 'Fehler beim Laden')
+      toast.error(error instanceof Error ? error.message : t('loadError'))
     } finally {
       setLoading(null)
     }
@@ -115,19 +117,19 @@ export function DocumentCardActions({
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Fehler beim Aktualisieren')
+        throw new Error(data.error || t('updateError'))
       }
 
       if (newDataClass === 'knowledge') {
-        toast.success('Dokument wird für den Chatbot indexiert')
+        toast.success(t('indexingDocument'))
       } else {
-        toast.success('Dokument aus der Wissensbasis entfernt')
+        toast.success(t('removedFromKnowledge'))
       }
 
       onDataClassChange?.()
     } catch (error) {
       log.error('Toggle knowledge error:', error)
-      toast.error(error instanceof Error ? error.message : 'Fehler beim Aktualisieren')
+      toast.error(error instanceof Error ? error.message : t('updateError'))
     } finally {
       setLoading(null)
     }
@@ -149,7 +151,7 @@ export function DocumentCardActions({
           ) : (
             <MoreVertical className="h-4 w-4" />
           )}
-          <span className="sr-only">Aktionen</span>
+          <span className="sr-only">{t('actionsLabel')}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
@@ -163,7 +165,7 @@ export function DocumentCardActions({
           ) : (
             <Eye className="mr-2 h-4 w-4" />
           )}
-          Anzeigen
+          {t('view')}
         </DropdownMenuItem>
 
         {/* Download */}
@@ -176,7 +178,7 @@ export function DocumentCardActions({
           ) : (
             <Download className="mr-2 h-4 w-4" />
           )}
-          Herunterladen
+          {t('download')}
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
@@ -193,7 +195,7 @@ export function DocumentCardActions({
           ) : (
             <Bot className="mr-2 h-4 w-4" />
           )}
-          {isKnowledge ? 'Aus Chatbot entfernen' : 'Im Chatbot verwenden'}
+          {isKnowledge ? t('removeFromChatbot') : t('useInChatbot')}
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
@@ -201,7 +203,7 @@ export function DocumentCardActions({
         {/* Change Scope */}
         <DropdownMenuItem onClick={onOpenChangeScopeModal}>
           <ArrowRightLeft className="mr-2 h-4 w-4" />
-          Verschieben...
+          {t('move')}
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
@@ -212,7 +214,7 @@ export function DocumentCardActions({
           variant="destructive"
         >
           <Trash2 className="mr-2 h-4 w-4" />
-          Löschen
+          {t('delete')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

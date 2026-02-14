@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { Calendar } from '@/components/ui/calendar'
 import { Loader2 } from 'lucide-react'
 import { createLogger } from '@/lib/logger'
@@ -22,6 +23,7 @@ export function DatePicker({
   maxAdvanceBookingDays,
   onSelect,
 }: DatePickerProps) {
+  const t = useTranslations('booking')
   const [availableDates, setAvailableDates] = useState<Date[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date())
@@ -77,7 +79,7 @@ export function DatePicker({
   return (
     <div>
       <h2 className="mb-4 text-lg font-semibold text-gray-900">
-        Wählen Sie ein Datum
+        {t('selectDate')}
       </h2>
 
       <div className="flex justify-center">
@@ -117,7 +119,7 @@ export function DatePicker({
       </div>
 
       <p className="mt-4 text-center text-sm text-gray-500">
-        Verfügbare Termine sind grün markiert
+        {t('availableDatesHint')}
       </p>
     </div>
   )

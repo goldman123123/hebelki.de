@@ -12,6 +12,7 @@ import {
   Eye, ExternalLink, Palette, Globe, Loader2, RefreshCw,
   ChevronDown, ChevronRight, Save, Sparkles,
 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { getTemplateConfig } from '@/modules/website/lib/templates-config'
 import type { TemplateId } from '@/lib/db/schema'
 
@@ -42,23 +43,24 @@ interface WebsiteBuilderProps {
 
 type SectionKey = 'hero' | 'about' | 'services' | 'testimonials' | 'howItWorks' | 'team' | 'benefits' | 'faq' | 'contact' | 'bookingCta' | 'footer'
 
-const SECTION_LABELS: Record<SectionKey, string> = {
-  hero: 'Hero / Kopfbereich',
-  about: 'Über uns',
-  services: 'Leistungen',
-  testimonials: 'Kundenstimmen',
-  howItWorks: 'So funktioniert es',
-  team: 'Team',
-  benefits: 'Ihre Vorteile',
-  faq: 'Häufige Fragen',
-  contact: 'Kontakt',
-  bookingCta: 'Buchungs-CTA',
-  footer: 'Footer',
+const SECTION_LABEL_KEYS: Record<SectionKey, string> = {
+  hero: 'sectionHero',
+  about: 'sectionAbout',
+  services: 'sectionServices',
+  testimonials: 'sectionTestimonials',
+  howItWorks: 'sectionHowItWorks',
+  team: 'sectionTeam',
+  benefits: 'sectionBenefits',
+  faq: 'sectionFaq',
+  contact: 'sectionContact',
+  bookingCta: 'sectionBookingCta',
+  footer: 'sectionFooter',
 }
 
 const REGENERATABLE_SECTIONS: SectionKey[] = ['hero', 'about', 'testimonials', 'howItWorks', 'benefits', 'faq', 'bookingCta']
 
 export function WebsiteBuilder({ website, business, onUpdate, onSwitchTemplate }: WebsiteBuilderProps) {
+  const t = useTranslations('dashboard.tools.website.builder')
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [regenerating, setRegenerating] = useState<string | null>(null)
@@ -189,7 +191,7 @@ export function WebsiteBuilder({ website, business, onUpdate, onSwitchTemplate }
           {editedSections[sectionName] && (
             <Button size="sm" onClick={() => handleSaveSection(sectionName)} disabled={saving}>
               {saving ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Save className="mr-1 h-3 w-3" />}
-              Speichern
+              {t('save')}
             </Button>
           )}
           {REGENERATABLE_SECTIONS.includes(sectionName) && (
@@ -204,7 +206,7 @@ export function WebsiteBuilder({ website, business, onUpdate, onSwitchTemplate }
               ) : (
                 <Sparkles className="mr-1 h-3 w-3" />
               )}
-              Neu generieren
+              {t('regenerate')}
             </Button>
           )}
         </div>
@@ -221,10 +223,10 @@ export function WebsiteBuilder({ website, business, onUpdate, onSwitchTemplate }
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <Badge variant={website.isPublished ? 'default' : 'secondary'}>
-                  {website.isPublished ? 'Veröffentlicht' : 'Entwurf'}
+                  {website.isPublished ? t('published') : t('draft')}
                 </Badge>
                 <span className="text-sm text-muted-foreground">
-                  Template: <strong>{templateConfig.name}</strong>
+                  {t('template')}: <strong>{templateConfig.name}</strong>
                 </span>
               </div>
             </div>
@@ -247,16 +249,16 @@ export function WebsiteBuilder({ website, business, onUpdate, onSwitchTemplate }
                   disabled={publishing}
                 />
                 <Label className="text-sm">
-                  {publishing ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Veröffentlichen'}
+                  {publishing ? <Loader2 className="h-3 w-3 animate-spin" /> : t('publish')}
                 </Label>
               </div>
               <Button variant="outline" size="sm" onClick={onSwitchTemplate}>
                 <Palette className="mr-1 h-3 w-3" />
-                Template wechseln
+                {t('switchTemplate')}
               </Button>
               <Button variant="outline" size="sm" onClick={() => setShowPreview(!showPreview)}>
                 <Eye className="mr-1 h-3 w-3" />
-                {showPreview ? 'Editor' : 'Vorschau'}
+                {showPreview ? t('editor') : t('preview')}
               </Button>
             </div>
           </div>
@@ -271,14 +273,14 @@ export function WebsiteBuilder({ website, business, onUpdate, onSwitchTemplate }
               src={`${siteUrl}?preview=true`}
               className="w-full border-0 rounded-xl"
               style={{ height: '80vh' }}
-              title="Website-Vorschau"
+              title={t('websitePreview')}
             />
           </CardContent>
         </Card>
       ) : (
         /* Section editors */
         <div className="space-y-2">
-          {(Object.keys(SECTION_LABELS) as SectionKey[]).map((sectionName) => {
+          {(Object.keys(SECTION_LABEL_KEYS) as SectionKey[]).map((sectionName) => {
             const isExpanded = expandedSection === sectionName
             const hasEdits = !!editedSections[sectionName]
 
@@ -290,8 +292,8 @@ export function WebsiteBuilder({ website, business, onUpdate, onSwitchTemplate }
                 >
                   <div className="flex items-center gap-2">
                     {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                    <span className="font-medium text-sm">{SECTION_LABELS[sectionName]}</span>
-                    {hasEdits && <Badge variant="outline" className="text-xs">Ungespeichert</Badge>}
+                    <span className="font-medium text-sm">{t(SECTION_LABEL_KEYS[sectionName])}</span>
+                    {hasEdits && <Badge variant="outline" className="text-xs">{t('unsaved')}</Badge>}
                   </div>
                 </div>
                 {isExpanded && (
@@ -310,25 +312,25 @@ export function WebsiteBuilder({ website, business, onUpdate, onSwitchTemplate }
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
             <Globe className="h-4 w-4" />
-            SEO & Meta
+            {t('seoMeta')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Seitentitel</Label>
+            <Label className="text-xs text-muted-foreground">{t('pageTitle')}</Label>
             <Input
               value={getSectionValue('_meta', 'metaTitle') || website.metaTitle || ''}
               onChange={(e) => updateField('_meta', 'metaTitle', e.target.value)}
-              placeholder="Seitentitel für Suchmaschinen"
+              placeholder={t('pageTitlePlaceholder')}
               className="text-sm"
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Beschreibung</Label>
+            <Label className="text-xs text-muted-foreground">{t('metaDescription')}</Label>
             <Textarea
               value={getSectionValue('_meta', 'metaDescription') || website.metaDescription || ''}
               onChange={(e) => updateField('_meta', 'metaDescription', e.target.value)}
-              placeholder="Beschreibung für Suchmaschinen (150-160 Zeichen)"
+              placeholder={t('metaDescriptionPlaceholder')}
               rows={2}
               className="text-sm"
             />
@@ -363,7 +365,7 @@ export function WebsiteBuilder({ website, business, onUpdate, onSwitchTemplate }
               disabled={saving}
             >
               {saving ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Save className="mr-1 h-3 w-3" />}
-              Meta speichern
+              {t('saveMeta')}
             </Button>
           )}
         </CardContent>

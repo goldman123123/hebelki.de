@@ -13,6 +13,7 @@ const WARN_VARS = [
   'OPENROUTER_API_KEY',
   'SMTP_HOST',
   'STRIPE_SECRET_KEY',
+  'PLATFORM_ADMIN_CLERK_IDS',
 ] as const
 
 let validated = false

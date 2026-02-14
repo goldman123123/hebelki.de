@@ -3,6 +3,9 @@ import { db } from '@/lib/db'
 import { businesses } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { EmbedChatWrapper } from '@/components/embed/EmbedChatWrapper'
+import { getBusinessLocale } from '@/lib/locale'
+import { getMessagesForLocale, getEmailTranslations } from '@/lib/email-i18n'
+import { BusinessLocaleProvider } from '@/components/BusinessLocaleProvider'
 
 interface EmbedChatPageProps {
   params: Promise<{ slug: string }>
@@ -34,12 +37,20 @@ export default async function EmbedChatPage({ params, searchParams }: EmbedChatP
     : {}
 
   const primaryColor = color ? `#${color}` : settings.chatbotColor || business.primaryColor || '#3B82F6'
-  const welcomeMessage = settings.chatbotWelcomeMessage || `Hallo und herzlich willkommen bei ${business.name}! Wie kann ich Ihnen helfen?`
+
+  const locale = await getBusinessLocale(business.id)
+  const [messages, t] = await Promise.all([
+    getMessagesForLocale(locale),
+    getEmailTranslations(locale, 'chat'),
+  ])
+
+  const welcomeMessage = settings.chatbotWelcomeMessage || t('defaultWelcome', { businessName: business.name })
   const liveChatEnabled = settings.liveChatEnabled || false
   const chatDefaultMode = settings.chatDefaultMode || 'ai'
 
   return (
-    <EmbedChatWrapper
+    <BusinessLocaleProvider locale={locale} messages={messages}>
+      <EmbedChatWrapper
       businessId={business.id}
       businessName={business.name}
       slug={business.slug}
@@ -47,6 +58,7 @@ export default async function EmbedChatPage({ params, searchParams }: EmbedChatP
       welcomeMessage={welcomeMessage}
       liveChatEnabled={liveChatEnabled}
       chatDefaultMode={chatDefaultMode}
-    />
+      />
+    </BusinessLocaleProvider>
   )
 }

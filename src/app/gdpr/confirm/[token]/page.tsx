@@ -10,6 +10,7 @@ import {
 import { eq, and, count } from 'drizzle-orm'
 import { AlertCircle, CheckCircle, Download, Trash2, Clock } from 'lucide-react'
 import { GdprActions } from './actions'
+import { getTranslations } from 'next-intl/server'
 
 interface PageProps {
   params: Promise<{ token: string }>
@@ -17,6 +18,7 @@ interface PageProps {
 
 export default async function GdprConfirmPage({ params }: PageProps) {
   const { token } = await params
+  const t = await getTranslations('gdpr.confirm')
 
   // Find the deletion request
   const [deletionRequest] = await db
@@ -30,9 +32,9 @@ export default async function GdprConfirmPage({ params }: PageProps) {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
           <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Ungültiger Link</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('invalidLink')}</h1>
           <p className="text-gray-600">
-            Dieser Löschlink ist ungültig oder existiert nicht mehr.
+            {t('invalidLinkDesc')}
           </p>
         </div>
       </div>
@@ -45,9 +47,9 @@ export default async function GdprConfirmPage({ params }: PageProps) {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
           <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Daten gelöscht</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('dataDeleted')}</h1>
           <p className="text-gray-600">
-            Ihre Daten wurden bereits erfolgreich gelöscht.
+            {t('dataDeletedDesc')}
           </p>
         </div>
       </div>
@@ -60,9 +62,9 @@ export default async function GdprConfirmPage({ params }: PageProps) {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
           <Clock className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Link abgelaufen</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('linkExpired')}</h1>
           <p className="text-gray-600">
-            Dieser Löschlink ist abgelaufen. Bitte stellen Sie eine neue Löschanfrage.
+            {t('linkExpiredDesc')}
           </p>
         </div>
       </div>
@@ -75,9 +77,9 @@ export default async function GdprConfirmPage({ params }: PageProps) {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
           <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Daten gelöscht</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('dataDeleted')}</h1>
           <p className="text-gray-600">
-            Ihre Daten wurden bereits erfolgreich gelöscht.
+            {t('dataDeletedDesc')}
           </p>
         </div>
       </div>
@@ -108,9 +110,9 @@ export default async function GdprConfirmPage({ params }: PageProps) {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
           <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Kunde nicht gefunden</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('customerNotFound')}</h1>
           <p className="text-gray-600">
-            Die zugehörigen Kundendaten wurden nicht gefunden oder bereits gelöscht.
+            {t('customerNotFoundDesc')}
           </p>
         </div>
       </div>
@@ -141,29 +143,29 @@ export default async function GdprConfirmPage({ params }: PageProps) {
       <div className="max-w-lg w-full bg-white rounded-lg shadow-md p-8">
         <div className="text-center mb-6">
           <Trash2 className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Datenlöschung bestätigen</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('confirmTitle')}</h1>
           <p className="text-gray-600">
-            {business?.name || 'Unternehmen'}
+            {business?.name || 'Business'}
           </p>
         </div>
 
         <div className="bg-gray-50 rounded-lg p-4 mb-6">
-          <h3 className="font-semibold text-gray-900 mb-3">Folgende Daten werden gelöscht:</h3>
+          <h3 className="font-semibold text-gray-900 mb-3">{t('dataToDelete')}</h3>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-500">Kundenprofil</span>
+              <span className="text-gray-500">{t('customerProfile')}</span>
               <span className="font-medium">{customer.name || customer.email}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500">Buchungen</span>
+              <span className="text-gray-500">{t('bookings')}</span>
               <span className="font-medium">{bookingCount?.count || 0}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500">Gespräche</span>
+              <span className="text-gray-500">{t('conversations')}</span>
               <span className="font-medium">{conversationCount?.count || 0}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500">Rechnungen</span>
+              <span className="text-gray-500">{t('invoices')}</span>
               <span className="font-medium">{invoiceCount?.count || 0}</span>
             </div>
           </div>
@@ -171,8 +173,7 @@ export default async function GdprConfirmPage({ params }: PageProps) {
 
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
           <p className="text-sm text-yellow-800">
-            <strong>Achtung:</strong> Diese Aktion kann nicht rückgängig gemacht werden.
-            Wir empfehlen, Ihre Daten vorher herunterzuladen.
+            <strong>&#9888;</strong> {t('warning')}
           </p>
         </div>
 
@@ -182,7 +183,7 @@ export default async function GdprConfirmPage({ params }: PageProps) {
             className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
           >
             <Download className="h-5 w-5" />
-            Meine Daten herunterladen
+            {t('downloadData')}
           </a>
 
           <GdprActions token={token} />

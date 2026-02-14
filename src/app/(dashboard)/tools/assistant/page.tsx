@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import { Bot, Send, Loader2, Plus, Calendar, FileText, Users, Paperclip, X, Download, MessageSquare, Settings, Wrench, UserCog, Mail, ChevronDown, Lightbulb, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -124,6 +125,7 @@ const CAPABILITIES = [
 ]
 
 export default function VirtualAssistantPage() {
+  const t = useTranslations('dashboard.tools.assistant')
   const [messages, setMessages] = useState<Message[]>([])
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -227,12 +229,12 @@ export default function VirtualAssistantPage() {
     e.target.value = ''
 
     if (!ACCEPTED_TYPES.includes(file.type)) {
-      alert('Nicht unterstütztes Format. Erlaubt: PDF, DOCX, TXT, CSV, XLSX, HTML')
+      alert(t('unsupportedFormat'))
       return
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      alert('Datei zu groß. Maximum: 50 MB')
+      alert(t('fileTooLarge'))
       return
     }
 
@@ -253,7 +255,7 @@ export default function VirtualAssistantPage() {
       })
 
       if (!initRes.ok) {
-        throw new Error('Upload-Initialisierung fehlgeschlagen')
+        throw new Error(t('uploadInitError'))
       }
 
       const initData = await initRes.json()
@@ -287,7 +289,7 @@ export default function VirtualAssistantPage() {
       }])
     } catch (err) {
       log.error('Error:', err)
-      alert('Upload fehlgeschlagen. Bitte versuchen Sie es erneut.')
+      alert(t('uploadError'))
     } finally {
       setUploading(false)
     }
@@ -370,7 +372,7 @@ export default function VirtualAssistantPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        throw new Error(data.error || 'Fehler beim Senden')
+        throw new Error(data.error || t('sendError'))
       }
 
       if (data.conversationId) {
@@ -385,7 +387,7 @@ export default function VirtualAssistantPage() {
     } catch (error) {
       const errorMessage: Message = {
         role: 'assistant',
-        content: 'Es ist ein Fehler aufgetreten. Bitte versuchen Sie es erneut.',
+        content: t('genericError'),
       }
       setMessages(prev => [...prev, errorMessage])
     } finally {
@@ -427,13 +429,13 @@ export default function VirtualAssistantPage() {
             <Bot className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold">Virtual Assistant</h1>
-            <p className="text-sm text-muted-foreground">Ihr interner Geschäftsassistent</p>
+            <h1 className="text-xl font-semibold">{t('title')}</h1>
+            <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
           </div>
         </div>
         <Button variant="outline" size="sm" onClick={resetConversation}>
           <Plus className="mr-1.5 h-4 w-4" />
-          Neues Gespräch
+          {t('newConversation')}
         </Button>
       </div>
 
@@ -445,7 +447,7 @@ export default function VirtualAssistantPage() {
             <div className="flex h-full flex-col items-center justify-center overflow-y-auto">
               <Bot className="mb-4 h-12 w-12 text-muted-foreground/50" />
               <p className="mb-6 text-center text-sm text-muted-foreground">
-                Wie kann ich Ihnen heute helfen?
+                {t('howCanIHelp')}
               </p>
 
               {/* Quick Actions */}
@@ -477,7 +479,7 @@ export default function VirtualAssistantPage() {
                   className="flex w-full items-center justify-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <ChevronDown className={`h-3 w-3 transition-transform ${showMoreActions ? 'rotate-180' : ''}`} />
-                  {showMoreActions ? 'Weniger anzeigen' : 'Mehr Aktionen'}
+                  {showMoreActions ? t('lessActions') : t('moreActions')}
                 </button>
 
                 {/* Capabilities Panel */}
@@ -487,7 +489,7 @@ export default function VirtualAssistantPage() {
                     className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed bg-background px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   >
                     <Lightbulb className="h-4 w-4" />
-                    Was kann ich?
+                    {t('whatCanIDo')}
                     <ChevronDown className={`h-3 w-3 transition-transform ${showCapabilities ? 'rotate-180' : ''}`} />
                   </button>
                   {showCapabilities && (
@@ -582,7 +584,7 @@ export default function VirtualAssistantPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Nachricht eingeben..."
+              placeholder={t('messagePlaceholder')}
               className="min-h-[44px] max-h-[120px] resize-none"
               rows={1}
               disabled={isLoading}
@@ -593,7 +595,7 @@ export default function VirtualAssistantPage() {
               onClick={() => fileInputRef.current?.click()}
               disabled={isLoading || uploading}
               className="h-[44px] w-[44px] shrink-0"
-              title="Datei anhängen"
+              title={t('attachFile')}
             >
               {uploading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

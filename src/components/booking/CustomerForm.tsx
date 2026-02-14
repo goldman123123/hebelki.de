@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -31,6 +32,7 @@ export function CustomerForm({
   onSubmit,
   isSubmitting,
 }: CustomerFormProps) {
+  const t = useTranslations('booking')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
@@ -41,13 +43,13 @@ export function CustomerForm({
     const newErrors: Record<string, string> = {}
 
     if (!name.trim()) {
-      newErrors.name = 'Name ist erforderlich'
+      newErrors.name = t('nameRequired')
     }
 
     if (!email.trim()) {
-      newErrors.email = 'E-Mail ist erforderlich'
+      newErrors.email = t('emailRequired')
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
-      newErrors.email = 'Bitte geben Sie eine gültige E-Mail-Adresse ein'
+      newErrors.email = t('emailInvalid')
     }
 
     setErrors(newErrors)
@@ -64,13 +66,13 @@ export function CustomerForm({
   return (
     <div>
       <h2 className="mb-4 text-lg font-semibold text-gray-900">
-        Ihre Angaben
+        {t('yourDetails')}
       </h2>
 
       {/* Booking summary */}
       <div className="mb-6 rounded-lg bg-gray-50 p-4">
         <h3 className="mb-3 text-sm font-medium text-gray-700">
-          Buchungsübersicht
+          {t('bookingSummary')}
         </h3>
         <div className="space-y-2 text-sm">
           <div className="flex items-center gap-2 text-gray-600">
@@ -107,7 +109,7 @@ export function CustomerForm({
           <Input
             id="name"
             type="text"
-            placeholder="Ihr vollständiger Name"
+            placeholder={t('namePlaceholder')}
             value={name}
             onChange={(e) => setName(e.target.value)}
             className={errors.name ? 'border-red-500' : ''}
@@ -123,7 +125,7 @@ export function CustomerForm({
           <Input
             id="email"
             type="email"
-            placeholder="ihre@email.de"
+            placeholder={t('emailPlaceholder')}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className={errors.email ? 'border-red-500' : ''}
@@ -135,11 +137,11 @@ export function CustomerForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="phone">Telefon (optional)</Label>
+          <Label htmlFor="phone">{t('phoneOptional')}</Label>
           <Input
             id="phone"
             type="tel"
-            placeholder="+49 123 456789"
+            placeholder={t('phonePlaceholder')}
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             disabled={isSubmitting}
@@ -147,10 +149,10 @@ export function CustomerForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="notes">Anmerkungen (optional)</Label>
+          <Label htmlFor="notes">{t('notesOptional')}</Label>
           <Textarea
             id="notes"
-            placeholder="Besondere Wünsche oder Hinweise..."
+            placeholder={t('notesPlaceholder')}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
@@ -167,10 +169,10 @@ export function CustomerForm({
           {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Wird gebucht...
+              {t('submitting')}
             </>
           ) : (
-            'Buchung bestätigen'
+            t('confirmBooking')
           )}
         </Button>
       </form>

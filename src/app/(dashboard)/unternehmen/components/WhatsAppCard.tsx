@@ -12,6 +12,7 @@ import {
   MessageCircle, Pencil, AlertTriangle, CheckCircle,
   Info, XCircle, Copy, Check, Loader2
 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import type { Business } from '../types'
 
 interface WhatsAppCardProps {
@@ -33,6 +34,8 @@ export function WhatsAppCard({
   isSaving,
   onRefresh,
 }: WhatsAppCardProps) {
+  const t = useTranslations('dashboard.business.whatsapp')
+  const tc = useTranslations('dashboard.business')
   const [whatsappCopied, setWhatsappCopied] = useState(false)
   const [testingConnection, setTestingConnection] = useState(false)
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
@@ -71,13 +74,13 @@ export function WhatsAppCard({
       const res = await fetch('/api/admin/whatsapp/test', { method: 'POST' })
       const data = await res.json()
       if (data.success) {
-        setTestResult({ success: true, message: `Verbunden: ${data.accountName} (${data.accountStatus})` })
+        setTestResult({ success: true, message: t('connected', { name: data.accountName, status: data.accountStatus }) })
         await onRefresh()
       } else {
-        setTestResult({ success: false, message: data.error || 'Verbindung fehlgeschlagen' })
+        setTestResult({ success: false, message: data.error || t('connectionFailed') })
       }
     } catch {
-      setTestResult({ success: false, message: 'Netzwerkfehler' })
+      setTestResult({ success: false, message: t('networkError') })
     } finally {
       setTestingConnection(false)
     }
@@ -106,18 +109,18 @@ export function WhatsAppCard({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <MessageCircle className="h-5 w-5" />
-          WhatsApp-Integration
+          {t('title')}
         </CardTitle>
-        <CardDescription>Twilio-Zugangsdaten für WhatsApp-Chatbot und Live-Chat</CardDescription>
+        <CardDescription>{t('description')}</CardDescription>
         <CardAction>
           {editing ? (
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={handleCancel} disabled={isSaving}>
-                Abbrechen
+                {tc('cancel')}
               </Button>
               <Button size="sm" onClick={handleSave} disabled={isSaving}>
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Speichern
+                {tc('save')}
               </Button>
             </div>
           ) : (
@@ -132,12 +135,12 @@ export function WhatsAppCard({
           {/* Status */}
           <div className="rounded-lg border p-4">
             <FieldSet className="gap-3">
-              <FieldLegend className="mb-1">Status</FieldLegend>
+              <FieldLegend className="mb-1">{t('status')}</FieldLegend>
               <FieldGroup className="gap-4">
                 <Field orientation="horizontal">
                   <FieldContent>
                     <FieldLabel>WhatsApp</FieldLabel>
-                    <FieldDescription>Chatbot über WhatsApp erreichbar</FieldDescription>
+                    <FieldDescription>{t('chatbotReachable')}</FieldDescription>
                   </FieldContent>
                   {editing ? (
                     <Switch
@@ -147,32 +150,32 @@ export function WhatsAppCard({
                   ) : business.settings?.whatsappEnabled ? (
                     <span className="flex items-center gap-1.5 text-sm text-green-600">
                       <CheckCircle className="h-4 w-4" />
-                      Aktiviert
+                      {t('enabled')}
                     </span>
                   ) : (
                     <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
                       <XCircle className="h-4 w-4" />
-                      Deaktiviert
+                      {t('disabled')}
                     </span>
                   )}
                 </Field>
 
                 <Field>
-                  <FieldLabel>Verbindung</FieldLabel>
+                  <FieldLabel>{t('connection')}</FieldLabel>
                   {business.settings?.twilioVerifiedAt ? (
                     <p className="flex items-center gap-2 text-green-600">
                       <CheckCircle className="h-4 w-4" />
-                      Verifiziert
+                      {t('verified')}
                     </p>
                   ) : business.settings?.hasTwilioAuthToken ? (
                     <p className="flex items-center gap-2 text-amber-600 text-sm">
                       <AlertTriangle className="h-4 w-4" />
-                      Nicht getestet
+                      {t('notTested')}
                     </p>
                   ) : (
                     <p className="flex items-center gap-2 text-muted-foreground text-sm">
                       <XCircle className="h-4 w-4" />
-                      Nicht konfiguriert
+                      {t('notConfigured')}
                     </p>
                   )}
                 </Field>
@@ -183,10 +186,10 @@ export function WhatsAppCard({
           {/* Zugangsdaten */}
           <div className="rounded-lg border p-4">
             <FieldSet className="gap-3">
-              <FieldLegend className="mb-1">Zugangsdaten</FieldLegend>
+              <FieldLegend className="mb-1">{t('credentials')}</FieldLegend>
               <FieldGroup className="gap-4">
                 <Field>
-                  <FieldLabel>Account SID</FieldLabel>
+                  <FieldLabel>{t('accountSid')}</FieldLabel>
                   <Input
                     value={editing ? whatsappForm.twilioAccountSid : (business.settings?.twilioAccountSid ? `${business.settings.twilioAccountSid.slice(0, 6)}...${business.settings.twilioAccountSid.slice(-4)}` : '')}
                     onChange={(e) => setWhatsappForm({ ...whatsappForm, twilioAccountSid: e.target.value })}
@@ -196,18 +199,18 @@ export function WhatsAppCard({
                 </Field>
 
                 <Field>
-                  <FieldLabel>Auth Token</FieldLabel>
+                  <FieldLabel>{t('authToken')}</FieldLabel>
                   <Input
                     type="password"
                     value={editing ? whatsappForm.twilioAuthToken : (business.settings?.hasTwilioAuthToken ? '••••••••' : '')}
                     onChange={(e) => setWhatsappForm({ ...whatsappForm, twilioAuthToken: e.target.value })}
                     readOnly={!editing}
-                    placeholder={editing && business.settings?.hasTwilioAuthToken ? 'Leer lassen um beizubehalten' : 'Auth Token'}
+                    placeholder={editing && business.settings?.hasTwilioAuthToken ? t('authTokenKeep') : t('authToken')}
                   />
                 </Field>
 
                 <Field>
-                  <FieldLabel>WhatsApp-Nummer</FieldLabel>
+                  <FieldLabel>{t('whatsappNumber')}</FieldLabel>
                   <Input
                     value={whatsappForm.twilioWhatsappNumber}
                     onChange={(e) => setWhatsappForm({ ...whatsappForm, twilioWhatsappNumber: e.target.value })}
@@ -222,10 +225,10 @@ export function WhatsAppCard({
           {/* Webhook */}
           <div className="rounded-lg border p-4">
             <FieldSet className="gap-3">
-              <FieldLegend className="mb-1">Webhook</FieldLegend>
+              <FieldLegend className="mb-1">{t('webhook')}</FieldLegend>
               <FieldGroup className="gap-4">
                 <Field>
-                  <FieldLabel>Webhook-URL</FieldLabel>
+                  <FieldLabel>{t('webhookUrl')}</FieldLabel>
                   <div className="flex items-center gap-2">
                     <Input
                       readOnly
@@ -236,14 +239,14 @@ export function WhatsAppCard({
                       {whatsappCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                     </Button>
                   </div>
-                  <FieldDescription>In Twilio-Konsole unter Messaging eintragen</FieldDescription>
+                  <FieldDescription>{t('webhookDesc')}</FieldDescription>
                 </Field>
 
                 {editing && (
                   <div className="rounded-md border border-blue-200 bg-blue-50 p-3">
                     <p className="text-sm text-blue-700 flex items-center gap-2">
                       <Info className="h-4 w-4 flex-shrink-0" />
-                      Webhook-URL in Twilio unter Messaging &rarr; Sandbox Settings eintragen.
+                      {t('webhookInfo')}
                     </p>
                   </div>
                 )}
@@ -260,10 +263,10 @@ export function WhatsAppCard({
                       {testingConnection ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Teste Verbindung...
+                          {t('testingConnection')}
                         </>
                       ) : (
-                        'Verbindung testen'
+                        t('testConnection')
                       )}
                     </Button>
                     {testResult && (

@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Loader2, Save, ExternalLink, AlertCircle, Bot, Headphones, MessageSquare, Phone } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { createLogger } from '@/lib/logger'
 
 const log = createLogger('dashboard:chatbot:SettingsTab')
@@ -40,6 +41,7 @@ interface SettingsTabProps {
 }
 
 export function SettingsTab({ business }: SettingsTabProps) {
+  const t = useTranslations('dashboard.chatbot.settings')
   const [formData, setFormData] = useState({
     chatbotEnabled: true,
     chatbotInstructions: '',
@@ -130,11 +132,11 @@ export function SettingsTab({ business }: SettingsTabProps) {
         setSaved(true)
         setTimeout(() => setSaved(false), 3000)
       } else {
-        alert(`Fehler: ${data.error}`)
+        alert(t('error', { message: data.error }))
       }
     } catch (error) {
       log.error('Save error:', error)
-      alert('Fehler beim Speichern')
+      alert(t('saveError'))
     } finally {
       setSaving(false)
     }
@@ -148,10 +150,10 @@ export function SettingsTab({ business }: SettingsTabProps) {
       {/* Header */}
       <div>
         <h2 className="text-lg font-semibold text-gray-900">
-          Chatbot Einstellungen
+          {t('title')}
         </h2>
         <p className="text-sm text-gray-500">
-          Passen Sie das Verhalten und Aussehen Ihres Chatbots an
+          {t('subtitle')}
         </p>
       </div>
 
@@ -160,10 +162,10 @@ export function SettingsTab({ business }: SettingsTabProps) {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h3 className="font-medium text-blue-900">
-              Öffentliche Chat-URL
+              {t('publicUrl')}
             </h3>
             <p className="mt-1 text-sm text-blue-700">
-              Teilen Sie diesen Link mit Ihren Kunden
+              {t('publicUrlDesc')}
             </p>
             <code className="mt-2 inline-block rounded bg-blue-100 px-2 py-1 text-sm text-blue-900">
               {chatUrl}
@@ -175,7 +177,7 @@ export function SettingsTab({ business }: SettingsTabProps) {
             onClick={() => window.open(chatUrl, '_blank')}
           >
             <ExternalLink className="mr-2 h-4 w-4" />
-            Öffnen
+            {t('open')}
           </Button>
         </div>
       </Card>
@@ -187,12 +189,11 @@ export function SettingsTab({ business }: SettingsTabProps) {
             <div className="flex items-center gap-2">
               <Bot className="h-5 w-5 text-gray-700" />
               <Label htmlFor="chatbot-enabled" className="text-base font-semibold cursor-pointer">
-                KI-Chatbot aktivieren
+                {t('enableChatbot')}
               </Label>
             </div>
             <p className="text-sm text-gray-500">
-              Wenn deaktiviert, wird der AI-Assistent nicht auf Kundennachrichten antworten.
-              Nachrichten werden weiterhin gespeichert.
+              {t('enableChatbotDesc')}
             </p>
           </div>
           <Switch
@@ -208,10 +209,9 @@ export function SettingsTab({ business }: SettingsTabProps) {
         {!formData.chatbotEnabled && (
           <Alert variant="destructive" className="mt-4">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Chatbot ist deaktiviert</AlertTitle>
+            <AlertTitle>{t('chatbotDisabled')}</AlertTitle>
             <AlertDescription>
-              Kunden können weiterhin Nachrichten senden, aber der KI-Assistent wird nicht antworten.
-              Aktivieren Sie den Chatbot, um automatische Antworten zu ermöglichen.
+              {t('chatbotDisabledDesc')}
             </AlertDescription>
           </Alert>
         )}
@@ -226,11 +226,11 @@ export function SettingsTab({ business }: SettingsTabProps) {
               <div className="flex items-center gap-2">
                 <Headphones className="h-5 w-5 text-gray-700" />
                 <Label htmlFor="live-chat-enabled" className="text-base font-semibold cursor-pointer">
-                  Live-Chat aktivieren
+                  {t('enableLiveChat')}
                 </Label>
               </div>
               <p className="text-sm text-gray-500">
-                Ermöglicht es Mitarbeitern, direkt mit Kunden im Chat zu sprechen.
+                {t('enableLiveChatDesc')}
               </p>
             </div>
             <Switch
@@ -246,7 +246,7 @@ export function SettingsTab({ business }: SettingsTabProps) {
             <div className="space-y-6 border-t pt-4">
               {/* Default Mode */}
               <div className="space-y-2">
-                <Label htmlFor="chat-default-mode">Standard-Modus</Label>
+                <Label htmlFor="chat-default-mode">{t('defaultMode')}</Label>
                 <Select
                   value={formData.chatDefaultMode}
                   onValueChange={(value: 'ai' | 'live') =>
@@ -257,20 +257,20 @@ export function SettingsTab({ business }: SettingsTabProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="ai">KI-Assistent</SelectItem>
-                    <SelectItem value="live">Mitarbeiter-zuerst</SelectItem>
+                    <SelectItem value="ai">{t('modeAi')}</SelectItem>
+                    <SelectItem value="live">{t('modeLive')}</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-gray-500">
                   {formData.chatDefaultMode === 'ai'
-                    ? 'Kunden chatten zuerst mit dem KI-Assistenten und können zu einem Mitarbeiter wechseln.'
-                    : 'Kundennachrichten gehen direkt an Mitarbeiter. Wenn kein Mitarbeiter online ist, antwortet der KI-Assistent.'}
+                    ? t('modeAiDesc')
+                    : t('modeLiveDesc')}
                 </p>
               </div>
 
               {/* Timeout */}
               <div className="space-y-2">
-                <Label htmlFor="live-chat-timeout">Wartezeit (Minuten)</Label>
+                <Label htmlFor="live-chat-timeout">{t('timeout')}</Label>
                 <Input
                   id="live-chat-timeout"
                   type="number"
@@ -286,7 +286,7 @@ export function SettingsTab({ business }: SettingsTabProps) {
                   className="w-32"
                 />
                 <p className="text-xs text-gray-500">
-                  Maximale Wartezeit, bevor der Kunde per E-Mail benachrichtigt wird
+                  {t('timeoutDesc')}
                 </p>
               </div>
 
@@ -294,7 +294,7 @@ export function SettingsTab({ business }: SettingsTabProps) {
               <div className="border-t pt-4">
                 <div className="flex items-center gap-2 mb-3">
                   <MessageSquare className="h-5 w-5 text-gray-700" />
-                  <h4 className="font-semibold text-gray-900">Smart-Routing</h4>
+                  <h4 className="font-semibold text-gray-900">{t('smartRouting')}</h4>
                 </div>
 
                 {/* Staff online indicator */}
@@ -305,16 +305,15 @@ export function SettingsTab({ business }: SettingsTabProps) {
                   }`} />
                   <span className="text-sm text-gray-700">
                     {staffOnline === null
-                      ? 'Status wird geladen...'
+                      ? t('statusLoading')
                       : staffOnline > 0
-                        ? `${staffOnline} Mitarbeiter online`
-                        : 'Kein Mitarbeiter online'}
+                        ? t('staffOnline', { count: staffOnline })
+                        : t('noStaffOnline')}
                   </span>
                 </div>
 
                 <p className="mt-2 text-xs text-gray-500">
-                  Wenn kein Mitarbeiter online ist, antwortet automatisch der KI-Assistent.
-                  Mitarbeiter gelten als online, wenn sie das Support-Dashboard geöffnet haben.
+                  {t('routingDesc')}
                 </p>
               </div>
 
@@ -324,7 +323,7 @@ export function SettingsTab({ business }: SettingsTabProps) {
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <Phone className="h-5 w-5 text-gray-700" />
-                      <h4 className="font-semibold text-gray-900">WhatsApp-Weiterleitung</h4>
+                      <h4 className="font-semibold text-gray-900">{t('whatsappHandoff')}</h4>
                     </div>
                     <Switch
                       id="whatsapp-handoff-enabled"
@@ -339,7 +338,7 @@ export function SettingsTab({ business }: SettingsTabProps) {
                     <div className="space-y-4 pl-1">
                       {/* Routing mode */}
                       <div className="space-y-2">
-                        <Label htmlFor="whatsapp-routing-mode">Routing-Modus</Label>
+                        <Label htmlFor="whatsapp-routing-mode">{t('routingMode')}</Label>
                         <Select
                           value={formData.whatsappRoutingMode}
                           onValueChange={(value: 'owner' | 'live') =>
@@ -350,8 +349,8 @@ export function SettingsTab({ business }: SettingsTabProps) {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="owner">An Inhaber weiterleiten</SelectItem>
-                            <SelectItem value="live">Live-Chat (Mitarbeiter-Dashboard)</SelectItem>
+                            <SelectItem value="owner">{t('routeToOwner')}</SelectItem>
+                            <SelectItem value="live">{t('routeToLive')}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -359,7 +358,7 @@ export function SettingsTab({ business }: SettingsTabProps) {
                       {/* Owner WhatsApp number (only when mode is 'owner') */}
                       {formData.whatsappRoutingMode === 'owner' && (
                         <div className="space-y-2">
-                          <Label htmlFor="owner-whatsapp-number">Inhaber WhatsApp-Nummer</Label>
+                          <Label htmlFor="owner-whatsapp-number">{t('ownerWhatsapp')}</Label>
                           <Input
                             id="owner-whatsapp-number"
                             type="tel"
@@ -371,14 +370,14 @@ export function SettingsTab({ business }: SettingsTabProps) {
                             className="max-w-xs"
                           />
                           <p className="text-xs text-gray-500">
-                            E.164-Format (z.B. +4915123456789)
+                            {t('e164Format')}
                           </p>
                         </div>
                       )}
 
                       {/* Handoff timeout */}
                       <div className="space-y-2">
-                        <Label htmlFor="handoff-timeout">Wartezeit (Sekunden)</Label>
+                        <Label htmlFor="handoff-timeout">{t('handoffTimeout')}</Label>
                         <Input
                           id="handoff-timeout"
                           type="number"
@@ -394,14 +393,12 @@ export function SettingsTab({ business }: SettingsTabProps) {
                           className="w-32"
                         />
                         <p className="text-xs text-gray-500">
-                          Nach Ablauf dieser Zeit übernimmt der KI-Assistent
+                          {t('handoffTimeoutDesc')}
                         </p>
                       </div>
 
                       <p className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
-                        Kundennachrichten werden an Ihre WhatsApp-Nummer weitergeleitet.
-                        Antworten Sie direkt oder senden Sie &quot;KI&quot; um den Assistenten zu aktivieren.
-                        Nach Ablauf der Wartezeit übernimmt der KI-Assistent.
+                        {t('whatsappInfo')}
                       </p>
                     </div>
                   )}
@@ -418,41 +415,41 @@ export function SettingsTab({ business }: SettingsTabProps) {
           {/* Custom Instructions */}
           <div className="space-y-2">
             <Label htmlFor="instructions">
-              Benutzerdefinierte Anweisungen
+              {t('instructions')}
             </Label>
             <Textarea
               id="instructions"
               value={formData.chatbotInstructions}
               onChange={(e) => setFormData({ ...formData, chatbotInstructions: e.target.value })}
-              placeholder="z.B. Betone immer unsere Spezialisierung auf Sportphysiotherapie..."
+              placeholder={t('instructionsPlaceholder')}
               rows={4}
             />
             <p className="text-xs text-gray-500">
-              Diese Anweisungen werden dem Chatbot als zusätzliche Richtlinien gegeben
+              {t('instructionsDesc')}
             </p>
           </div>
 
           {/* Welcome Message */}
           <div className="space-y-2">
             <Label htmlFor="welcome">
-              Willkommensnachricht
+              {t('welcomeMessage')}
             </Label>
             <Textarea
               id="welcome"
               value={formData.chatbotWelcomeMessage}
               onChange={(e) => setFormData({ ...formData, chatbotWelcomeMessage: e.target.value })}
-              placeholder={`Hallo und herzlich willkommen bei ${business.name}! Wie kann ich Ihnen helfen?`}
+              placeholder={t('welcomeMessagePlaceholder', { name: business.name })}
               rows={3}
             />
             <p className="text-xs text-gray-500">
-              Diese Nachricht wird angezeigt, wenn Kunden den Chat öffnen
+              {t('welcomeMessageDesc')}
             </p>
           </div>
 
           {/* Chatbot Color */}
           <div className="space-y-2">
             <Label htmlFor="color">
-              Chat-Widget Farbe
+              {t('widgetColor')}
             </Label>
             <div className="flex items-center gap-3">
               <Input
@@ -471,13 +468,13 @@ export function SettingsTab({ business }: SettingsTabProps) {
               />
             </div>
             <p className="text-xs text-gray-500">
-              Diese Farbe wird für Buttons und Akzente im Chat verwendet
+              {t('widgetColorDesc')}
             </p>
           </div>
 
           {/* Preview */}
           <div className="rounded-lg border-2 border-dashed border-gray-300 p-6">
-            <h4 className="mb-3 text-sm font-medium text-gray-700">Vorschau</h4>
+            <h4 className="mb-3 text-sm font-medium text-gray-700">{t('preview')}</h4>
             <div className="rounded-lg border bg-white p-4 shadow-sm">
               <div className="flex items-center gap-3 border-b pb-3">
                 <div
@@ -503,12 +500,12 @@ export function SettingsTab({ business }: SettingsTabProps) {
                   <h5 className="font-medium" style={{ color: formData.chatbotColor }}>
                     {business.name}
                   </h5>
-                  <p className="text-xs text-gray-500">Online</p>
+                  <p className="text-xs text-gray-500">{t('online')}</p>
                 </div>
               </div>
               <div className="mt-4">
                 <div className="rounded-lg bg-gray-100 p-3 text-sm">
-                  {formData.chatbotWelcomeMessage || `Hallo und herzlich willkommen bei ${business.name}! Wie kann ich Ihnen helfen?`}
+                  {formData.chatbotWelcomeMessage || t('welcomeMessagePlaceholder', { name: business.name })}
                 </div>
               </div>
             </div>
@@ -518,7 +515,7 @@ export function SettingsTab({ business }: SettingsTabProps) {
           <div className="flex items-center justify-between border-t pt-4">
             {saved && (
               <span className="text-sm text-green-600">
-                Änderungen gespeichert
+                {t('changesSaved')}
               </span>
             )}
             <div className="ml-auto">
@@ -526,12 +523,12 @@ export function SettingsTab({ business }: SettingsTabProps) {
                 {saving ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Speichert...
+                    {t('savingChanges')}
                   </>
                 ) : (
                   <>
                     <Save className="mr-2 h-4 w-4" />
-                    Änderungen speichern
+                    {t('saveChanges')}
                   </>
                 )}
               </Button>

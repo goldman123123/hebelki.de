@@ -3,6 +3,9 @@ import { db } from '@/lib/db'
 import { businesses } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { ChatInterface } from '@/modules/chatbot/components/ChatInterface'
+import { getBusinessLocale } from '@/lib/locale'
+import { getMessagesForLocale, getEmailTranslations } from '@/lib/email-i18n'
+import { BusinessLocaleProvider } from '@/components/BusinessLocaleProvider'
 
 /**
  * Public Chat Page
@@ -43,67 +46,75 @@ export default async function PublicChatPage({ params }: PageProps) {
       })
     : {}
 
-  const welcomeMessage = settings.chatbotWelcomeMessage || `Hallo und herzlich willkommen bei ${business.name}! Wie kann ich Ihnen helfen?`
+  const locale = await getBusinessLocale(business.id)
+  const [messages, t] = await Promise.all([
+    getMessagesForLocale(locale),
+    getEmailTranslations(locale, 'chat'),
+  ])
+
+  const welcomeMessage = settings.chatbotWelcomeMessage || t('defaultWelcome', { businessName: business.name })
   const primaryColor = settings.chatbotColor || business.primaryColor || '#3B82F6'
   const liveChatEnabled = settings.liveChatEnabled || false
   const chatDefaultMode = settings.chatDefaultMode || 'ai'
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header with business branding */}
-      <header className="border-b bg-white">
-        <div className="mx-auto max-w-4xl px-4 py-6">
-          <div className="flex items-center gap-4">
-            {business.logoUrl && (
-              <img
-                src={business.logoUrl}
-                alt={business.name}
-                className="h-12 w-12 rounded-lg object-cover"
-              />
-            )}
-            <div>
-              <h1
-                className="text-2xl font-bold"
-                style={{ color: primaryColor }}
-              >
-                {business.name}
-              </h1>
-              <p className="text-sm text-gray-600">
-                Chat mit uns
-              </p>
+    <BusinessLocaleProvider locale={locale} messages={messages}>
+      <div className="min-h-screen bg-gray-50">
+        {/* Header with business branding */}
+        <header className="border-b bg-white">
+          <div className="mx-auto max-w-4xl px-4 py-6">
+            <div className="flex items-center gap-4">
+              {business.logoUrl && (
+                <img
+                  src={business.logoUrl}
+                  alt={business.name}
+                  className="h-12 w-12 rounded-lg object-cover"
+                />
+              )}
+              <div>
+                <h1
+                  className="text-2xl font-bold"
+                  style={{ color: primaryColor }}
+                >
+                  {business.name}
+                </h1>
+                <p className="text-sm text-gray-600">
+                  {t('chatWithUs')}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Chat interface */}
-      <div className="mx-auto max-w-4xl px-4 py-6">
-        <ChatInterface
-          businessId={business.id}
-          businessName={business.name}
-          primaryColor={primaryColor}
-          welcomeMessage={welcomeMessage}
-          liveChatEnabled={liveChatEnabled}
-          chatDefaultMode={chatDefaultMode}
-        />
+        {/* Chat interface */}
+        <div className="mx-auto max-w-4xl px-4 py-6">
+          <ChatInterface
+            businessId={business.id}
+            businessName={business.name}
+            primaryColor={primaryColor}
+            welcomeMessage={welcomeMessage}
+            liveChatEnabled={liveChatEnabled}
+            chatDefaultMode={chatDefaultMode}
+          />
+        </div>
+
+        {/* Footer */}
+        <footer className="mt-8 border-t bg-white py-6">
+          <div className="mx-auto max-w-4xl px-4 text-center">
+            <p className="text-sm text-gray-500">
+              {t('poweredBy')}{' '}
+              <a
+                href="https://www.hebelki.de"
+                className="font-medium hover:underline"
+                style={{ color: primaryColor }}
+              >
+                Hebelki
+              </a>
+            </p>
+          </div>
+        </footer>
       </div>
-
-      {/* Footer */}
-      <footer className="mt-8 border-t bg-white py-6">
-        <div className="mx-auto max-w-4xl px-4 text-center">
-          <p className="text-sm text-gray-500">
-            Powered by{' '}
-            <a
-              href="https://www.hebelki.de"
-              className="font-medium hover:underline"
-              style={{ color: primaryColor }}
-            >
-              Hebelki
-            </a>
-          </p>
-        </div>
-      </footer>
-    </div>
+    </BusinessLocaleProvider>
   )
 }
 
@@ -120,12 +131,15 @@ export async function generateMetadata({ params }: PageProps) {
 
   if (!business) {
     return {
-      title: 'Business nicht gefunden',
+      title: 'Business not found',
     }
   }
 
+  const locale = await getBusinessLocale(business.id)
+  const t = await getEmailTranslations(locale, 'chat')
+
   return {
-    title: `Chat mit ${business.name} | Hebelki`,
-    description: `Chatten Sie mit ${business.name} und buchen Sie Ihren Termin online.`,
+    title: t('pageTitle', { businessName: business.name }),
+    description: t('pageDescription', { businessName: business.name }),
   }
 }

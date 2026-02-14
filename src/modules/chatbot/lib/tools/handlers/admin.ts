@@ -8,9 +8,17 @@ import { db } from '@/lib/db'
 import { services, staff, staffServices, customers, bookings, businesses, chatbotConversations, chatbotMessages, bookingActions } from '@/lib/db/schema'
 import { eq, and, ne, desc, or, ilike, gte, lte, isNull, lt, gt } from 'drizzle-orm'
 import { sendEmail, sendCustomEmail } from '@/lib/email'
+import { getEmailTranslations } from '@/lib/email-i18n'
+import { getBusinessLocale } from '@/lib/locale'
 import { createLogger } from '@/lib/logger'
 
 const log = createLogger('chatbot:tools:handlers:admin')
+
+/** Helper to get tool translations for a business */
+async function getToolTranslations(businessId: string) {
+  const locale = await getBusinessLocale(businessId)
+  return getEmailTranslations(locale, 'chatbotPrompts.tools')
+}
 
 /**
  * Admin tool handlers
@@ -102,7 +110,7 @@ export const adminHandlers = {
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Suchen von Buchungen' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorSearchingBookings') }
     }
   },
 
@@ -125,7 +133,7 @@ export const adminHandlers = {
         .then(rows => rows[0])
 
       if (!booking) {
-        return { success: false, error: 'Buchung nicht gefunden' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('bookingNotFound') }
       }
 
       // Update booking
@@ -169,12 +177,12 @@ export const adminHandlers = {
         data: {
           bookingId: updated.id,
           newStatus: updated.status,
-          message: `Buchungsstatus geändert auf: ${args.newStatus}`,
+          message: (await getToolTranslations(args.businessId))('bookingStatusChanged', { status: args.newStatus }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Aktualisieren des Status' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorUpdatingStatus') }
     }
   },
 
@@ -202,7 +210,7 @@ export const adminHandlers = {
         .then(rows => rows[0])
 
       if (!booking) {
-        return { success: false, error: 'Buchung nicht gefunden' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('bookingNotFound') }
       }
 
       // Calculate new end time (args.durationMinutes overrides service default)
@@ -244,12 +252,12 @@ export const adminHandlers = {
           bookingId: updated.id,
           newStartsAt: updated.startsAt?.toISOString(),
           newEndsAt: updated.endsAt?.toISOString(),
-          message: 'Buchung erfolgreich verschoben',
+          message: (await getToolTranslations(args.businessId))('bookingRescheduled'),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Verschieben der Buchung' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorRescheduling') }
     }
   },
 
@@ -342,7 +350,7 @@ export const adminHandlers = {
           if (conv.summary) {
             return {
               conversationId: conv.id,
-              customerName: conv.customerName || 'Unbekannt',
+              customerName: conv.customerName || 'Unknown',
               customerEmail: conv.customerEmail,
               customerPhone: conv.customerPhone,
               channel: conv.channel,
@@ -374,12 +382,12 @@ export const adminHandlers = {
           // Create a quick summary from messages
           const messagePreview = recentMessages
             .reverse()
-            .map(m => `${m.role === 'user' ? 'Kunde' : 'Bot'}: ${m.content.substring(0, 100)}${m.content.length > 100 ? '...' : ''}`)
+            .map(m => `${m.role === 'user' ? 'Customer' : 'Bot'}: ${m.content.substring(0, 100)}${m.content.length > 100 ? '...' : ''}`)
             .join('\n')
 
           return {
             conversationId: conv.id,
-            customerName: conv.customerName || 'Unbekannt',
+            customerName: conv.customerName || 'Unknown',
             customerEmail: conv.customerEmail,
             customerPhone: conv.customerPhone,
             channel: conv.channel,
@@ -399,15 +407,15 @@ export const adminHandlers = {
           count: results.length,
           searchedDays: daysBack,
           message: results.length > 0
-            ? `${results.length} Gespräch${results.length > 1 ? 'e' : ''} gefunden in den letzten ${daysBack} Tagen.`
-            : `Keine Gespräche gefunden${customerName ? ` mit "${customerName}"` : ''}${customerEmail ? ` (${customerEmail})` : ''} in den letzten ${daysBack} Tagen.`,
+            ? `${results.length} conversation${results.length > 1 ? 's' : ''} found in the last ${daysBack} days.`
+            : `No conversations found${customerName ? ` with "${customerName}"` : ''}${customerEmail ? ` (${customerEmail})` : ''} in the last ${daysBack} days.`,
         },
       }
     } catch (error) {
       log.error('Error:', error)
       return {
         success: false,
-        error: 'Fehler beim Durchsuchen der Gespräche',
+        error: (await getToolTranslations(args.businessId))('errorSearchingConversations'),
       }
     }
   },
@@ -479,11 +487,11 @@ export const adminHandlers = {
           minute: '2-digit',
           timeZone: business.timezone,
         }) : 'N/A',
-        customer: b.customerName || 'Unbekannt',
+        customer: b.customerName || 'Unknown',
         email: b.customerEmail,
         phone: b.customerPhone,
         service: b.serviceName || 'N/A',
-        staff: b.staffName || 'Nicht zugewiesen',
+        staff: b.staffName || 'Not assigned',
         status: b.status,
         notes: b.notes,
       }))
@@ -506,13 +514,13 @@ export const adminHandlers = {
           statusCounts,
           bookings: formatted,
           message: formatted.length > 0
-            ? `${formatted.length} Buchung${formatted.length > 1 ? 'en' : ''} für heute`
-            : 'Keine Buchungen für heute',
+            ? (await getToolTranslations(args.businessId))(formatted.length > 1 ? 'bookingsForTodayPlural' : 'bookingsForToday', { count: formatted.length })
+            : (await getToolTranslations(args.businessId))('noBookingsForToday'),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Abrufen der heutigen Buchungen' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorFetchingTodaysBookings') }
     }
   },
 
@@ -577,7 +585,7 @@ export const adminHandlers = {
           day: '2-digit',
           month: '2-digit',
           timeZone: business.timezone,
-        }) : 'Unbekannt'
+        }) : 'Unknown'
         if (!byDate[dateKey]) byDate[dateKey] = []
         byDate[dateKey].push(b)
       }
@@ -596,9 +604,9 @@ export const adminHandlers = {
           minute: '2-digit',
           timeZone: business.timezone,
         }) : 'N/A',
-        customer: b.customerName || 'Unbekannt',
+        customer: b.customerName || 'Unknown',
         service: b.serviceName || 'N/A',
-        staff: b.staffName || 'Nicht zugewiesen',
+        staff: b.staffName || 'Not assigned',
         status: b.status,
       }))
 
@@ -612,13 +620,13 @@ export const adminHandlers = {
           ),
           bookings: formatted,
           message: formatted.length > 0
-            ? `${formatted.length} Buchung${formatted.length > 1 ? 'en' : ''} in den nächsten ${days} Tagen`
-            : `Keine Buchungen in den nächsten ${days} Tagen`,
+            ? (await getToolTranslations(args.businessId))(formatted.length > 1 ? 'upcomingBookingsPlural' : 'upcomingBookings', { count: formatted.length, days })
+            : (await getToolTranslations(args.businessId))('noUpcomingBookings', { days }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Abrufen der kommenden Buchungen' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorFetchingUpcomingBookings') }
     }
   },
 
@@ -656,7 +664,7 @@ export const adminHandlers = {
         .then(rows => rows[0])
 
       if (!service) {
-        return { success: false, error: 'Service nicht gefunden' }
+        return { success: false, error: 'Service not found' }
       }
 
       // Get business info
@@ -668,7 +676,7 @@ export const adminHandlers = {
         .then(rows => rows[0])
 
       if (!business) {
-        return { success: false, error: 'Business nicht gefunden' }
+        return { success: false, error: 'Business not found' }
       }
 
       // Calculate end time
@@ -690,7 +698,7 @@ export const adminHandlers = {
           .then(rows => rows[0])
 
         if (!staffMember) {
-          return { success: false, error: 'Mitarbeiter nicht gefunden oder inaktiv' }
+          return { success: false, error: (await getToolTranslations(args.businessId))('staffNotFoundOrInactive') }
         }
 
         // Check staff-service qualification
@@ -706,7 +714,7 @@ export const adminHandlers = {
           .then(rows => rows[0])
 
         if (!qualification) {
-          return { success: false, error: 'Mitarbeiter ist für diesen Service nicht qualifiziert' }
+          return { success: false, error: (await getToolTranslations(args.businessId))('staffNotQualified') }
         }
 
         // Check for overlapping bookings for this staff
@@ -724,7 +732,7 @@ export const adminHandlers = {
           .then(rows => rows[0])
 
         if (overlapping) {
-          return { success: false, error: 'Mitarbeiter hat bereits einen Termin in diesem Zeitraum' }
+          return { success: false, error: (await getToolTranslations(args.businessId))('staffAlreadyBooked') }
         }
       }
 
@@ -794,36 +802,41 @@ export const adminHandlers = {
       // Send confirmation email if requested
       if (sendConfirmation && args.customerEmail) {
         try {
-          const formattedDate = startsAt.toLocaleDateString('de-DE', {
+          const locale = await getBusinessLocale(args.businessId)
+          const dateLocale = locale === 'en' ? 'en-US' : 'de-DE'
+          const formattedDate = startsAt.toLocaleDateString(dateLocale, {
             weekday: 'long',
             day: '2-digit',
             month: 'long',
             year: 'numeric',
             timeZone: business.timezone,
           })
-          const formattedTime = startsAt.toLocaleTimeString('de-DE', {
+          const formattedTime = startsAt.toLocaleTimeString(dateLocale, {
             hour: '2-digit',
             minute: '2-digit',
             timeZone: business.timezone,
           })
 
+          const ec = await getEmailTranslations(locale, 'emails.common')
+          const el = await getEmailTranslations(locale, 'emails.labels')
+          const econf = await getEmailTranslations(locale, 'emails.confirmation')
           await sendEmail({
             to: args.customerEmail,
-            subject: `Buchungsbestätigung - ${service.name} bei ${business.name}`,
+            subject: `${econf('confirmedTitle')} - ${service.name}`,
             html: `
-              <h2>Buchungsbestätigung</h2>
-              <p>Hallo ${args.customerName},</p>
-              <p>Ihre Buchung wurde bestätigt:</p>
+              <h2>${econf('confirmedTitle')}</h2>
+              <p>${ec('greeting', { name: args.customerName })}</p>
+              <p>${econf('autoConfirmedHint')}</p>
               <ul>
-                <li><strong>Service:</strong> ${service.name}</li>
-                <li><strong>Datum:</strong> ${formattedDate}</li>
-                <li><strong>Uhrzeit:</strong> ${formattedTime}</li>
-                ${staffName ? `<li><strong>Mitarbeiter:</strong> ${staffName}</li>` : ''}
-                ${service.price ? `<li><strong>Preis:</strong> ${service.price} €</li>` : ''}
+                <li><strong>${el('service')}</strong> ${service.name}</li>
+                <li><strong>${el('date')}</strong> ${formattedDate}</li>
+                <li><strong>${el('time')}</strong> ${formattedTime}</li>
+                ${staffName ? `<li><strong>${el('staff')}</strong> ${staffName}</li>` : ''}
+                ${service.price ? `<li><strong>${el('price')}</strong> ${service.price} €</li>` : ''}
               </ul>
-              <p>Mit freundlichen Grüßen,<br>${business.name}</p>
+              <p>${ec('regards')}<br>${business.name}</p>
             `,
-            text: `Buchungsbestätigung\n\nHallo ${args.customerName},\n\nIhre Buchung wurde bestätigt:\n- Service: ${service.name}\n- Datum: ${formattedDate}\n- Uhrzeit: ${formattedTime}${staffName ? `\n- Mitarbeiter: ${staffName}` : ''}${service.price ? `\n- Preis: ${service.price} €` : ''}\n\nMit freundlichen Grüßen,\n${business.name}`,
+            text: `${econf('confirmedTitle')}\n\n${ec('greeting', { name: args.customerName })}\n\n${econf('autoConfirmedHint')}\n- ${el('service')} ${service.name}\n- ${el('date')} ${formattedDate}\n- ${el('time')} ${formattedTime}${staffName ? `\n- ${el('staff')} ${staffName}` : ''}${service.price ? `\n- ${el('price')} ${service.price} €` : ''}\n\n${ec('regards')}\n${business.name}`,
           })
         } catch (emailError) {
           log.error('Email error:', emailError)
@@ -842,12 +855,12 @@ export const adminHandlers = {
           staffName,
           customerName: args.customerName,
           emailSent: sendConfirmation,
-          message: `Buchung erstellt für ${args.customerName} am ${startsAt.toLocaleDateString('de-DE', { timeZone: business.timezone })} um ${startsAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: business.timezone })}`,
+          message: (await getToolTranslations(args.businessId))('bookingCreatedFor', { name: args.customerName, date: startsAt.toLocaleDateString('de-DE', { timeZone: business.timezone }), time: startsAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: business.timezone }) }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Erstellen der Buchung' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorCreatingBooking') }
     }
   },
 
@@ -881,11 +894,11 @@ export const adminHandlers = {
         .then(rows => rows[0])
 
       if (!booking) {
-        return { success: false, error: 'Buchung nicht gefunden' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('bookingNotFound') }
       }
 
       if (booking.booking.status === 'cancelled') {
-        return { success: false, error: 'Buchung ist bereits storniert' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('bookingAlreadyCancelled') }
       }
 
       // Get business info
@@ -897,7 +910,7 @@ export const adminHandlers = {
         .then(rows => rows[0])
 
       if (!business) {
-        return { success: false, error: 'Business nicht gefunden' }
+        return { success: false, error: 'Business not found' }
       }
 
       // Update booking status
@@ -925,8 +938,13 @@ export const adminHandlers = {
       let emailSent = false
       if (notifyCustomer && booking.customer?.email) {
         try {
+          const locale = await getBusinessLocale(args.businessId)
+          const ec = await getEmailTranslations(locale, 'emails.common')
+          const el = await getEmailTranslations(locale, 'emails.labels')
+          const ecancel = await getEmailTranslations(locale, 'emails.cancellation')
+          const dateLocale = locale === 'en' ? 'en-US' : 'de-DE'
           const formattedDate = booking.booking.startsAt
-            ? new Date(booking.booking.startsAt).toLocaleDateString('de-DE', {
+            ? new Date(booking.booking.startsAt).toLocaleDateString(dateLocale, {
                 weekday: 'long',
                 day: '2-digit',
                 month: 'long',
@@ -935,7 +953,7 @@ export const adminHandlers = {
               })
             : 'N/A'
           const formattedTime = booking.booking.startsAt
-            ? new Date(booking.booking.startsAt).toLocaleTimeString('de-DE', {
+            ? new Date(booking.booking.startsAt).toLocaleTimeString(dateLocale, {
                 hour: '2-digit',
                 minute: '2-digit',
                 timeZone: business.timezone,
@@ -944,21 +962,21 @@ export const adminHandlers = {
 
           await sendEmail({
             to: booking.customer.email,
-            subject: `Stornierung Ihrer Buchung - ${business.name}`,
+            subject: `${ecancel('title')} - ${business.name}`,
             html: `
-              <h2>Buchung storniert</h2>
-              <p>Hallo ${booking.customer.name || 'Kunde'},</p>
-              <p>Wir müssen Ihnen leider mitteilen, dass Ihre Buchung storniert wurde:</p>
+              <h2>${ecancel('title')}</h2>
+              <p>${ec('greeting', { name: booking.customer.name || ec('greetingGeneric') })}</p>
+              <p>${ecancel('body', { businessName: business.name })}</p>
               <ul>
-                <li><strong>Service:</strong> ${booking.service?.name || 'N/A'}</li>
-                <li><strong>Datum:</strong> ${formattedDate}</li>
-                <li><strong>Uhrzeit:</strong> ${formattedTime}</li>
+                <li><strong>${el('service')}</strong> ${booking.service?.name || 'N/A'}</li>
+                <li><strong>${el('date')}</strong> ${formattedDate}</li>
+                <li><strong>${el('time')}</strong> ${formattedTime}</li>
               </ul>
-              <p><strong>Grund:</strong> ${args.reason}</p>
-              <p>Wir entschuldigen uns für eventuelle Unannehmlichkeiten. Bitte kontaktieren Sie uns, um einen neuen Termin zu vereinbaren.</p>
-              <p>Mit freundlichen Grüßen,<br>${business.name}</p>
+              <p><strong>${el('reason')}</strong> ${args.reason}</p>
+              <p>${ecancel('rebookHint')}</p>
+              <p>${ec('regards')}<br>${business.name}</p>
             `,
-            text: `Buchung storniert\n\nHallo ${booking.customer.name || 'Kunde'},\n\nWir müssen Ihnen leider mitteilen, dass Ihre Buchung storniert wurde:\n- Service: ${booking.service?.name || 'N/A'}\n- Datum: ${formattedDate}\n- Uhrzeit: ${formattedTime}\n\nGrund: ${args.reason}\n\nWir entschuldigen uns für eventuelle Unannehmlichkeiten.\n\nMit freundlichen Grüßen,\n${business.name}`,
+            text: `${ecancel('title')}\n\n${ec('greeting', { name: booking.customer.name || ec('greetingGeneric') })}\n\n${ecancel('body', { businessName: business.name })}\n- ${el('service')} ${booking.service?.name || 'N/A'}\n- ${el('date')} ${formattedDate}\n- ${el('time')} ${formattedTime}\n\n${el('reason')} ${args.reason}\n\n${ecancel('rebookHint')}\n\n${ec('regards')}\n${business.name}`,
           })
           emailSent = true
         } catch (emailError) {
@@ -966,6 +984,7 @@ export const adminHandlers = {
         }
       }
 
+      const t = await getToolTranslations(args.businessId)
       return {
         success: true,
         data: {
@@ -973,12 +992,12 @@ export const adminHandlers = {
           status: updated.status,
           customerNotified: emailSent,
           reason: args.reason,
-          message: `Buchung storniert${emailSent ? ' und Kunde benachrichtigt' : ''}`,
+          message: emailSent ? t('bookingCancelledNotified') : t('bookingCancelledOnly'),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Stornieren der Buchung' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorCancellingBooking') }
     }
   },
 
@@ -1008,7 +1027,7 @@ export const adminHandlers = {
         if (existing) {
           return {
             success: false,
-            error: `Ein Kunde mit der E-Mail ${args.email} existiert bereits`,
+            error: (await getToolTranslations(args.businessId))('customerEmailExists', { email: args.email }),
             data: { existingCustomerId: existing.id },
           }
         }
@@ -1034,12 +1053,12 @@ export const adminHandlers = {
           name: customer.name,
           email: customer.email,
           phone: customer.phone,
-          message: `Kunde "${args.name}" erstellt`,
+          message: (await getToolTranslations(args.businessId))('customerCreated', { name: args.name }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Erstellen des Kunden' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorCreatingCustomer') }
     }
   },
 
@@ -1071,7 +1090,7 @@ export const adminHandlers = {
         .then(rows => rows[0])
 
       if (!existing) {
-        return { success: false, error: 'Kunde nicht gefunden' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('customerNotFound') }
       }
 
       // If email is changing, check uniqueness within the business
@@ -1090,7 +1109,7 @@ export const adminHandlers = {
         if (emailTaken) {
           return {
             success: false,
-            error: `Ein anderer Kunde mit der E-Mail ${args.email} existiert bereits`,
+            error: (await getToolTranslations(args.businessId))('otherCustomerEmailExists', { email: args.email }),
             data: { existingCustomerId: emailTaken.id },
           }
         }
@@ -1108,7 +1127,7 @@ export const adminHandlers = {
       if (args.country !== undefined) updates.country = args.country
 
       if (Object.keys(updates).length === 0) {
-        return { success: false, error: 'Keine Felder zum Aktualisieren angegeben' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('noFieldsToUpdate') }
       }
 
       const [updated] = await db
@@ -1128,12 +1147,12 @@ export const adminHandlers = {
           city: updated.city,
           postalCode: updated.postalCode,
           country: updated.country,
-          message: `Kunde "${updated.name}" aktualisiert`,
+          message: (await getToolTranslations(args.businessId))('customerUpdated', { name: updated.name || '' }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Aktualisieren des Kunden' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorUpdatingCustomer') }
     }
   },
 
@@ -1175,7 +1194,7 @@ export const adminHandlers = {
         data: {
           customers: results.map(c => ({
             id: c.id,
-            name: c.name || 'Unbekannt',
+            name: c.name || 'Unknown',
             email: c.email,
             phone: c.phone,
             source: c.source,
@@ -1183,13 +1202,13 @@ export const adminHandlers = {
           })),
           count: results.length,
           message: results.length > 0
-            ? `${results.length} Kunde${results.length > 1 ? 'n' : ''} gefunden`
-            : `Keine Kunden gefunden für "${args.query}"`,
+            ? (await getToolTranslations(args.businessId))(results.length > 1 ? 'customersFoundPlural' : 'customersFound', { count: results.length })
+            : (await getToolTranslations(args.businessId))('noCustomersFound', { query: args.query }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler bei der Kundensuche' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorSearchingCustomers') }
     }
   },
 
@@ -1221,7 +1240,7 @@ export const adminHandlers = {
         .then(rows => rows[0])
 
       if (!customer) {
-        return { success: false, error: 'Kunde nicht gefunden' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('customerNotFound') }
       }
 
       // Build status filter
@@ -1280,7 +1299,7 @@ export const adminHandlers = {
           timeZone: timezone,
         }) : 'N/A',
         service: b.serviceName || 'N/A',
-        staff: b.staffName || 'Nicht zugewiesen',
+        staff: b.staffName || 'Not assigned',
         status: b.status,
         price: b.price,
         notes: b.notes,
@@ -1308,13 +1327,13 @@ export const adminHandlers = {
           totalBookings: formatted.length,
           statusCounts,
           message: formatted.length > 0
-            ? `${formatted.length} Buchung${formatted.length > 1 ? 'en' : ''} für ${customer.name}`
-            : `Keine Buchungen für ${customer.name}`,
+            ? (await getToolTranslations(args.businessId))(formatted.length > 1 ? 'customerBookingsForPlural' : 'customerBookingsFor', { count: formatted.length, name: customer.name || '' })
+            : (await getToolTranslations(args.businessId))('noCustomerBookings', { name: customer.name || '' }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Abrufen der Kundenbuchungen' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorFetchingCustomerBookings') }
     }
   },
 
@@ -1344,11 +1363,11 @@ export const adminHandlers = {
         .then(rows => rows[0])
 
       if (!customer) {
-        return { success: false, error: 'Kunde nicht gefunden' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('customerNotFound') }
       }
 
       if (!customer.email) {
-        return { success: false, error: 'Kunde hat keine E-Mail-Adresse' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('customerNoEmail') }
       }
 
       // Get business info
@@ -1374,12 +1393,12 @@ export const adminHandlers = {
           customerId: customer.id,
           customerEmail: customer.email,
           subject: args.subject,
-          message: `E-Mail an ${customer.email} gesendet`,
+          message: `Email sent to ${customer.email}`,
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Senden der E-Mail' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorSendingEmail') }
     }
   },
 
@@ -1411,11 +1430,11 @@ export const adminHandlers = {
         .then(rows => rows[0])
 
       if (!booking) {
-        return { success: false, error: 'Buchung nicht gefunden' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('bookingNotFound') }
       }
 
       if (!booking.customer?.email) {
-        return { success: false, error: 'Kunde hat keine E-Mail-Adresse' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('customerNoEmail') }
       }
 
       // Get business info
@@ -1427,12 +1446,15 @@ export const adminHandlers = {
         .then(rows => rows[0])
 
       if (!business) {
-        return { success: false, error: 'Business nicht gefunden' }
+        return { success: false, error: 'Business not found' }
       }
+
+      const locale = await getBusinessLocale(args.businessId)
+      const dateLocale = locale === 'en' ? 'en-US' : 'de-DE'
 
       // Format date/time
       const formattedDate = booking.booking.startsAt
-        ? new Date(booking.booking.startsAt).toLocaleDateString('de-DE', {
+        ? new Date(booking.booking.startsAt).toLocaleDateString(dateLocale, {
             weekday: 'long',
             day: '2-digit',
             month: 'long',
@@ -1441,7 +1463,7 @@ export const adminHandlers = {
           })
         : 'N/A'
       const formattedTime = booking.booking.startsAt
-        ? new Date(booking.booking.startsAt).toLocaleTimeString('de-DE', {
+        ? new Date(booking.booking.startsAt).toLocaleTimeString(dateLocale, {
             hour: '2-digit',
             minute: '2-digit',
             timeZone: business.timezone,
@@ -1449,23 +1471,26 @@ export const adminHandlers = {
         : 'N/A'
 
       // Send confirmation email
+      const ec = await getEmailTranslations(locale, 'emails.common')
+      const el = await getEmailTranslations(locale, 'emails.labels')
+      const econf = await getEmailTranslations(locale, 'emails.confirmation')
       await sendEmail({
         to: booking.customer.email,
-        subject: `Buchungsbestätigung - ${booking.service?.name || 'Termin'} bei ${business.name}`,
+        subject: `${econf('confirmedTitle')} - ${booking.service?.name || 'Appointment'} - ${business.name}`,
         html: `
-          <h2>Buchungsbestätigung</h2>
-          <p>Hallo ${booking.customer.name || 'Kunde'},</p>
-          <p>Hier ist Ihre Buchungsbestätigung:</p>
+          <h2>${econf('confirmedTitle')}</h2>
+          <p>${ec('greeting', { name: booking.customer.name || ec('greetingGeneric') })}</p>
+          <p>${econf('autoConfirmedHint')}</p>
           <ul>
-            <li><strong>Service:</strong> ${booking.service?.name || 'N/A'}</li>
-            <li><strong>Datum:</strong> ${formattedDate}</li>
-            <li><strong>Uhrzeit:</strong> ${formattedTime}</li>
-            ${booking.staffMember?.name ? `<li><strong>Mitarbeiter:</strong> ${booking.staffMember.name}</li>` : ''}
-            ${booking.booking.price ? `<li><strong>Preis:</strong> ${booking.booking.price} €</li>` : ''}
+            <li><strong>${el('service')}</strong> ${booking.service?.name || 'N/A'}</li>
+            <li><strong>${el('date')}</strong> ${formattedDate}</li>
+            <li><strong>${el('time')}</strong> ${formattedTime}</li>
+            ${booking.staffMember?.name ? `<li><strong>${el('staff')}</strong> ${booking.staffMember.name}</li>` : ''}
+            ${booking.booking.price ? `<li><strong>${el('price')}</strong> ${booking.booking.price} €</li>` : ''}
           </ul>
-          <p>Mit freundlichen Grüßen,<br>${business.name}</p>
+          <p>${ec('regards')}<br>${business.name}</p>
         `,
-        text: `Buchungsbestätigung\n\nHallo ${booking.customer.name || 'Kunde'},\n\nHier ist Ihre Buchungsbestätigung:\n- Service: ${booking.service?.name || 'N/A'}\n- Datum: ${formattedDate}\n- Uhrzeit: ${formattedTime}${booking.staffMember?.name ? `\n- Mitarbeiter: ${booking.staffMember.name}` : ''}${booking.booking.price ? `\n- Preis: ${booking.booking.price} €` : ''}\n\nMit freundlichen Grüßen,\n${business.name}`,
+        text: `${econf('confirmedTitle')}\n\n${ec('greeting', { name: booking.customer.name || ec('greetingGeneric') })}\n\n${econf('autoConfirmedHint')}\n- ${el('service')} ${booking.service?.name || 'N/A'}\n- ${el('date')} ${formattedDate}\n- ${el('time')} ${formattedTime}${booking.staffMember?.name ? `\n- ${el('staff')} ${booking.staffMember.name}` : ''}${booking.booking.price ? `\n- ${el('price')} ${booking.booking.price} €` : ''}\n\n${ec('regards')}\n${business.name}`,
       })
 
       return {
@@ -1473,12 +1498,12 @@ export const adminHandlers = {
         data: {
           bookingId: booking.booking.id,
           customerEmail: booking.customer.email,
-          message: `Buchungsbestätigung erneut an ${booking.customer.email} gesendet`,
+          message: (await getToolTranslations(args.businessId))('confirmationResent', { email: booking.customer.email }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Senden der Bestätigung' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorResendingConfirmation') }
     }
   },
 
@@ -1499,7 +1524,7 @@ export const adminHandlers = {
         .then(rows => rows[0])
 
       if (!business) {
-        return { success: false, error: 'Business nicht gefunden' }
+        return { success: false, error: 'Business not found' }
       }
 
       // Calculate date range
@@ -1584,17 +1609,17 @@ export const adminHandlers = {
             upcomingToday: upcomingToday.length,
             revenue: revenue.toFixed(2),
           },
-          message: `Tagesübersicht für ${formattedDate}:\n` +
-            `• ${totalBookings} Buchungen gesamt\n` +
-            `• ${confirmed} bestätigt, ${completed} abgeschlossen\n` +
-            `• ${noShows} No-Shows, ${cancelled} storniert\n` +
-            `• ${upcomingToday.length} Termine noch heute\n` +
-            `• Umsatz: ${revenue.toFixed(2)} €`,
+          message: `Daily summary for ${formattedDate}:\n` +
+            `- ${totalBookings} bookings total\n` +
+            `- ${confirmed} confirmed, ${completed} completed\n` +
+            `- ${noShows} no-shows, ${cancelled} cancelled\n` +
+            `- ${upcomingToday.length} appointments remaining today\n` +
+            `- Revenue: ${revenue.toFixed(2)} EUR`,
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Abrufen der Tagesübersicht' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorFetchingDailySummary') }
     }
   },
 
@@ -1651,11 +1676,11 @@ export const adminHandlers = {
           return {
             conversationId: conv.id,
             channel: conv.channel,
-            customerName: conv.customerName || 'Unbekannt',
+            customerName: conv.customerName || 'Unknown',
             customerEmail: conv.customerEmail,
             customerPhone: conv.customerPhone,
             summary: conv.summary,
-            lastMessage: lastMessage?.content?.substring(0, 200) || 'Keine Nachricht',
+            lastMessage: lastMessage?.content?.substring(0, 200) || 'No message',
             lastActivity: conv.updatedAt?.toISOString(),
             startedAt: conv.createdAt?.toISOString(),
           }
@@ -1668,13 +1693,13 @@ export const adminHandlers = {
           conversations: results,
           count: results.length,
           message: results.length > 0
-            ? `${results.length} eskalierte Gespräch${results.length > 1 ? 'e' : ''} gefunden, die Ihre Aufmerksamkeit benötigen.`
-            : 'Keine eskalierten Gespräche - alles unter Kontrolle!',
+            ? `${results.length} escalated conversation${results.length > 1 ? 's' : ''} found that need your attention.`
+            : (await getToolTranslations(args.businessId))('noEscalatedConversations'),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Abrufen der eskalierten Gespräche' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorFetchingEscalated') }
     }
   },
 }

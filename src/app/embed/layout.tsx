@@ -1,5 +1,8 @@
 import type { Metadata } from 'next'
 import { Geist } from 'next/font/google'
+import { NextIntlClientProvider } from 'next-intl'
+import { getLocale, getMessages } from 'next-intl/server'
+import type { Locale } from '@/i18n/config'
 import '../globals.css'
 
 const geistSans = Geist({
@@ -12,17 +15,22 @@ export const metadata: Metadata = {
   robots: 'noindex, nofollow',
 }
 
-export default function EmbedLayout({
+export default async function EmbedLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const locale = await getLocale() as Locale
+  const messages = await getMessages()
+
   return (
-    <html lang="de">
+    <html lang={locale}>
       <body
         className={`${geistSans.variable} antialiased bg-transparent`}
       >
-        {children}
+        <NextIntlClientProvider messages={messages}>
+          {children}
+        </NextIntlClientProvider>
       </body>
     </html>
   )

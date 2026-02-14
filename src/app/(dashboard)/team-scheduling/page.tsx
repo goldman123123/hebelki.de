@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Loader2, Users, Clock, CalendarOff } from 'lucide-react'
 import { TeamMembersTab } from '@/components/team-scheduling/TeamMembersTab'
@@ -60,6 +61,7 @@ interface Service {
 }
 
 export default function TeamSchedulingPage() {
+  const t = useTranslations('dashboard.team')
   const [activeTab, setActiveTab] = useState('team')
   const [loading, setLoading] = useState(true)
 
@@ -137,23 +139,23 @@ export default function TeamSchedulingPage() {
   return (
     <div>
       <div className="mb-6 md:mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Team & Planung</h1>
-        <p className="text-gray-600">Verwalten Sie Ihr Team, Geschäftszeiten und Abwesenheiten</p>
+        <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+        <p className="text-gray-600">{t('subtitle')}</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-6 w-full sm:w-auto">
           <TabsTrigger value="team" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
-            <span>Team Mitglieder</span>
+            <span>{t('teamMembers')}</span>
           </TabsTrigger>
           <TabsTrigger value="business" className="flex items-center gap-2">
             <Clock className="h-4 w-4" />
-            <span>Geschäftszeiten</span>
+            <span>{t('businessHours')}</span>
           </TabsTrigger>
           <TabsTrigger value="timeoff" className="flex items-center gap-2">
             <CalendarOff className="h-4 w-4" />
-            <span>Abwesenheiten</span>
+            <span>{t('timeOff')}</span>
           </TabsTrigger>
         </TabsList>
 

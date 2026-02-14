@@ -10,12 +10,15 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 import { Loader2, CheckCircle, Shield, ArrowLeft } from 'lucide-react'
 
 function GdprRequestContent() {
   const searchParams = useSearchParams()
   const businessSlug = searchParams.get('business')
+  const t = useTranslations('gdpr.request')
+  const tSent = useTranslations('gdpr.requestSent')
 
   const [email, setEmail] = useState('')
   const [businessId, setBusinessId] = useState('')
@@ -54,12 +57,12 @@ function GdprRequestContent() {
     setError('')
 
     if (!email.trim()) {
-      setError('Bitte geben Sie Ihre E-Mail-Adresse ein.')
+      setError(t('errorEmail'))
       return
     }
 
     if (!businessId.trim()) {
-      setError('Unternehmen konnte nicht ermittelt werden. Bitte kontaktieren Sie support@hebelki.de.')
+      setError(t('errorBusiness'))
       return
     }
 
@@ -74,13 +77,13 @@ function GdprRequestContent() {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error || 'Ein Fehler ist aufgetreten.')
+        setError(data.error || t('errorGeneric'))
         return
       }
 
       setSubmitted(true)
     } catch {
-      setError('Ein Netzwerkfehler ist aufgetreten. Bitte versuchen Sie es später erneut.')
+      setError(t('errorNetwork'))
     } finally {
       setLoading(false)
     }
@@ -91,7 +94,7 @@ function GdprRequestContent() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="flex items-center gap-2 text-gray-500">
           <Loader2 className="h-5 w-5 animate-spin" />
-          <span>Laden...</span>
+          <span>{t('loading')}</span>
         </div>
       </div>
     )
@@ -102,23 +105,22 @@ function GdprRequestContent() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
           <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Anfrage gesendet</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">{tSent('title')}</h1>
           <p className="text-gray-600 mb-4">
-            Falls ein Konto mit dieser E-Mail-Adresse existiert, erhalten Sie
-            in Kürze eine Bestätigungs-E-Mail mit weiteren Anweisungen.
+            {tSent('description')}
           </p>
           <div className="bg-blue-50 border-l-4 border-blue-400 p-4 text-left">
             <p className="text-sm text-blue-800">
-              <strong>So geht es weiter:</strong>
+              <strong>{tSent('nextSteps')}</strong>
             </p>
             <ol className="text-sm text-blue-700 mt-2 list-decimal ml-4 space-y-1">
-              <li>Prüfen Sie Ihren Posteingang (auch Spam-Ordner)</li>
-              <li>Klicken Sie auf den Bestätigungslink in der E-Mail</li>
-              <li>Optional: Laden Sie Ihre Daten vor der Löschung herunter</li>
-              <li>Bestätigen Sie die endgültige Löschung</li>
+              <li>{tSent('step1')}</li>
+              <li>{tSent('step2')}</li>
+              <li>{tSent('step3')}</li>
+              <li>{tSent('step4')}</li>
             </ol>
             <p className="text-sm text-blue-700 mt-2">
-              Der Bestätigungslink ist <strong>7 Tage</strong> gültig.
+              {tSent('linkValidity', { days: '7' })}
             </p>
           </div>
           <Link
@@ -126,7 +128,7 @@ function GdprRequestContent() {
             className="inline-flex items-center gap-1 mt-6 text-sm text-gray-500 hover:text-gray-700"
           >
             <ArrowLeft className="h-4 w-4" />
-            Zurück zur Datenschutzerklärung
+            {t('backToPrivacy')}
           </Link>
         </div>
       </div>
@@ -139,23 +141,16 @@ function GdprRequestContent() {
         <div className="text-center mb-6">
           <Shield className="h-12 w-12 text-blue-600 mx-auto mb-3" />
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            Datenlöschung beantragen
+            {t('title')}
           </h1>
           {businessName && (
-            <p className="text-gray-500 text-sm">bei {businessName}</p>
+            <p className="text-gray-500 text-sm">{t('atBusiness', { businessName })}</p>
           )}
         </div>
 
         <div className="bg-gray-50 rounded-lg p-4 mb-6 text-sm text-gray-600 space-y-2">
-          <p>
-            Gemäß Art. 17 DSGVO haben Sie das Recht, die Löschung Ihrer
-            personenbezogenen Daten zu verlangen.
-          </p>
-          <p>
-            Nach dem Absenden erhalten Sie eine E-Mail mit einem
-            Bestätigungslink. Dort können Sie Ihre Daten vor der Löschung
-            herunterladen und die Löschung endgültig bestätigen.
-          </p>
+          <p>{t('description1')}</p>
+          <p>{t('description2')}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -164,19 +159,19 @@ function GdprRequestContent() {
               htmlFor="email"
               className="block text-sm font-medium text-gray-700 mb-1"
             >
-              E-Mail-Adresse
+              {t('emailLabel')}
             </label>
             <input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="ihre@email.de"
+              placeholder={t('emailPlaceholder')}
               required
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
             />
             <p className="mt-1 text-xs text-gray-400">
-              Die E-Mail-Adresse, mit der Sie beim Unternehmen registriert sind.
+              {t('emailHint')}
             </p>
           </div>
 
@@ -194,10 +189,10 @@ function GdprRequestContent() {
             {loading ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" />
-                Wird gesendet...
+                {t('sending')}
               </>
             ) : (
-              'Löschanfrage senden'
+              t('submit')
             )}
           </button>
         </form>
@@ -208,7 +203,7 @@ function GdprRequestContent() {
             className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
           >
             <ArrowLeft className="h-4 w-4" />
-            Zurück zur Datenschutzerklärung
+            {t('backToPrivacy')}
           </Link>
         </div>
       </div>
@@ -217,12 +212,14 @@ function GdprRequestContent() {
 }
 
 export default function GdprRequestPage() {
+  const t = useTranslations('gdpr.request')
+
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="flex items-center gap-2 text-gray-500">
           <Loader2 className="h-5 w-5 animate-spin" />
-          <span>Laden...</span>
+          <span>{t('loading')}</span>
         </div>
       </div>
     }>

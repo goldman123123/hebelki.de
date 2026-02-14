@@ -40,6 +40,7 @@ import {
 import { format, formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { createLogger } from '@/lib/logger'
 
 const log = createLogger('dashboard:customers:[id]:CustomerOverviewTab')
@@ -90,32 +91,54 @@ interface CustomerOverviewTabProps {
   onRefresh: () => void
 }
 
-// Status badge configuration
-const bookingStatusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  pending: { label: 'Ausstehend', color: 'bg-yellow-100 text-yellow-700', icon: Clock },
-  confirmed: { label: 'Bestätigt', color: 'bg-green-100 text-green-700', icon: CheckCircle2 },
-  cancelled: { label: 'Storniert', color: 'bg-red-100 text-red-700', icon: XCircle },
-  completed: { label: 'Abgeschlossen', color: 'bg-gray-100 text-gray-700', icon: CheckCircle2 },
-  no_show: { label: 'Nicht erschienen', color: 'bg-orange-100 text-orange-700', icon: AlertCircle },
+// Status badge configuration (colors and icons only - labels come from translations)
+const BOOKING_STATUS_COLORS: Record<string, string> = {
+  pending: 'bg-yellow-100 text-yellow-700',
+  confirmed: 'bg-green-100 text-green-700',
+  cancelled: 'bg-red-100 text-red-700',
+  completed: 'bg-gray-100 text-gray-700',
+  no_show: 'bg-orange-100 text-orange-700',
 }
 
-const conversationStatusConfig: Record<string, { label: string; color: string }> = {
-  active: { label: 'Aktiv', color: 'bg-green-100 text-green-700' },
-  escalated: { label: 'Eskaliert', color: 'bg-orange-100 text-orange-700' },
-  closed: { label: 'Geschlossen', color: 'bg-gray-100 text-gray-700' },
+const BOOKING_STATUS_ICONS: Record<string, React.ElementType> = {
+  pending: Clock,
+  confirmed: CheckCircle2,
+  cancelled: XCircle,
+  completed: CheckCircle2,
+  no_show: AlertCircle,
 }
 
-const channelLabels: Record<string, string> = {
-  web: 'Web',
-  whatsapp: 'WhatsApp',
-  sms: 'SMS',
+const BOOKING_STATUS_KEYS: Record<string, string> = {
+  pending: 'bookingPending',
+  confirmed: 'bookingConfirmed',
+  cancelled: 'bookingCancelled',
+  completed: 'bookingCompleted',
+  no_show: 'bookingNoShow',
 }
 
-const sourceLabels: Record<string, string> = {
-  booking: 'Buchung',
-  chatbot_escalation: 'Chatbot',
-  manual: 'Manuell',
-  whatsapp: 'WhatsApp',
+const CONV_STATUS_COLORS: Record<string, string> = {
+  active: 'bg-green-100 text-green-700',
+  escalated: 'bg-orange-100 text-orange-700',
+  closed: 'bg-gray-100 text-gray-700',
+}
+
+const CONV_STATUS_KEYS: Record<string, string> = {
+  active: 'convActive',
+  escalated: 'convEscalated',
+  closed: 'convClosed',
+}
+
+const CHANNEL_KEYS: Record<string, string> = {
+  web: 'channelWeb',
+  whatsapp: 'channelWhatsapp',
+  sms: 'channelSms',
+}
+
+const SOURCE_KEYS: Record<string, string> = {
+  booking: 'sourceBooking',
+  chatbot_escalation: 'sourceChatbot',
+  manual: 'sourceManual',
+  whatsapp: 'sourceWhatsapp',
 }
 
 export function CustomerOverviewTab({
@@ -124,6 +147,7 @@ export function CustomerOverviewTab({
   recentConversations,
   onRefresh,
 }: CustomerOverviewTabProps) {
+  const t = useTranslations('dashboard.customers.detail')
   const router = useRouter()
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -165,7 +189,7 @@ export function CustomerOverviewTab({
 
   const handleSave = async () => {
     if (!editData.name.trim()) {
-      toast.error('Name ist erforderlich')
+      toast.error(t('nameRequired'))
       return
     }
 
@@ -189,15 +213,15 @@ export function CustomerOverviewTab({
       const data = await response.json()
 
       if (response.ok) {
-        toast.success('Kunde aktualisiert')
+        toast.success(t('customerUpdated'))
         setEditing(false)
         onRefresh()
       } else {
-        toast.error(data.error || 'Fehler beim Speichern')
+        toast.error(data.error || t('errorSaving'))
       }
     } catch (error) {
       log.error('Failed to save customer:', error)
-      toast.error('Fehler beim Speichern')
+      toast.error(t('errorSaving'))
     } finally {
       setSaving(false)
     }
@@ -211,15 +235,15 @@ export function CustomerOverviewTab({
       })
 
       if (response.ok) {
-        toast.success('Kunde gelöscht')
+        toast.success(t('customerDeleted'))
         router.push('/customers')
       } else {
         const data = await response.json()
-        toast.error(data.error || 'Fehler beim Löschen')
+        toast.error(data.error || t('errorDeleting'))
       }
     } catch (error) {
       log.error('Failed to delete customer:', error)
-      toast.error('Fehler beim Löschen')
+      toast.error(t('errorDeleting'))
     } finally {
       setDeleting(false)
     }
@@ -246,13 +270,13 @@ export function CustomerOverviewTab({
         {/* Customer Info Card */}
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Kundendetails</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{t('customerDetails')}</h2>
             <div className="flex items-center gap-2">
               {editing ? (
                 <>
                   <Button variant="ghost" size="sm" onClick={cancelEdit} disabled={saving}>
                     <X className="mr-1 h-4 w-4" />
-                    Abbrechen
+                    {t('cancel')}
                   </Button>
                   <Button size="sm" onClick={handleSave} disabled={saving}>
                     {saving ? (
@@ -260,14 +284,14 @@ export function CustomerOverviewTab({
                     ) : (
                       <Save className="mr-1 h-4 w-4" />
                     )}
-                    Speichern
+                    {t('save')}
                   </Button>
                 </>
               ) : (
                 <>
                   <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
                     <Edit2 className="mr-1 h-4 w-4" />
-                    Bearbeiten
+                    {t('edit')}
                   </Button>
                   <Button
                     variant="ghost"
@@ -286,7 +310,7 @@ export function CustomerOverviewTab({
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-gray-700">
-                  Name <span className="text-red-500">*</span>
+                  {t('nameLabel')} <span className="text-red-500">*</span>
                 </label>
                 <Input
                   value={editData.name}
@@ -295,7 +319,7 @@ export function CustomerOverviewTab({
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700">E-Mail</label>
+                <label className="text-sm font-medium text-gray-700">{t('emailLabel')}</label>
                 <Input
                   type="email"
                   value={editData.email}
@@ -304,7 +328,7 @@ export function CustomerOverviewTab({
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700">Telefon</label>
+                <label className="text-sm font-medium text-gray-700">{t('phoneLabel')}</label>
                 <Input
                   type="tel"
                   value={editData.phone}
@@ -317,79 +341,79 @@ export function CustomerOverviewTab({
               <div className="pt-2 border-t">
                 <p className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-1.5">
                   <MapPin className="h-4 w-4" />
-                  Adresse
+                  {t('address')}
                 </p>
                 <div className="space-y-3">
                   <div>
-                    <label className="text-sm font-medium text-gray-700">Straße</label>
+                    <label className="text-sm font-medium text-gray-700">{t('street')}</label>
                     <Input
                       value={editData.street}
                       onChange={(e) => setEditData({ ...editData, street: e.target.value })}
                       className="mt-1"
-                      placeholder="Musterstraße 1"
+                      placeholder={t('streetPlaceholder')}
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-sm font-medium text-gray-700">PLZ</label>
+                      <label className="text-sm font-medium text-gray-700">{t('postalCode')}</label>
                       <Input
                         value={editData.postalCode}
                         onChange={(e) => setEditData({ ...editData, postalCode: e.target.value })}
                         className="mt-1"
-                        placeholder="10115"
+                        placeholder={t('postalCodePlaceholder')}
                       />
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-gray-700">Stadt</label>
+                      <label className="text-sm font-medium text-gray-700">{t('city')}</label>
                       <Input
                         value={editData.city}
                         onChange={(e) => setEditData({ ...editData, city: e.target.value })}
                         className="mt-1"
-                        placeholder="Berlin"
+                        placeholder={t('cityPlaceholder')}
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-700">Land</label>
+                    <label className="text-sm font-medium text-gray-700">{t('country')}</label>
                     <Input
                       value={editData.country}
                       onChange={(e) => setEditData({ ...editData, country: e.target.value })}
                       className="mt-1"
-                      placeholder="Deutschland"
+                      placeholder={t('countryPlaceholder')}
                     />
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-700">Notizen</label>
+                <label className="text-sm font-medium text-gray-700">{t('notes')}</label>
                 <Textarea
                   value={editData.notes}
                   onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
                   className="mt-1"
                   rows={4}
-                  placeholder="Interne Notizen zu diesem Kunden..."
+                  placeholder={t('notesPlaceholder')}
                 />
               </div>
             </div>
           ) : (
             <dl className="space-y-4">
               <div>
-                <dt className="text-sm font-medium text-gray-500">Name</dt>
+                <dt className="text-sm font-medium text-gray-500">{t('nameLabel')}</dt>
                 <dd className="mt-1 text-gray-900">{customer.name || '-'}</dd>
               </div>
               <div>
-                <dt className="text-sm font-medium text-gray-500">E-Mail</dt>
+                <dt className="text-sm font-medium text-gray-500">{t('emailLabel')}</dt>
                 <dd className="mt-1 text-gray-900">{customer.email || '-'}</dd>
               </div>
               <div>
-                <dt className="text-sm font-medium text-gray-500">Telefon</dt>
+                <dt className="text-sm font-medium text-gray-500">{t('phoneLabel')}</dt>
                 <dd className="mt-1 text-gray-900">{customer.phone || '-'}</dd>
               </div>
               <div>
-                <dt className="text-sm font-medium text-gray-500">Quelle</dt>
+                <dt className="text-sm font-medium text-gray-500">{t('source')}</dt>
                 <dd className="mt-1 text-gray-900">
-                  {customer.source ? sourceLabels[customer.source] || customer.source : '-'}
+                  {customer.source ? (SOURCE_KEYS[customer.source] ? t(SOURCE_KEYS[customer.source]) : customer.source) : '-'}
                 </dd>
               </div>
 
@@ -398,7 +422,7 @@ export function CustomerOverviewTab({
                 <div className="pt-3 border-t">
                   <dt className="text-sm font-medium text-gray-500 flex items-center gap-1.5">
                     <MapPin className="h-3.5 w-3.5" />
-                    Adresse
+                    {t('address')}
                   </dt>
                   <dd className="mt-1 text-gray-900">
                     {customer.street && <div>{customer.street}</div>}
@@ -415,7 +439,7 @@ export function CustomerOverviewTab({
               {/* WhatsApp Status */}
               {customer.whatsappOptInStatus && customer.whatsappOptInStatus !== 'UNSET' && (
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">WhatsApp</dt>
+                  <dt className="text-sm font-medium text-gray-500">{t('whatsapp')}</dt>
                   <dd className="mt-1">
                     <span
                       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
@@ -431,7 +455,7 @@ export function CustomerOverviewTab({
               )}
 
               <div>
-                <dt className="text-sm font-medium text-gray-500">Erstellt am</dt>
+                <dt className="text-sm font-medium text-gray-500">{t('createdAt')}</dt>
                 <dd className="mt-1 text-gray-900">
                   {customer.createdAt
                     ? format(new Date(customer.createdAt), 'PPP', { locale: de })
@@ -440,7 +464,7 @@ export function CustomerOverviewTab({
               </div>
               {customer.notes && (
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">Notizen</dt>
+                  <dt className="text-sm font-medium text-gray-500">{t('notes')}</dt>
                   <dd className="mt-1 text-gray-900 whitespace-pre-wrap">{customer.notes}</dd>
                 </div>
               )}
@@ -451,16 +475,17 @@ export function CustomerOverviewTab({
         {/* Recent Bookings */}
         <Card className="p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Letzte Buchungen
+            {t('recentBookings')}
           </h2>
           {recentBookings.length === 0 ? (
-            <p className="text-gray-500 text-sm">Keine Buchungen vorhanden</p>
+            <p className="text-gray-500 text-sm">{t('noBookings')}</p>
           ) : (
             <div className="space-y-3">
               {recentBookings.map((booking) => {
-                const statusConfig = bookingStatusConfig[booking.status || 'pending'] ||
-                  bookingStatusConfig.pending
-                const StatusIcon = statusConfig.icon
+                const bookingStatus = booking.status || 'pending'
+                const statusColor = BOOKING_STATUS_COLORS[bookingStatus] || BOOKING_STATUS_COLORS.pending
+                const StatusIcon = BOOKING_STATUS_ICONS[bookingStatus] || BOOKING_STATUS_ICONS.pending
+                const statusKey = BOOKING_STATUS_KEYS[bookingStatus]
 
                 return (
                   <div
@@ -472,7 +497,7 @@ export function CustomerOverviewTab({
                       <Calendar className="h-5 w-5 text-gray-400" />
                       <div>
                         <p className="font-medium text-gray-900">
-                          {booking.serviceName || 'Service'}
+                          {booking.serviceName || t('service')}
                         </p>
                         <p className="text-sm text-gray-500">
                           {format(new Date(booking.startsAt), 'PPp', { locale: de })}
@@ -481,10 +506,10 @@ export function CustomerOverviewTab({
                       </div>
                     </div>
                     <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusConfig.color}`}
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColor}`}
                     >
                       <StatusIcon className="h-3 w-3" />
-                      {statusConfig.label}
+                      {statusKey ? t(statusKey) : bookingStatus}
                     </span>
                   </div>
                 )
@@ -498,15 +523,16 @@ export function CustomerOverviewTab({
       <div>
         <Card className="p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Letzte Konversationen
+            {t('recentConversations')}
           </h2>
           {recentConversations.length === 0 ? (
-            <p className="text-gray-500 text-sm">Keine Konversationen vorhanden</p>
+            <p className="text-gray-500 text-sm">{t('noConversations')}</p>
           ) : (
             <div className="space-y-3">
               {recentConversations.map((conversation) => {
-                const statusConfig = conversationStatusConfig[conversation.status] ||
-                  conversationStatusConfig.active
+                const convColor = CONV_STATUS_COLORS[conversation.status] || CONV_STATUS_COLORS.active
+                const convKey = CONV_STATUS_KEYS[conversation.status]
+                const channelKey = CHANNEL_KEYS[conversation.channel]
 
                 return (
                   <div
@@ -516,12 +542,12 @@ export function CustomerOverviewTab({
                   >
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-gray-900">
-                        {channelLabels[conversation.channel] || conversation.channel}
+                        {channelKey ? t(channelKey) : conversation.channel}
                       </span>
                       <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusConfig.color}`}
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${convColor}`}
                       >
-                        {statusConfig.label}
+                        {convKey ? t(convKey) : conversation.status}
                       </span>
                     </div>
                     <div className="flex items-center gap-1 text-xs text-gray-500">
@@ -545,11 +571,9 @@ export function CustomerOverviewTab({
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Kunde löschen</DialogTitle>
+            <DialogTitle>{t('deleteCustomer')}</DialogTitle>
             <DialogDescription>
-              Möchten Sie &quot;{customer.name}&quot; wirklich löschen? Alle
-              zugehörigen Buchungen und Konversationen bleiben erhalten, aber
-              die Verknüpfung zu diesem Kunden wird aufgehoben.
+              {t('deleteCustomerDesc', { name: customer.name || '' })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -558,18 +582,18 @@ export function CustomerOverviewTab({
               onClick={() => setDeleteDialogOpen(false)}
               disabled={deleting}
             >
-              Abbrechen
+              {t('cancel')}
             </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
               {deleting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Löschen...
+                  {t('deleting')}
                 </>
               ) : (
                 <>
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Löschen
+                  {t('delete')}
                 </>
               )}
             </Button>
@@ -581,11 +605,11 @@ export function CustomerOverviewTab({
       <Dialog open={conversationDialogOpen} onOpenChange={setConversationDialogOpen}>
         <DialogContent className="sm:max-w-[700px]">
           <DialogHeader>
-            <DialogTitle>Gesprächsverlauf</DialogTitle>
+            <DialogTitle>{t('conversationHistory')}</DialogTitle>
             <DialogDescription>
               {selectedConversation && (
                 <span className="flex items-center gap-2 text-sm">
-                  <span>{channelLabels[selectedConversation.channel] || selectedConversation.channel}</span>
+                  <span>{CHANNEL_KEYS[selectedConversation.channel] ? t(CHANNEL_KEYS[selectedConversation.channel]) : selectedConversation.channel}</span>
                   <span>•</span>
                   <span>
                     {formatDistanceToNow(new Date(selectedConversation.lastMessageAt), {
@@ -602,11 +626,11 @@ export function CustomerOverviewTab({
             {loadingMessages ? (
               <div className="flex items-center justify-center gap-2 py-8 text-gray-500">
                 <Loader2 className="h-5 w-5 animate-spin" />
-                <span>Lädt Nachrichten...</span>
+                <span>{t('loadingMessages')}</span>
               </div>
             ) : conversationMessages.length === 0 ? (
               <div className="py-8 text-center text-sm text-gray-500">
-                Keine Nachrichten in diesem Gespräch
+                {t('noMessages')}
               </div>
             ) : (
               <div className="space-y-4">
@@ -664,7 +688,7 @@ export function CustomerOverviewTab({
                           }`}
                         >
                           {message.role === 'assistant' && (
-                            <p className="text-[10px] font-medium text-blue-500 mb-0.5">KI-Assistent</p>
+                            <p className="text-[10px] font-medium text-blue-500 mb-0.5">{t('aiAssistant')}</p>
                           )}
                           <p className="whitespace-pre-wrap text-sm">
                             {message.content}

@@ -15,6 +15,7 @@ import { UrlScrapeZone } from './UrlScrapeZone'
 import { DocumentList, DataPurpose } from './DocumentList'
 import { Document } from './DocumentCard'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { createLogger } from '@/lib/logger'
 
 const log = createLogger('dashboard:chatbot:data:DataSection')
@@ -40,6 +41,7 @@ export function DataSection({
   refreshKey,
   onRefresh,
 }: DataSectionProps) {
+  const t = useTranslations('dashboard.chatbot.data.section')
   const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
   const pollingRef = useRef<Record<string, NodeJS.Timeout>>({})
@@ -66,7 +68,7 @@ export function DataSection({
       }
     } catch (error) {
       log.error('Failed to fetch documents:', error)
-      toast.error('Fehler beim Laden der Dokumente')
+      toast.error(t('loadError'))
     } finally {
       setLoading(false)
     }
@@ -104,9 +106,9 @@ export function DataSection({
           onRefresh?.()
 
           if (job.status === 'done') {
-            toast.success('Dokument erfolgreich verarbeitet')
+            toast.success(t('processSuccess'))
           } else if (job.status === 'failed') {
-            toast.error(`Verarbeitung fehlgeschlagen: ${job.lastError || 'Unbekannter Fehler'}`)
+            toast.error(t('processFailed', { error: job.lastError || t('unknownError') }))
           }
         } else {
           // Update status in place

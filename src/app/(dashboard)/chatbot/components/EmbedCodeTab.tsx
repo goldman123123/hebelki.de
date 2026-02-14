@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Copy, Check, ExternalLink, MessageSquare, Calendar } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 interface EmbedCodeTabProps {
   businessSlug: string
@@ -14,6 +15,7 @@ interface EmbedCodeTabProps {
 }
 
 export function EmbedCodeTab({ businessSlug, businessName, defaultColor }: EmbedCodeTabProps) {
+  const t = useTranslations('dashboard.chatbot.embed')
   const [color, setColor] = useState(defaultColor)
   const [position, setPosition] = useState<'right' | 'left'>('right')
   const [copiedBooking, setCopiedBooking] = useState(false)
@@ -46,9 +48,9 @@ export function EmbedCodeTab({ businessSlug, businessName, defaultColor }: Embed
       {/* Color Picker */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Widget-Farbe</CardTitle>
+          <CardTitle className="text-lg">{t('widgetColor')}</CardTitle>
           <CardDescription>
-            Wählen Sie die Hauptfarbe für Ihre eingebetteten Widgets
+            {t('widgetColorDesc')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -80,9 +82,9 @@ export function EmbedCodeTab({ businessSlug, businessName, defaultColor }: Embed
           <div className="flex items-center gap-2">
             <Calendar className="h-5 w-5 text-gray-600" />
             <div>
-              <CardTitle className="text-lg">Buchungskalender einbetten</CardTitle>
+              <CardTitle className="text-lg">{t('embedBooking')}</CardTitle>
               <CardDescription>
-                Zeigt den Buchungskalender direkt auf Ihrer Website an
+                {t('embedBookingDesc')}
               </CardDescription>
             </div>
           </div>
@@ -99,16 +101,16 @@ export function EmbedCodeTab({ businessSlug, businessName, defaultColor }: Embed
               onClick={() => copyToClipboard(bookingSnippet, 'booking')}
             >
               {copiedBooking ? (
-                <><Check className="mr-1 h-3 w-3" /> Kopiert</>
+                <><Check className="mr-1 h-3 w-3" /> {t('copied')}</>
               ) : (
-                <><Copy className="mr-1 h-3 w-3" /> Kopieren</>
+                <><Copy className="mr-1 h-3 w-3" /> {t('copy')}</>
               )}
             </Button>
           </div>
 
           {/* Preview mockup */}
           <div className="rounded-lg border bg-gray-50 p-4">
-            <p className="mb-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Vorschau</p>
+            <p className="mb-2 text-xs font-medium text-gray-500 uppercase tracking-wide">{t('preview')}</p>
             <div className="rounded-lg border bg-white p-6 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
                 <div
@@ -117,7 +119,7 @@ export function EmbedCodeTab({ businessSlug, businessName, defaultColor }: Embed
                 />
                 <div>
                   <p className="text-sm font-semibold">{businessName}</p>
-                  <p className="text-xs text-gray-500">Termin buchen</p>
+                  <p className="text-xs text-gray-500">{t('bookAppointment')}</p>
                 </div>
               </div>
               <div className="space-y-2">
@@ -131,7 +133,7 @@ export function EmbedCodeTab({ businessSlug, businessName, defaultColor }: Embed
                       className="rounded px-3 py-1 text-xs text-white"
                       style={{ backgroundColor: color }}
                     >
-                      Wählen
+                      {t('select')}
                     </div>
                   </div>
                 ))}
@@ -145,7 +147,7 @@ export function EmbedCodeTab({ businessSlug, businessName, defaultColor }: Embed
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
           >
-            Vorschau im neuen Tab öffnen <ExternalLink className="h-3 w-3" />
+            {t('openPreview')} <ExternalLink className="h-3 w-3" />
           </a>
         </CardContent>
       </Card>
@@ -156,9 +158,9 @@ export function EmbedCodeTab({ businessSlug, businessName, defaultColor }: Embed
           <div className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-gray-600" />
             <div>
-              <CardTitle className="text-lg">Chat-Bubble einbetten</CardTitle>
+              <CardTitle className="text-lg">{t('embedChat')}</CardTitle>
               <CardDescription>
-                Fügt eine schwebende Chat-Blase unten auf Ihrer Website hinzu
+                {t('embedChatDesc')}
               </CardDescription>
             </div>
           </div>
@@ -166,21 +168,21 @@ export function EmbedCodeTab({ businessSlug, businessName, defaultColor }: Embed
         <CardContent className="space-y-4">
           {/* Position Toggle */}
           <div>
-            <Label className="text-sm font-medium">Position</Label>
+            <Label className="text-sm font-medium">{t('position')}</Label>
             <div className="mt-1 flex gap-2">
               <Button
                 variant={position === 'right' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setPosition('right')}
               >
-                Unten rechts
+                {t('bottomRight')}
               </Button>
               <Button
                 variant={position === 'left' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setPosition('left')}
               >
-                Unten links
+                {t('bottomLeft')}
               </Button>
             </div>
           </div>
@@ -196,19 +198,19 @@ export function EmbedCodeTab({ businessSlug, businessName, defaultColor }: Embed
               onClick={() => copyToClipboard(chatSnippet, 'chat')}
             >
               {copiedChat ? (
-                <><Check className="mr-1 h-3 w-3" /> Kopiert</>
+                <><Check className="mr-1 h-3 w-3" /> {t('copied')}</>
               ) : (
-                <><Copy className="mr-1 h-3 w-3" /> Kopieren</>
+                <><Copy className="mr-1 h-3 w-3" /> {t('copy')}</>
               )}
             </Button>
           </div>
 
           {/* Preview mockup */}
           <div className="rounded-lg border bg-gray-50 p-4">
-            <p className="mb-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Vorschau</p>
+            <p className="mb-2 text-xs font-medium text-gray-500 uppercase tracking-wide">{t('preview')}</p>
             <div className="relative h-48 rounded-lg border bg-white overflow-hidden">
               <div className="h-full flex items-center justify-center text-sm text-gray-400">
-                Ihre Website
+                {t('yourWebsite')}
               </div>
               {/* Mock chat bubble */}
               <div
@@ -229,7 +231,7 @@ export function EmbedCodeTab({ businessSlug, businessName, defaultColor }: Embed
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
           >
-            Chat-Vorschau im neuen Tab öffnen <ExternalLink className="h-3 w-3" />
+            {t('openChatPreview')} <ExternalLink className="h-3 w-3" />
           </a>
         </CardContent>
       </Card>
@@ -237,17 +239,17 @@ export function EmbedCodeTab({ businessSlug, businessName, defaultColor }: Embed
       {/* Instructions */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Anleitung</CardTitle>
+          <CardTitle className="text-lg">{t('instructions')}</CardTitle>
         </CardHeader>
         <CardContent className="prose prose-sm max-w-none text-gray-600">
           <ol className="space-y-2">
-            <li>Kopieren Sie den gewünschten Code-Schnipsel oben.</li>
-            <li>Fügen Sie ihn in den HTML-Code Ihrer Website ein — am besten vor dem schließenden <code>&lt;/body&gt;</code> Tag.</li>
-            <li>Der Buchungskalender erscheint dort, wo Sie das <code>&lt;div&gt;</code> platzieren. Die Chat-Blase erscheint automatisch als schwebendes Element.</li>
-            <li>Sie können beide Widgets gleichzeitig auf derselben Seite verwenden.</li>
+            <li>{t('step1')}</li>
+            <li>{t('step2')}</li>
+            <li>{t('step3')}</li>
+            <li>{t('step4')}</li>
           </ol>
           <p className="mt-4 text-xs text-gray-400">
-            Das Widget-Script ist ~3KB groß und wird asynchron geladen — es verlangsamt Ihre Website nicht.
+            {t('scriptNote')}
           </p>
         </CardContent>
       </Card>

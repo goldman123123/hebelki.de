@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Suspense } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,113 +15,42 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 
-// Tool categories with German labels
-const TOOL_CATEGORIES: Record<string, { label: string; tools: string[] }> = {
-  bookings: {
-    label: 'Buchungen',
-    tools: [
-      'search_bookings', 'update_booking_status', 'reschedule_booking',
-      'get_todays_bookings', 'get_upcoming_bookings', 'create_booking_admin',
-      'cancel_booking_with_notification',
-    ],
-  },
-  customers: {
-    label: 'Kunden',
-    tools: [
-      'create_customer', 'update_customer', 'search_customers',
-      'get_customer_bookings', 'delete_customer',
-    ],
-  },
-  communication: {
-    label: 'Kommunikation',
-    tools: [
-      'send_email_to_customer', 'resend_booking_confirmation', 'send_whatsapp',
-    ],
-  },
-  services: {
-    label: 'Dienstleistungen',
-    tools: [
-      'create_service', 'update_service', 'delete_service',
-    ],
-  },
-  staffMgmt: {
-    label: 'Personal',
-    tools: [
-      'create_staff', 'update_staff', 'delete_staff',
-      'assign_staff_to_service', 'remove_staff_from_service',
-    ],
-  },
-  availability: {
-    label: 'Verfügbarkeit',
-    tools: [
-      'get_availability_template', 'update_availability_template',
-      'block_day', 'block_staff_period',
-    ],
-  },
-  invoices: {
-    label: 'Rechnungen',
-    tools: [
-      'search_invoices', 'get_invoice_details', 'create_invoice',
-      'send_invoice', 'mark_invoice_paid', 'cancel_invoice_storno',
-    ],
-  },
-  knowledge: {
-    label: 'Wissensdatenbank',
-    tools: [
-      'add_knowledge_entry', 'update_knowledge_entry', 'delete_knowledge_entry',
-    ],
-  },
-  overview: {
-    label: 'Übersicht & Berichte',
-    tools: [
-      'get_daily_summary', 'get_monthly_schedule',
-      'get_escalated_conversations', 'search_customer_conversations',
-    ],
-  },
-}
-
-// Human-readable tool names in German
-const TOOL_LABELS: Record<string, string> = {
-  search_bookings: 'Buchungen suchen',
-  update_booking_status: 'Buchungsstatus ändern',
-  reschedule_booking: 'Termin verschieben',
-  get_todays_bookings: 'Heutige Termine',
-  get_upcoming_bookings: 'Kommende Termine',
-  create_booking_admin: 'Direktbuchung erstellen',
-  cancel_booking_with_notification: 'Stornieren + benachrichtigen',
-  create_customer: 'Kunde anlegen',
-  update_customer: 'Kunde bearbeiten',
-  search_customers: 'Kunden suchen',
-  get_customer_bookings: 'Kundenhistorie',
-  delete_customer: 'Kunde löschen',
-  send_email_to_customer: 'E-Mail senden',
-  resend_booking_confirmation: 'Bestätigung erneut senden',
-  send_whatsapp: 'WhatsApp senden',
-  create_service: 'Dienstleistung erstellen',
-  update_service: 'Dienstleistung bearbeiten',
-  delete_service: 'Dienstleistung löschen',
-  create_staff: 'Mitarbeiter anlegen',
-  update_staff: 'Mitarbeiter bearbeiten',
-  delete_staff: 'Mitarbeiter entfernen',
-  assign_staff_to_service: 'Service zuweisen',
-  remove_staff_from_service: 'Service entfernen',
-  get_availability_template: 'Verfügbarkeit anzeigen',
-  update_availability_template: 'Verfügbarkeit bearbeiten',
-  block_day: 'Tag blockieren',
-  block_staff_period: 'Zeitraum blockieren',
-  search_invoices: 'Rechnungen suchen',
-  get_invoice_details: 'Rechnungsdetails',
-  create_invoice: 'Rechnung erstellen',
-  send_invoice: 'Rechnung versenden',
-  mark_invoice_paid: 'Als bezahlt markieren',
-  cancel_invoice_storno: 'Stornierung',
-  add_knowledge_entry: 'Eintrag hinzufügen',
-  update_knowledge_entry: 'Eintrag bearbeiten',
-  delete_knowledge_entry: 'Eintrag löschen',
-  get_daily_summary: 'Tagesübersicht',
-  get_monthly_schedule: 'Monatsplanung',
-  get_escalated_conversations: 'Eskalierte Gespräche',
-  search_customer_conversations: 'Gesprächsverlauf suchen',
+// Tool categories - labels come from translations
+const TOOL_CATEGORIES: Record<string, string[]> = {
+  bookings: [
+    'search_bookings', 'update_booking_status', 'reschedule_booking',
+    'get_todays_bookings', 'get_upcoming_bookings', 'create_booking_admin',
+    'cancel_booking_with_notification',
+  ],
+  customers: [
+    'create_customer', 'update_customer', 'search_customers',
+    'get_customer_bookings', 'delete_customer',
+  ],
+  communication: [
+    'send_email_to_customer', 'resend_booking_confirmation', 'send_whatsapp',
+  ],
+  services: [
+    'create_service', 'update_service', 'delete_service',
+  ],
+  staffMgmt: [
+    'create_staff', 'update_staff', 'delete_staff',
+    'assign_staff_to_service', 'remove_staff_from_service',
+  ],
+  availability: [
+    'get_availability_template', 'update_availability_template',
+    'block_day', 'block_staff_period',
+  ],
+  invoices: [
+    'search_invoices', 'get_invoice_details', 'create_invoice',
+    'send_invoice', 'mark_invoice_paid', 'cancel_invoice_storno',
+  ],
+  knowledge: [
+    'add_knowledge_entry', 'update_knowledge_entry', 'delete_knowledge_entry',
+  ],
+  overview: [
+    'get_daily_summary', 'get_monthly_schedule',
+    'get_escalated_conversations', 'search_customer_conversations',
+  ],
 }
 
 interface StaffMember {
@@ -136,6 +66,7 @@ interface StaffMember {
 
 // --- Staff List View ---
 function StaffListView() {
+  const t = useTranslations('dashboard.team.capabilities')
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
@@ -170,17 +101,17 @@ function StaffListView() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">KI-Tool-Berechtigungen</h1>
-          <p className="text-gray-600">Wählen Sie ein Teammitglied, um dessen KI-Berechtigungen zu verwalten</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+          <p className="text-gray-600">{t('subtitle')}</p>
         </div>
       </div>
 
       {staffMembers.length === 0 ? (
         <div className="py-12 text-center">
           <Users className="mx-auto h-8 w-8 mb-2 opacity-50" />
-          <p className="text-muted-foreground">Keine Teammitglieder vorhanden.</p>
+          <p className="text-muted-foreground">{t('noMembers')}</p>
           <Link href="/team-scheduling" className="text-sm text-blue-600 hover:underline mt-2 inline-block">
-            Team verwalten
+            {t('manageTeam')}
           </Link>
         </div>
       ) : (
@@ -209,18 +140,18 @@ function StaffListView() {
                     <div>
                       <p className="font-medium text-gray-900">{member.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {member.title || 'Mitarbeiter'}
+                        {member.title || t('employee')}
                         {member.email && ` — ${member.email}`}
                       </p>
                     </div>
                     {!member.isActive && (
                       <Badge variant="outline" className="text-xs">
-                        Inaktiv
+                        {t('inactive')}
                       </Badge>
                     )}
                     {hasCustom && (
                       <Badge variant="outline" className="text-amber-600 border-amber-300">
-                        Individuell
+                        {t('custom')}
                       </Badge>
                     )}
                   </div>
@@ -237,6 +168,7 @@ function StaffListView() {
 
 // --- Tool Editor View ---
 function ToolEditorView({ staffId }: { staffId: string }) {
+  const t = useTranslations('dashboard.team.capabilities')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -337,12 +269,12 @@ function ToolEditorView({ staffId }: { staffId: string }) {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              {staffName ? `${staffName} — KI-Berechtigungen` : 'KI-Tool-Berechtigungen'}
+              {staffName ? `${staffName} — ${t('staffPermissions')}` : t('title')}
             </h1>
             <p className="text-gray-600">
-              Mitarbeiter
+              {t('employee')}
               {isCustom && (
-                <span className="ml-2 text-amber-600 text-xs font-medium">(Individuell angepasst)</span>
+                <span className="ml-2 text-amber-600 text-xs font-medium">({t('customized')})</span>
               )}
             </p>
           </div>
@@ -351,7 +283,7 @@ function ToolEditorView({ staffId }: { staffId: string }) {
           {isCustom && (
             <Button variant="outline" size="sm" onClick={resetToDefaults}>
               <RotateCcw className="mr-1.5 h-4 w-4" />
-              Standard
+              {t('default')}
             </Button>
           )}
           <Button size="sm" onClick={handleSave} disabled={saving}>
@@ -362,15 +294,15 @@ function ToolEditorView({ staffId }: { staffId: string }) {
             ) : (
               <Save className="mr-1.5 h-4 w-4" />
             )}
-            {saved ? 'Gespeichert' : 'Speichern'}
+            {saved ? t('saved') : t('save')}
           </Button>
         </div>
       </div>
 
       <div className="space-y-4">
-        {Object.entries(TOOL_CATEGORIES).map(([key, category]) => {
-          const categoryEnabled = category.tools.filter(t => enabledTools.has(t)).length
-          const allEnabled = categoryEnabled === category.tools.length
+        {Object.entries(TOOL_CATEGORIES).map(([key, tools]) => {
+          const categoryEnabled = tools.filter(tl => enabledTools.has(tl)).length
+          const allEnabled = categoryEnabled === tools.length
 
           return (
             <Card key={key}>
@@ -382,29 +314,29 @@ function ToolEditorView({ staffId }: { staffId: string }) {
                     ) : (
                       <Shield className="h-4 w-4 text-gray-400" />
                     )}
-                    <CardTitle className="text-sm font-semibold">{category.label}</CardTitle>
+                    <CardTitle className="text-sm font-semibold">{t(`categories.${key}`)}</CardTitle>
                     <span className="text-xs text-muted-foreground">
-                      {categoryEnabled}/{category.tools.length}
+                      {categoryEnabled}/{tools.length}
                     </span>
                   </div>
                   <Button
                     variant="ghost"
                     size="sm"
                     className="text-xs h-7"
-                    onClick={() => toggleCategory(category.tools, !allEnabled)}
+                    onClick={() => toggleCategory(tools, !allEnabled)}
                   >
-                    {allEnabled ? 'Alle deaktivieren' : 'Alle aktivieren'}
+                    {allEnabled ? t('disableAll') : t('enableAll')}
                   </Button>
                 </div>
               </CardHeader>
               <CardContent className="px-4 pb-3 pt-0">
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {category.tools.map(tool => (
+                  {tools.map(tool => (
                     <div
                       key={tool}
                       className="flex items-center justify-between rounded-md border px-3 py-2"
                     >
-                      <span className="text-sm">{TOOL_LABELS[tool] || tool}</span>
+                      <span className="text-sm">{t(`tools.${tool}`)}</span>
                       <Switch
                         checked={enabledTools.has(tool)}
                         onCheckedChange={() => toggleTool(tool)}

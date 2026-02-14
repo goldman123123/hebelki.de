@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Send, Bot, User, UserCheck, X, ArrowLeft } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { createLogger } from '@/lib/logger'
 
 const log = createLogger('dashboard:support-chat:ChatThread')
@@ -25,14 +26,22 @@ interface ChatThreadProps {
   onBack?: () => void
 }
 
-const statusLabels: Record<string, { label: string; color: string }> = {
-  live_queue: { label: 'Wartend', color: 'bg-yellow-100 text-yellow-800' },
-  live_active: { label: 'Aktiv', color: 'bg-green-100 text-green-800' },
-  escalated: { label: 'Eskaliert', color: 'bg-red-100 text-red-800' },
-  closed: { label: 'Geschlossen', color: 'bg-gray-100 text-gray-800' },
+const STATUS_COLORS: Record<string, string> = {
+  live_queue: 'bg-yellow-100 text-yellow-800',
+  live_active: 'bg-green-100 text-green-800',
+  escalated: 'bg-red-100 text-red-800',
+  closed: 'bg-gray-100 text-gray-800',
+}
+
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  live_queue: 'statusQueued',
+  live_active: 'statusActive',
+  escalated: 'statusEscalated',
+  closed: 'statusClosed',
 }
 
 export function ChatThread({ conversationId, onClose, showBackButton, onBack }: ChatThreadProps) {
+  const t = useTranslations('dashboard.supportChat')
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
@@ -160,7 +169,8 @@ export function ChatThread({ conversationId, onClose, showBackButton, onBack }: 
     }
   }
 
-  const statusInfo = statusLabels[status] || { label: status, color: 'bg-gray-100 text-gray-800' }
+  const statusColor = STATUS_COLORS[status] || 'bg-gray-100 text-gray-800'
+  const statusLabel = STATUS_LABEL_KEYS[status] ? t(STATUS_LABEL_KEYS[status]) : status
 
   return (
     <Card className="flex h-full flex-col">
@@ -175,11 +185,11 @@ export function ChatThread({ conversationId, onClose, showBackButton, onBack }: 
               className="h-8 w-8 shrink-0"
             >
               <ArrowLeft className="h-4 w-4" />
-              <span className="sr-only">Zurück</span>
+              <span className="sr-only">{t('back')}</span>
             </Button>
           )}
-          <span className="text-sm font-semibold text-gray-900 truncate">Gespräch</span>
-          <Badge className={statusInfo.color}>{statusInfo.label}</Badge>
+          <span className="text-sm font-semibold text-gray-900 truncate">{t('conversation')}</span>
+          <Badge className={statusColor}>{statusLabel}</Badge>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {status !== 'closed' && (
@@ -190,7 +200,7 @@ export function ChatThread({ conversationId, onClose, showBackButton, onBack }: 
               disabled={closing}
             >
               {closing ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
-              <span className="ml-1 hidden sm:inline">Schließen</span>
+              <span className="ml-1 hidden sm:inline">{t('close')}</span>
             </Button>
           )}
         </div>
@@ -204,7 +214,7 @@ export function ChatThread({ conversationId, onClose, showBackButton, onBack }: 
           </div>
         ) : messages.length === 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-gray-400">
-            Keine Nachrichten
+            {t('noMessages')}
           </div>
         ) : (
           messages.map((msg) => {
@@ -225,7 +235,7 @@ export function ChatThread({ conversationId, onClose, showBackButton, onBack }: 
                     <User className="h-4 w-4 text-gray-500" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-medium text-gray-400 mb-0.5">Kunde</p>
+                    <p className="text-[10px] font-medium text-gray-400 mb-0.5">{t('customer')}</p>
                     <div className="rounded-lg bg-gray-100 px-3 py-2 max-w-md">
                       <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
                     </div>
@@ -244,7 +254,7 @@ export function ChatThread({ conversationId, onClose, showBackButton, onBack }: 
                     <Bot className="h-4 w-4 text-blue-600" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-medium text-blue-500 mb-0.5">KI-Assistent</p>
+                    <p className="text-[10px] font-medium text-blue-500 mb-0.5">{t('aiAssistant')}</p>
                     <div className="rounded-lg bg-blue-50 px-3 py-2 max-w-md">
                       <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
                     </div>
@@ -288,7 +298,7 @@ export function ChatThread({ conversationId, onClose, showBackButton, onBack }: 
         <div className="border-t p-3">
           <div className="flex gap-2">
             <Input
-              placeholder="Antwort eingeben..."
+              placeholder={t('replyPlaceholder')}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyPress}

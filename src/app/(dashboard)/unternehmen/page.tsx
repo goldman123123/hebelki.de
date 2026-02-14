@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import { useUser } from '@clerk/nextjs'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -20,6 +21,8 @@ import { DataManagementCard } from './components/DataManagementCard'
 import { TeamPhonesCard } from './components/TeamPhonesCard'
 
 export default function UnternehmenPage() {
+  const t = useTranslations('dashboard.business')
+  const tc = useTranslations('dashboard.business.checks')
   const { user } = useUser()
   const [business, setBusiness] = useState<Business | null>(null)
   const [loading, setLoading] = useState(true)
@@ -68,56 +71,56 @@ export default function UnternehmenPage() {
     if (!business.description) {
       checks.push({
         status: 'warning',
-        label: 'Beschreibung fehlt',
-        detail: 'Kunden sehen keine Informationen auf der Buchungsseite',
+        label: tc('descriptionMissing'),
+        detail: tc('descriptionDetail'),
         section: 'profile',
       })
     }
     if (!business.address) {
       checks.push({
         status: 'error',
-        label: 'Adresse fehlt',
-        detail: 'Erforderlich für Impressum und Rechnungen',
+        label: tc('addressMissing'),
+        detail: tc('addressDetail'),
         section: 'profile',
       })
     }
     if (!business.legalName) {
       checks.push({
         status: 'error',
-        label: 'Rechtliche Angaben fehlen',
-        detail: 'Rechnungen können nicht erstellt werden',
+        label: tc('legalMissing'),
+        detail: tc('legalDetail'),
         section: 'legal',
       })
     }
     if (!business.settings?.privacyPolicyUrl) {
       checks.push({
         status: 'error',
-        label: 'Datenschutzerklärung fehlt',
-        detail: 'WhatsApp-Integration blockiert',
+        label: tc('privacyMissing'),
+        detail: tc('privacyDetail'),
         section: 'compliance',
       })
     }
     if (!business.settings?.avvAcceptedAt || business.settings?.avvVersion !== CURRENT_AVV_VERSION) {
       checks.push({
         status: 'warning',
-        label: 'AVV nicht akzeptiert',
-        detail: 'Auftragsverarbeitungsvertrag ausstehend',
+        label: tc('avvPending'),
+        detail: tc('avvDetail'),
         section: 'compliance',
       })
     }
     if (!business.settings?.aiLiteracyAcknowledgedAt || business.settings?.aiLiteracyVersion !== CURRENT_AI_LITERACY_VERSION) {
       checks.push({
         status: 'warning',
-        label: 'KI-Schulung nicht bestätigt',
-        detail: 'Chatbot-Funktionen eingeschränkt',
+        label: tc('aiLiteracy'),
+        detail: tc('aiLiteracyDetail'),
         section: 'compliance',
       })
     }
     if (!business.email) {
       checks.push({
         status: 'error',
-        label: 'E-Mail fehlt',
-        detail: 'Buchungsbestätigungen können nicht gesendet werden',
+        label: tc('emailMissing'),
+        detail: tc('emailDetail'),
         section: 'contact',
       })
     }
@@ -140,7 +143,7 @@ export default function UnternehmenPage() {
   if (!business) {
     return (
       <div className="py-12 text-center">
-        <p className="text-gray-500">Kein Unternehmen konfiguriert.</p>
+        <p className="text-gray-500">{t('noBusiness')}</p>
       </div>
     )
   }
@@ -149,14 +152,14 @@ export default function UnternehmenPage() {
     <div>
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Mein Betrieb</h1>
-          <p className="text-gray-600">Stammdaten, Kontakt und rechtliche Angaben</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+          <p className="text-gray-600">{t('subtitle')}</p>
         </div>
         <Badge className={`${isReady ? 'bg-green-500' : hasErrors ? 'bg-red-500' : 'bg-amber-500'} text-white`}>
           {isReady && <CheckCircle className="mr-1 h-3 w-3" />}
           {hasErrors && <XCircle className="mr-1 h-3 w-3" />}
           {!isReady && !hasErrors && <AlertTriangle className="mr-1 h-3 w-3" />}
-          {isReady ? 'Einsatzbereit' : hasErrors ? 'Blockiert' : 'Handlungsbedarf'}
+          {isReady ? t('ready') : hasErrors ? t('blocked') : t('actionRequired')}
         </Badge>
       </div>
 

@@ -9,6 +9,7 @@ import { db } from '@/lib/db'
 import { services, businessMembers } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { auth } from '@clerk/nextjs/server'
+import { getTranslations } from 'next-intl/server'
 
 export default async function ServiceDetailPage({
   params
@@ -49,6 +50,8 @@ export default async function ServiceDetailPage({
     return notFound()
   }
 
+  const t = await getTranslations('dashboard.services.detail')
+
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
@@ -61,7 +64,7 @@ export default async function ServiceDetailPage({
           <div>
             <h1 className="text-2xl font-bold">{service.name}</h1>
             <p className="text-sm text-muted-foreground">
-              {service.durationMinutes} minutes
+              {service.durationMinutes} {t('minutes')}
               {service.price && ` • ${service.price} EUR`}
             </p>
           </div>
@@ -70,8 +73,8 @@ export default async function ServiceDetailPage({
 
       <Tabs defaultValue="details" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="staff">Staff Priority</TabsTrigger>
+          <TabsTrigger value="details">{t('details')}</TabsTrigger>
+          <TabsTrigger value="staff">{t('staffPriority')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="details" className="space-y-4">

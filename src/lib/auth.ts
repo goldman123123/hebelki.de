@@ -1,7 +1,9 @@
 import { auth } from '@clerk/nextjs/server'
+import { cookies } from 'next/headers'
 import { db, dbRetry } from './db'
 import { businesses, businessMembers } from './db/schema'
 import { eq, and } from 'drizzle-orm'
+import { isPlatformAdminId } from './platform-auth'
 
 export type AuthResult =
   | { success: true; userId: string; business: typeof businesses.$inferSelect }
@@ -17,6 +19,14 @@ export async function requireBusinessAuth(): Promise<AuthResult> {
 
   if (!userId) {
     return { success: false, error: 'Unauthorized', status: 401 }
+  }
+
+  const cookieStore = await cookies()
+  const overrideId = cookieStore.get('hebelki_platform_business_id')?.value
+  if (overrideId && isPlatformAdminId(userId)) {
+    const [business] = await db.select().from(businesses)
+      .where(eq(businesses.id, overrideId)).limit(1)
+    if (business) return { success: true, userId, business }
   }
 
   // ✅ Query business_members table (many-to-many approach)
@@ -50,6 +60,14 @@ export async function requireBusinessAuth(): Promise<AuthResult> {
  * ✅ Uses business_members table for proper multi-tenant support
  */
 export async function getBusinessForUser(clerkUserId: string) {
+  const cookieStore = await cookies()
+  const overrideId = cookieStore.get('hebelki_platform_business_id')?.value
+  if (overrideId && isPlatformAdminId(clerkUserId)) {
+    const [business] = await db.select().from(businesses)
+      .where(eq(businesses.id, overrideId)).limit(1)
+    if (business) return business
+  }
+
   const results = await dbRetry(() =>
     db
       .select({

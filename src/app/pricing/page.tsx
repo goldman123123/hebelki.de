@@ -6,120 +6,97 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Calendar, Check, LogOut } from 'lucide-react'
 import { DevUserSwitcherPublic } from '@/components/DevUserSwitcherPublic'
-
-const tiers = [
-  {
-    name: 'Kostenlos',
-    planId: 'free',
-    price: '€0',
-    period: 'für immer',
-    description: 'Perfekt zum Ausprobieren von Hebelki',
-    features: [
-      '1 Mitarbeiter',
-      '50 Buchungen/Monat',
-      'E-Mail-Bestätigungen',
-      'Einfache Buchungsseite',
-      'hebelki.de/book/slug URL',
-    ],
-    limitations: [
-      'Hebelki-Branding',
-    ],
-    cta: 'Jetzt starten',
-    ctaLoggedIn: 'Aktueller Tarif',
-    ctaVariant: 'outline' as const,
-    popular: false,
-  },
-  {
-    name: 'Starter',
-    planId: 'starter',
-    price: '€19',
-    period: '/Monat',
-    description: 'Für kleine Unternehmen, die durchstarten',
-    features: [
-      'Bis zu 3 Mitarbeiter',
-      'Unbegrenzte Buchungen',
-      'E-Mail- & SMS-Erinnerungen',
-      'Hebelki-Branding entfernen',
-      'Eigene Farben & Logo',
-      'Kundenverwaltung',
-      'Basis-Analysen',
-    ],
-    limitations: [],
-    cta: 'Kostenlos testen',
-    ctaLoggedIn: 'Upgraden',
-    ctaVariant: 'outline' as const,
-    popular: false,
-  },
-  {
-    name: 'Professional',
-    planId: 'pro',
-    price: '€49',
-    period: '/Monat',
-    description: 'Für wachsende Unternehmen mit höheren Ansprüchen',
-    features: [
-      'Unbegrenzte Mitarbeiter',
-      'Alles aus Starter, plus:',
-      'Google Kalender-Sync',
-      'Eigene Domain (termine.ihrfirma.de)',
-      'E-Mails von Ihrer Domain senden',
-      'Stripe-Zahlungen & Anzahlungen',
-      'Wartelisten-Verwaltung',
-      'API-Zugang',
-      'Prioritäts-Support',
-    ],
-    limitations: [],
-    cta: 'Kostenlos testen',
-    ctaLoggedIn: 'Upgraden',
-    ctaVariant: 'default' as const,
-    popular: true,
-  },
-  {
-    name: 'Business',
-    planId: 'business',
-    price: '€99',
-    period: '/Monat',
-    description: 'Für Unternehmen mit mehreren Standorten',
-    features: [
-      'Alles aus Professional, plus:',
-      'Mehrere Standorte',
-      'Team-Verwaltung & Rollen',
-      'Erweiterte Analysen & Berichte',
-      'Webhooks & Integrationen',
-      'Persönlicher Ansprechpartner',
-      'Individuelles Onboarding',
-      'SLA-Garantie',
-    ],
-    limitations: [],
-    cta: 'Vertrieb kontaktieren',
-    ctaLoggedIn: 'Upgraden',
-    ctaVariant: 'outline' as const,
-    popular: false,
-  },
-]
-
-const comparisonFeatures = [
-  { name: 'Mitarbeiter', free: '1', starter: '3', professional: 'Unbegrenzt', business: 'Unbegrenzt' },
-  { name: 'Buchungen/Monat', free: '50', starter: 'Unbegrenzt', professional: 'Unbegrenzt', business: 'Unbegrenzt' },
-  { name: 'E-Mail-Bestätigungen', free: true, starter: true, professional: true, business: true },
-  { name: 'SMS-Erinnerungen', free: false, starter: true, professional: true, business: true },
-  { name: 'Branding entfernen', free: false, starter: true, professional: true, business: true },
-  { name: 'Eigene Farben & Logo', free: false, starter: true, professional: true, business: true },
-  { name: 'Google Kalender-Sync', free: false, starter: false, professional: true, business: true },
-  { name: 'Eigene Domain', free: false, starter: false, professional: true, business: true },
-  { name: 'White-Label E-Mail', free: false, starter: false, professional: true, business: true },
-  { name: 'Stripe-Zahlungen', free: false, starter: false, professional: true, business: true },
-  { name: 'Warteliste', free: false, starter: false, professional: true, business: true },
-  { name: 'API-Zugang', free: false, starter: false, professional: true, business: true },
-  { name: 'Mehrere Standorte', free: false, starter: false, professional: false, business: true },
-  { name: 'Team-Rollen', free: false, starter: false, professional: false, business: true },
-  { name: 'Webhooks', free: false, starter: false, professional: false, business: true },
-  { name: 'Prioritäts-Support', free: false, starter: false, professional: true, business: true },
-  { name: 'Persönlicher Ansprechpartner', free: false, starter: false, professional: false, business: true },
-]
+import { getTranslations } from 'next-intl/server'
 
 export default async function PricingPage() {
   const { userId } = await auth()
   const isLoggedIn = !!userId
+  const t = await getTranslations('pricing')
+  const tNav = await getTranslations('nav')
+
+  const tiers = [
+    {
+      name: t('free.name'),
+      planId: 'free',
+      price: t('free.price'),
+      period: t('free.period'),
+      description: t('free.description'),
+      features: t.raw('free.features') as string[],
+      limitations: t.raw('free.limitations') as string[],
+      cta: t('free.cta'),
+      ctaLoggedIn: t('free.ctaLoggedIn'),
+      ctaVariant: 'outline' as const,
+      popular: false,
+    },
+    {
+      name: t('starter.name'),
+      planId: 'starter',
+      price: t('starter.price'),
+      period: t('starter.period'),
+      description: t('starter.description'),
+      features: t.raw('starter.features') as string[],
+      limitations: [] as string[],
+      cta: t('starter.cta'),
+      ctaLoggedIn: t('starter.ctaLoggedIn'),
+      ctaVariant: 'outline' as const,
+      popular: false,
+    },
+    {
+      name: t('professional.name'),
+      planId: 'pro',
+      price: t('professional.price'),
+      period: t('professional.period'),
+      description: t('professional.description'),
+      features: t.raw('professional.features') as string[],
+      limitations: [] as string[],
+      cta: t('professional.cta'),
+      ctaLoggedIn: t('professional.ctaLoggedIn'),
+      ctaVariant: 'default' as const,
+      popular: true,
+    },
+    {
+      name: t('business.name'),
+      planId: 'business',
+      price: t('business.price'),
+      period: t('business.period'),
+      description: t('business.description'),
+      features: t.raw('business.features') as string[],
+      limitations: [] as string[],
+      cta: t('business.cta'),
+      ctaLoggedIn: t('business.ctaLoggedIn'),
+      ctaVariant: 'outline' as const,
+      popular: false,
+    },
+  ]
+
+  const comparisonFeatures = [
+    { name: t('comparison.employees'), free: '1', starter: '3', professional: t('comparison.unlimited'), business: t('comparison.unlimited') },
+    { name: t('comparison.bookingsMonth'), free: '50', starter: t('comparison.unlimited'), professional: t('comparison.unlimited'), business: t('comparison.unlimited') },
+    { name: t('comparison.emailConfirmations'), free: true, starter: true, professional: true, business: true },
+    { name: t('comparison.smsReminders'), free: false, starter: true, professional: true, business: true },
+    { name: t('comparison.removeBranding'), free: false, starter: true, professional: true, business: true },
+    { name: t('comparison.customColors'), free: false, starter: true, professional: true, business: true },
+    { name: t('comparison.googleCalendar'), free: false, starter: false, professional: true, business: true },
+    { name: t('comparison.customDomain'), free: false, starter: false, professional: true, business: true },
+    { name: t('comparison.whitelabelEmail'), free: false, starter: false, professional: true, business: true },
+    { name: t('comparison.stripePayments'), free: false, starter: false, professional: true, business: true },
+    { name: t('comparison.waitlist'), free: false, starter: false, professional: true, business: true },
+    { name: t('comparison.apiAccess'), free: false, starter: false, professional: true, business: true },
+    { name: t('comparison.multipleLocations'), free: false, starter: false, professional: false, business: true },
+    { name: t('comparison.teamRoles'), free: false, starter: false, professional: false, business: true },
+    { name: t('comparison.webhooks'), free: false, starter: false, professional: false, business: true },
+    { name: t('comparison.prioritySupport'), free: false, starter: false, professional: true, business: true },
+    { name: t('comparison.personalContact'), free: false, starter: false, professional: false, business: true },
+  ]
+
+  const faqs = [
+    { q: t('faq.q1'), a: t('faq.a1') },
+    { q: t('faq.q2'), a: t('faq.a2') },
+    { q: t('faq.q3'), a: t('faq.a3') },
+    { q: t('faq.q4'), a: t('faq.a4') },
+    { q: t('faq.q5'), a: t('faq.a5') },
+    { q: t('faq.q6'), a: t('faq.a6') },
+  ]
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
@@ -137,22 +114,22 @@ export default async function PricingPage() {
             {isLoggedIn ? (
               <>
                 <Link href="/dashboard">
-                  <Button>Dashboard</Button>
+                  <Button>{tNav('dashboard')}</Button>
                 </Link>
                 <SignOutButton>
                   <Button variant="ghost" size="sm">
                     <LogOut className="h-4 w-4 mr-2" />
-                    Abmelden
+                    {tNav('signOut')}
                   </Button>
                 </SignOutButton>
               </>
             ) : (
               <>
                 <Link href="/sign-in">
-                  <Button variant="ghost">Anmelden</Button>
+                  <Button variant="ghost">{tNav('signIn')}</Button>
                 </Link>
                 <Link href="/sign-up">
-                  <Button>Jetzt starten</Button>
+                  <Button>{tNav('signUp')}</Button>
                 </Link>
               </>
             )}
@@ -163,10 +140,10 @@ export default async function PricingPage() {
       {/* Hero */}
       <section className="mx-auto max-w-6xl px-4 py-16 text-center">
         <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
-          Einfache, transparente Preise
+          {t('heroTitle')}
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-xl text-gray-600">
-          Starten Sie kostenlos und wachsen Sie mit uns. Keine versteckten Gebühren.
+          {t('heroSubtitle')}
         </p>
       </section>
 
@@ -180,7 +157,7 @@ export default async function PricingPage() {
             >
               {tier.popular && (
                 <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  Beliebteste Wahl
+                  {t('popularBadge')}
                 </Badge>
               )}
               <CardHeader className="text-center">
@@ -228,21 +205,21 @@ export default async function PricingPage() {
       <section className="border-t bg-white py-16">
         <div className="mx-auto max-w-6xl px-4">
           <h2 className="text-center text-3xl font-bold text-gray-900">
-            Tarife vergleichen
+            {t('comparison.title')}
           </h2>
           <p className="mt-2 text-center text-gray-600">
-            Finden Sie den passenden Tarif für Ihr Unternehmen
+            {t('comparison.subtitle')}
           </p>
 
           <div className="mt-12 overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b">
-                  <th className="py-4 text-left font-semibold">Funktion</th>
-                  <th className="py-4 text-center font-semibold">Kostenlos</th>
-                  <th className="py-4 text-center font-semibold">Starter</th>
-                  <th className="py-4 text-center font-semibold text-primary">Professional</th>
-                  <th className="py-4 text-center font-semibold">Business</th>
+                  <th className="py-4 text-left font-semibold">{t('comparison.feature')}</th>
+                  <th className="py-4 text-center font-semibold">{t('free.name')}</th>
+                  <th className="py-4 text-center font-semibold">{t('starter.name')}</th>
+                  <th className="py-4 text-center font-semibold text-primary">{t('professional.name')}</th>
+                  <th className="py-4 text-center font-semibold">{t('business.name')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -251,28 +228,28 @@ export default async function PricingPage() {
                     <td className="py-4 text-sm">{feature.name}</td>
                     <td className="py-4 text-center text-sm">
                       {typeof feature.free === 'boolean' ? (
-                        feature.free ? <Check className="mx-auto h-5 w-5 text-green-500" /> : <span className="text-gray-300">—</span>
+                        feature.free ? <Check className="mx-auto h-5 w-5 text-green-500" /> : <span className="text-gray-300">&mdash;</span>
                       ) : (
                         feature.free
                       )}
                     </td>
                     <td className="py-4 text-center text-sm">
                       {typeof feature.starter === 'boolean' ? (
-                        feature.starter ? <Check className="mx-auto h-5 w-5 text-green-500" /> : <span className="text-gray-300">—</span>
+                        feature.starter ? <Check className="mx-auto h-5 w-5 text-green-500" /> : <span className="text-gray-300">&mdash;</span>
                       ) : (
                         feature.starter
                       )}
                     </td>
                     <td className="py-4 text-center text-sm bg-primary/5">
                       {typeof feature.professional === 'boolean' ? (
-                        feature.professional ? <Check className="mx-auto h-5 w-5 text-green-500" /> : <span className="text-gray-300">—</span>
+                        feature.professional ? <Check className="mx-auto h-5 w-5 text-green-500" /> : <span className="text-gray-300">&mdash;</span>
                       ) : (
                         feature.professional
                       )}
                     </td>
                     <td className="py-4 text-center text-sm">
                       {typeof feature.business === 'boolean' ? (
-                        feature.business ? <Check className="mx-auto h-5 w-5 text-green-500" /> : <span className="text-gray-300">—</span>
+                        feature.business ? <Check className="mx-auto h-5 w-5 text-green-500" /> : <span className="text-gray-300">&mdash;</span>
                       ) : (
                         feature.business
                       )}
@@ -289,45 +266,15 @@ export default async function PricingPage() {
       <section className="py-16">
         <div className="mx-auto max-w-3xl px-4">
           <h2 className="text-center text-3xl font-bold text-gray-900">
-            Häufig gestellte Fragen
+            {t('faq.title')}
           </h2>
           <div className="mt-12 space-y-8">
-            <div>
-              <h3 className="font-semibold">Kann ich jederzeit den Tarif wechseln?</h3>
-              <p className="mt-2 text-gray-600">
-                Ja! Sie können jederzeit upgraden oder downgraden. Bei einem Upgrade erhalten Sie sofort Zugang zu neuen Funktionen. Bei einem Downgrade werden die Änderungen zum nächsten Abrechnungszeitraum wirksam.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold">Gibt es eine kostenlose Testphase?</h3>
-              <p className="mt-2 text-gray-600">
-                Alle kostenpflichtigen Tarife beinhalten eine 14-tägige kostenlose Testphase. Keine Kreditkarte erforderlich. Sie können den kostenlosen Tarif auch unbegrenzt nutzen.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold">Welche Zahlungsmethoden akzeptieren Sie?</h3>
-              <p className="mt-2 text-gray-600">
-                Wir akzeptieren alle gängigen Kreditkarten (Visa, Mastercard, American Express) über Stripe. Jahrestarife können auch per Rechnung bezahlt werden.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold">Gibt es Rabatte bei jährlicher Zahlung?</h3>
-              <p className="mt-2 text-gray-600">
-                Ja! Sparen Sie 20% bei jährlicher Zahlung. Das sind 2 Monate gratis im Vergleich zur monatlichen Zahlung.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold">Was passiert, wenn ich meine Limits überschreite?</h3>
-              <p className="mt-2 text-gray-600">
-                Im kostenlosen Tarif können Sie keine neuen Buchungen mehr annehmen, sobald Sie 50/Monat erreicht haben. Wir benachrichtigen Sie rechtzeitig, damit Sie bei Bedarf upgraden können.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold">Kann ich jederzeit kündigen?</h3>
-              <p className="mt-2 text-gray-600">
-                Selbstverständlich. Keine Verträge, keine Kündigungsgebühren. Sie können Ihr Abonnement jederzeit kündigen und den Service bis zum Ende Ihres Abrechnungszeitraums weiter nutzen.
-              </p>
-            </div>
+            {faqs.map((faq, index) => (
+              <div key={index}>
+                <h3 className="font-semibold">{faq.q}</h3>
+                <p className="mt-2 text-gray-600">{faq.a}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -336,20 +283,20 @@ export default async function PricingPage() {
       <section className="border-t bg-primary/5 py-16">
         <div className="mx-auto max-w-6xl px-4 text-center">
           <h2 className="text-3xl font-bold text-gray-900">
-            {isLoggedIn ? "Tarif upgraden" : "Bereit loszulegen?"}
+            {isLoggedIn ? t('cta.titleLoggedIn') : t('cta.titleLoggedOut')}
           </h2>
           <p className="mt-4 text-xl text-gray-600">
-            {isLoggedIn ? "Wählen Sie den Tarif, der zu Ihrem Unternehmen passt" : "Schließen Sie sich tausenden Unternehmen an, die Hebelki für ihre Terminverwaltung nutzen"}
+            {isLoggedIn ? t('cta.subtitleLoggedIn') : t('cta.subtitleLoggedOut')}
           </p>
           <div className="mt-8 flex items-center justify-center gap-4">
             <Link href={isLoggedIn ? "/unternehmen" : "/sign-up"}>
               <Button size="lg" className="text-lg">
-                {isLoggedIn ? "Tarif verwalten" : "Kostenlos testen"}
+                {isLoggedIn ? t('cta.buttonLoggedIn') : t('cta.buttonLoggedOut')}
               </Button>
             </Link>
             <Link href="/book/physioplus">
               <Button size="lg" variant="outline" className="text-lg">
-                Demo ansehen
+                {t('cta.viewDemo')}
               </Button>
             </Link>
           </div>
@@ -359,7 +306,7 @@ export default async function PricingPage() {
       {/* Footer */}
       <footer className="border-t py-8">
         <div className="mx-auto max-w-6xl px-4 text-center text-sm text-gray-500">
-          &copy; {new Date().getFullYear()} Hebelki. Alle Rechte vorbehalten.
+          &copy; {new Date().getFullYear()} {t('footer')}
         </div>
       </footer>
     </div>

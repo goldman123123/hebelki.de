@@ -12,6 +12,7 @@ import {
   Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet,
 } from '@/components/ui/field'
 import { Receipt, Pencil, Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import type { Business } from '../types'
 
 interface TaxCardProps {
@@ -31,6 +32,8 @@ export function TaxCard({
   onSave,
   isSaving,
 }: TaxCardProps) {
+  const t = useTranslations('dashboard.business.tax')
+  const tc = useTranslations('dashboard.business')
   const [form, setForm] = useState({
     taxId: '',
     taxRate: 19,
@@ -62,7 +65,7 @@ export function TaxCard({
   }
 
   const taxRateLabel = form.isKleinunternehmer
-    ? 'Kleinunternehmer (§ 19)'
+    ? t('kleinunternehmerLabel')
     : `${form.taxRate}% MwSt.`
 
   return (
@@ -70,18 +73,18 @@ export function TaxCard({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Receipt className="h-5 w-5" />
-          Steuern & Rechnungen
+          {t('title')}
         </CardTitle>
-        <CardDescription>Umsatzsteuer und Rechnungseinstellungen</CardDescription>
+        <CardDescription>{t('description')}</CardDescription>
         <CardAction>
           {editing ? (
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={handleCancel} disabled={isSaving}>
-                Abbrechen
+                {tc('cancel')}
               </Button>
               <Button size="sm" onClick={handleSave} disabled={isSaving}>
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Speichern
+                {tc('save')}
               </Button>
             </div>
           ) : (
@@ -96,19 +99,19 @@ export function TaxCard({
           {/* Umsatzsteuer */}
           <div className="rounded-lg border p-4">
             <FieldSet className="gap-3">
-              <FieldLegend className="mb-1">Umsatzsteuer</FieldLegend>
+              <FieldLegend className="mb-1">{t('vat')}</FieldLegend>
               <FieldGroup className="gap-4">
                 <Field>
-                  <FieldLabel>Steuernummer / USt-IdNr.</FieldLabel>
+                  <FieldLabel>{t('taxIdLabel')}</FieldLabel>
                   <Input
                     value={form.taxId}
                     onChange={(e) => setForm({ ...form, taxId: e.target.value })}
                     readOnly={!editing}
-                    placeholder="z.B. DE123456789"
+                    placeholder={t('taxIdPlaceholder')}
                   />
                 </Field>
                 <Field>
-                  <FieldLabel>Steuersatz</FieldLabel>
+                  <FieldLabel>{t('taxRate')}</FieldLabel>
                   {editing ? (
                     <Select
                       value={String(form.taxRate)}
@@ -119,9 +122,9 @@ export function TaxCard({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="19">19% — Regelsteuersatz</SelectItem>
-                        <SelectItem value="7">7% — Ermäßigt</SelectItem>
-                        <SelectItem value="0">0% — Steuerfrei</SelectItem>
+                        <SelectItem value="19">{t('taxRate19')}</SelectItem>
+                        <SelectItem value="7">{t('taxRate7')}</SelectItem>
+                        <SelectItem value="0">{t('taxRate0')}</SelectItem>
                       </SelectContent>
                     </Select>
                   ) : (
@@ -135,12 +138,12 @@ export function TaxCard({
           {/* Sonderregeln */}
           <div className="rounded-lg border p-4">
             <FieldSet className="gap-3">
-              <FieldLegend className="mb-1">Sonderregeln</FieldLegend>
+              <FieldLegend className="mb-1">{t('specialRules')}</FieldLegend>
               <FieldGroup className="gap-4">
                 <Field orientation="horizontal">
                   <FieldContent>
-                    <FieldLabel>Kleinunternehmer</FieldLabel>
-                    <FieldDescription>§ 19 UStG — keine MwSt.</FieldDescription>
+                    <FieldLabel>{t('kleinunternehmer')}</FieldLabel>
+                    <FieldDescription>{t('kleinunternehmerDesc')}</FieldDescription>
                   </FieldContent>
                   <Switch
                     checked={form.isKleinunternehmer}
@@ -150,7 +153,7 @@ export function TaxCard({
                 </Field>
                 {form.isKleinunternehmer && (
                   <p className="text-xs text-amber-600">
-                    Keine Umsatzsteuer auf Rechnungen ausgewiesen.
+                    {t('kleinunternehmerNote')}
                   </p>
                 )}
               </FieldGroup>
@@ -160,12 +163,12 @@ export function TaxCard({
           {/* Rechnung */}
           <div className="rounded-lg border p-4">
             <FieldSet className="gap-3">
-              <FieldLegend className="mb-1">Rechnung</FieldLegend>
+              <FieldLegend className="mb-1">{t('invoice')}</FieldLegend>
               <FieldGroup className="gap-4">
                 <Field orientation="horizontal">
                   <FieldContent>
-                    <FieldLabel>Logo auf Rechnung</FieldLabel>
-                    <FieldDescription>Im Briefkopf anzeigen</FieldDescription>
+                    <FieldLabel>{t('logoOnInvoice')}</FieldLabel>
+                    <FieldDescription>{t('logoOnInvoiceDesc')}</FieldDescription>
                   </FieldContent>
                   <Switch
                     checked={form.showLogoOnInvoice}

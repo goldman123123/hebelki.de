@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { Loader2, AlertCircle, GripVertical, User } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Switch } from '@/components/ui/switch'
@@ -17,10 +18,11 @@ interface StaffAssignment {
   isActive: boolean
 }
 
-function SortableStaffRow({ assignment, priority, onToggleActive }: {
+function SortableStaffRow({ assignment, priority, onToggleActive, activeLabel }: {
   assignment: StaffAssignment
   priority: number
   onToggleActive: () => void
+  activeLabel: string
 }) {
   const {
     attributes,
@@ -72,7 +74,7 @@ function SortableStaffRow({ assignment, priority, onToggleActive }: {
 
       {/* Active Toggle */}
       <div className="flex items-center gap-2 flex-shrink-0">
-        <span className="text-xs text-gray-500">Active</span>
+        <span className="text-xs text-gray-500">{activeLabel}</span>
         <Switch
           checked={assignment.isActive}
           onCheckedChange={onToggleActive}
@@ -83,6 +85,7 @@ function SortableStaffRow({ assignment, priority, onToggleActive }: {
 }
 
 export function StaffPriorityInline({ serviceId }: { serviceId: string }) {
+  const t = useTranslations('dashboard.services')
   const [staff, setStaff] = useState<StaffAssignment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -214,8 +217,8 @@ export function StaffPriorityInline({ serviceId }: { serviceId: string }) {
   if (staff.length === 0) {
     return (
       <div className="text-center py-6 text-sm text-gray-500 bg-gray-50 rounded-md border border-dashed">
-        <p>No staff assigned to this service yet.</p>
-        <p className="text-xs mt-1">Assign staff from the Staff page first.</p>
+        <p>{t('noStaff')}</p>
+        <p className="text-xs mt-1">{t('noStaffHint')}</p>
       </div>
     )
   }
@@ -237,6 +240,7 @@ export function StaffPriorityInline({ serviceId }: { serviceId: string }) {
               assignment={assignment}
               priority={index + 1}
               onToggleActive={() => toggleActive(assignment.staffId)}
+              activeLabel={t('staffActive')}
             />
           ))}
         </div>

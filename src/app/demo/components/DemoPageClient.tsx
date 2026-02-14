@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import {
   Heart,
   Wrench,
@@ -36,45 +37,46 @@ interface DemoBusiness {
   settings: Record<string, unknown> | null
 }
 
-const BUSINESS_META: Record<string, {
-  icon: typeof Heart
-  typeLabel: string
-  shortDescription: string
-}> = {
-  'demo-vet': {
-    icon: Heart,
-    typeLabel: 'Tierarztpraxis',
-    shortDescription: 'Terminbuchung, Impferinnerungen und Beratung rund um Ihr Haustier.',
-  },
-  'demo-mechanic': {
-    icon: Wrench,
-    typeLabel: 'KFZ-Werkstatt',
-    shortDescription: 'Werkstatttermine, Kostenvoranschläge und Reparaturstatus.',
-  },
-  'demo-salon': {
-    icon: Scissors,
-    typeLabel: 'Friseursalon',
-    shortDescription: 'Haarschnitt, Färbung und Styling — online buchen.',
-  },
-  'demo-physio': {
-    icon: Activity,
-    typeLabel: 'Physiotherapie',
-    shortDescription: 'Behandlungstermine, Rezeptverwaltung und Therapieplanung.',
-  },
-  'demo-fitness': {
-    icon: Dumbbell,
-    typeLabel: 'Fitness-Studio',
-    shortDescription: 'Kursbuchung, Trainingsplan und Mitgliederverwaltung.',
-  },
-}
-
 export function DemoPageClient({ businesses }: { businesses: DemoBusiness[] }) {
+  const t = useTranslations('demo')
   const [selectedBusiness, setSelectedBusiness] = useState<DemoBusiness | null>(null)
   const [chatOpen, setChatOpen] = useState(false)
   const [assistantChatOpen, setAssistantChatOpen] = useState(false)
   const [phoneModalOpen, setPhoneModalOpen] = useState(false)
   const [phoneMode, setPhoneMode] = useState<'customer' | 'assistant'>('customer')
   const detailRef = useRef<HTMLDivElement>(null)
+
+  const BUSINESS_META: Record<string, {
+    icon: typeof Heart
+    typeLabel: string
+    shortDescription: string
+  }> = {
+    'demo-vet': {
+      icon: Heart,
+      typeLabel: t('businessTypes.vet'),
+      shortDescription: t('businessTypes.vetDesc'),
+    },
+    'demo-mechanic': {
+      icon: Wrench,
+      typeLabel: t('businessTypes.mechanic'),
+      shortDescription: t('businessTypes.mechanicDesc'),
+    },
+    'demo-salon': {
+      icon: Scissors,
+      typeLabel: t('businessTypes.salon'),
+      shortDescription: t('businessTypes.salonDesc'),
+    },
+    'demo-physio': {
+      icon: Activity,
+      typeLabel: t('businessTypes.physio'),
+      shortDescription: t('businessTypes.physioDesc'),
+    },
+    'demo-fitness': {
+      icon: Dumbbell,
+      typeLabel: t('businessTypes.fitness'),
+      shortDescription: t('businessTypes.fitnessDesc'),
+    },
+  }
 
   const handleSelectBusiness = (biz: DemoBusiness) => {
     setSelectedBusiness(biz)
@@ -93,12 +95,12 @@ export function DemoPageClient({ businesses }: { businesses: DemoBusiness[] }) {
       {/* Hero */}
       <section className="bg-white border-b">
         <div className="mx-auto max-w-5xl px-4 py-16 text-center">
-          <Badge variant="secondary" className="mb-4">Keine Anmeldung erforderlich</Badge>
+          <Badge variant="secondary" className="mb-4">{t('badge')}</Badge>
           <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
-            Erleben Sie Hebelki live
+            {t('title')}
           </h1>
           <p className="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">
-            Testen Sie unseren KI-Assistenten — als Kunde oder als Geschäftsinhaber
+            {t('subtitle')}
           </p>
         </div>
       </section>
@@ -107,16 +109,16 @@ export function DemoPageClient({ businesses }: { businesses: DemoBusiness[] }) {
       <section className="mx-auto max-w-5xl px-4 py-12">
         <div className="grid gap-6 sm:grid-cols-3">
           {[
-            { icon: Building2, step: '1', title: 'Betrieb auswählen', desc: 'Wählen Sie eine Branche' },
-            { icon: Bot, step: '2', title: 'Assistent & Kanal wählen', desc: 'Kunden- oder Geschäftsassistent' },
-            { icon: Sparkles, step: '3', title: 'Live testen', desc: 'Chatten oder anrufen lassen' },
+            { icon: Building2, step: '1', title: t('step1'), desc: t('step1Desc') },
+            { icon: Bot, step: '2', title: t('step2'), desc: t('step2Desc') },
+            { icon: Sparkles, step: '3', title: t('step3'), desc: t('step3Desc') },
           ].map((item) => (
             <Card key={item.step} className="text-center">
               <CardContent className="pt-6">
                 <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
                   <item.icon className="h-6 w-6 text-gray-700" />
                 </div>
-                <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Schritt {item.step}</p>
+                <p className="text-xs font-semibold text-gray-400 uppercase mb-1">{t('stepLabel')} {item.step}</p>
                 <h3 className="font-semibold text-gray-900">{item.title}</h3>
                 <p className="mt-1 text-sm text-gray-500">{item.desc}</p>
               </CardContent>
@@ -127,7 +129,7 @@ export function DemoPageClient({ businesses }: { businesses: DemoBusiness[] }) {
 
       {/* Business Selection Grid */}
       <section className="mx-auto max-w-5xl px-4 pb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Demo-Betriebe</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">{t('demoBusinesses')}</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {businesses.map((biz) => {
             const meta = BUSINESS_META[biz.slug] || {
@@ -171,7 +173,7 @@ export function DemoPageClient({ businesses }: { businesses: DemoBusiness[] }) {
         {businesses.length === 0 && (
           <div className="text-center py-12 text-gray-500">
             <Building2 className="mx-auto h-12 w-12 text-gray-300 mb-4" />
-            <p>Keine Demo-Betriebe verfügbar.</p>
+            <p>{t('noDemoBusinesses')}</p>
           </div>
         )}
       </section>
@@ -204,13 +206,13 @@ export function DemoPageClient({ businesses }: { businesses: DemoBusiness[] }) {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Bot className="h-5 w-5" style={{ color }} />
-                      Kundenassistent
+                      {t('customerAssistant')}
                     </CardTitle>
-                    <CardDescription>Testen Sie, was Ihre Kunden erleben</CardDescription>
+                    <CardDescription>{t('customerAssistantDesc')}</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-gray-600 mb-4">
-                      Termine buchen, Fragen stellen, Verfügbarkeit prüfen
+                      {t('customerAssistantInfo')}
                     </p>
                     <div className="flex flex-col gap-2">
                       <Button
@@ -219,7 +221,7 @@ export function DemoPageClient({ businesses }: { businesses: DemoBusiness[] }) {
                         onClick={() => setChatOpen(true)}
                       >
                         <MessageSquare className="h-4 w-4 mr-2" />
-                        Text Chat
+                        {t('textChat')}
                       </Button>
                       <Button
                         variant="outline"
@@ -227,7 +229,7 @@ export function DemoPageClient({ businesses }: { businesses: DemoBusiness[] }) {
                         onClick={() => openPhone('customer')}
                       >
                         <Phone className="h-4 w-4 mr-2" />
-                        Anrufen lassen
+                        {t('callMe')}
                       </Button>
                     </div>
                   </CardContent>
@@ -238,13 +240,13 @@ export function DemoPageClient({ businesses }: { businesses: DemoBusiness[] }) {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Sparkles className="h-5 w-5" style={{ color }} />
-                      Virtueller Assistent
+                      {t('virtualAssistant')}
                     </CardTitle>
-                    <CardDescription>Testen Sie Ihren persönlichen Geschäftsassistenten</CardDescription>
+                    <CardDescription>{t('virtualAssistantDesc')}</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-gray-600 mb-4">
-                      Termine verwalten, Tagesplan abrufen, Zusammenfassungen erhalten
+                      {t('virtualAssistantInfo')}
                     </p>
                     <div className="flex flex-col gap-2">
                       <Button
@@ -253,7 +255,7 @@ export function DemoPageClient({ businesses }: { businesses: DemoBusiness[] }) {
                         onClick={() => setAssistantChatOpen(true)}
                       >
                         <MessageSquare className="h-4 w-4 mr-2" />
-                        Text Chat
+                        {t('textChat')}
                       </Button>
                       <Button
                         variant="outline"
@@ -261,7 +263,7 @@ export function DemoPageClient({ businesses }: { businesses: DemoBusiness[] }) {
                         onClick={() => openPhone('assistant')}
                       >
                         <Phone className="h-4 w-4 mr-2" />
-                        Anrufen lassen
+                        {t('callMe')}
                       </Button>
                     </div>
                   </CardContent>
@@ -273,15 +275,15 @@ export function DemoPageClient({ businesses }: { businesses: DemoBusiness[] }) {
             <Dialog open={chatOpen} onOpenChange={setChatOpen}>
               <DialogContent className="sm:max-w-2xl max-h-[90vh] p-0 overflow-hidden">
                 <div className="p-4 border-b">
-                  <h3 className="font-semibold">{selectedBusiness.name} — Kundenchat</h3>
-                  <p className="text-sm text-gray-500">Kundenansicht</p>
+                  <h3 className="font-semibold">{selectedBusiness.name} — {t('customerChat')}</h3>
+                  <p className="text-sm text-gray-500">{t('customerView')}</p>
                 </div>
                 <div className="p-4">
                   <ChatInterface
                     businessId={selectedBusiness.id}
                     businessName={selectedBusiness.name}
                     primaryColor={color}
-                    welcomeMessage={`Hallo! Willkommen bei ${selectedBusiness.name}. Wie kann ich Ihnen helfen?`}
+                    welcomeMessage={t('welcomeMessage', { businessName: selectedBusiness.name })}
                   />
                 </div>
               </DialogContent>
@@ -291,8 +293,8 @@ export function DemoPageClient({ businesses }: { businesses: DemoBusiness[] }) {
             <Dialog open={assistantChatOpen} onOpenChange={setAssistantChatOpen}>
               <DialogContent className="sm:max-w-2xl max-h-[90vh] p-0 overflow-hidden">
                 <div className="p-4 border-b">
-                  <h3 className="font-semibold">{selectedBusiness.name} — Interner Assistent</h3>
-                  <p className="text-sm text-gray-500">Geschäftsansicht</p>
+                  <h3 className="font-semibold">{selectedBusiness.name} — {t('internalAssistant')}</h3>
+                  <p className="text-sm text-gray-500">{t('businessView')}</p>
                 </div>
                 <div className="p-4">
                   <DemoAssistantChat
@@ -319,13 +321,13 @@ export function DemoPageClient({ businesses }: { businesses: DemoBusiness[] }) {
       {/* Features Overview */}
       <section className="bg-white border-t">
         <div className="mx-auto max-w-5xl px-4 py-16">
-          <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">Was Hebelki kann</h2>
+          <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">{t('featuresTitle')}</h2>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { icon: Radio, title: 'Multi-Kanal', desc: 'Chat, Voice, WhatsApp' },
-              { icon: BookOpen, title: 'Wissensdatenbank', desc: 'Automatische FAQ-Antworten' },
-              { icon: CalendarCheck, title: 'Terminbuchung', desc: 'KI-gesteuerte Buchung' },
-              { icon: Shield, title: 'DSGVO-konform', desc: 'EU-gehostet, verschlüsselt' },
+              { icon: Radio, title: t('featureMultiChannel'), desc: t('featureMultiChannelDesc') },
+              { icon: BookOpen, title: t('featureKnowledge'), desc: t('featureKnowledgeDesc') },
+              { icon: CalendarCheck, title: t('featureBooking'), desc: t('featureBookingDesc') },
+              { icon: Shield, title: t('featureGdpr'), desc: t('featureGdprDesc') },
             ].map((feature) => (
               <div key={feature.title} className="text-center">
                 <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
@@ -338,7 +340,7 @@ export function DemoPageClient({ businesses }: { businesses: DemoBusiness[] }) {
           </div>
           <div className="mt-10 text-center">
             <Button asChild size="lg">
-              <Link href="/sign-up">Jetzt kostenlos starten</Link>
+              <Link href="/sign-up">{t('startFree')}</Link>
             </Button>
           </div>
         </div>

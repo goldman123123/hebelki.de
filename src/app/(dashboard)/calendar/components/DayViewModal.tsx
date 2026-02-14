@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { format } from 'date-fns'
 import { Badge } from '@/components/ui/badge'
@@ -33,6 +34,7 @@ interface DayViewModalProps {
 }
 
 export function DayViewModal({ date, bookings, onClose, timezone }: DayViewModalProps) {
+  const t = useTranslations('dashboard.calendar')
   const getStatusColor = (status: string | null) => {
     switch (status) {
       case 'confirmed':
@@ -52,12 +54,12 @@ export function DayViewModal({ date, bookings, onClose, timezone }: DayViewModal
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Bookings for {format(date, 'MMMM d, yyyy')}</DialogTitle>
+          <DialogTitle>{t('bookingsFor', { date: format(date, 'MMMM d, yyyy') })}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           {bookings.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No bookings for this day</p>
+            <p className="text-gray-500 text-center py-8">{t('noBookingsForDay')}</p>
           ) : (
             bookings.map((row) => (
               <div key={row.booking.id} className="border rounded-lg p-4">
@@ -73,19 +75,19 @@ export function DayViewModal({ date, bookings, onClose, timezone }: DayViewModal
                       </Badge>
                     </div>
                     <p className="text-gray-600 mt-1">
-                      {row.customer?.name || 'Unknown'} ({row.customer?.email})
+                      {row.customer?.name || t('unknownCustomer')} ({row.customer?.email})
                     </p>
                     <p className="text-sm text-gray-500 mt-1">
-                      Service: {row.service?.name || 'Unknown'}
+                      {t('service')} {row.service?.name || t('unknownService')}
                     </p>
                     {row.staff && (
                       <p className="text-sm text-gray-500">
-                        Staff: {row.staff.name}
+                        {t('staff')} {row.staff.name}
                       </p>
                     )}
                     {row.booking.notes && (
                       <p className="text-sm text-gray-600 mt-2 italic">
-                        Notes: {row.booking.notes}
+                        {t('notes')} {row.booking.notes}
                       </p>
                     )}
                   </div>

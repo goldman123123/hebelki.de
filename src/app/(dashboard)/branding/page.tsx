@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { FormDialog } from '@/components/forms'
@@ -24,6 +25,7 @@ interface Business {
 }
 
 export default function BrandingPage() {
+  const t = useTranslations('dashboard.branding')
   const [business, setBusiness] = useState<Business | null>(null)
   const [loading, setLoading] = useState(true)
   const [editSection, setEditSection] = useState<string | null>(null)
@@ -124,7 +126,7 @@ export default function BrandingPage() {
   if (!business) {
     return (
       <div className="py-12 text-center">
-        <p className="text-gray-500">Kein Unternehmen konfiguriert.</p>
+        <p className="text-gray-500">{t('noBusiness')}</p>
       </div>
     )
   }
@@ -132,8 +134,8 @@ export default function BrandingPage() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Branding</h1>
-        <p className="text-gray-600">Logo, Farben und Social Media Auftritte</p>
+        <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+        <p className="text-gray-600">{t('subtitle')}</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -143,9 +145,9 @@ export default function BrandingPage() {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Palette className="h-5 w-5" />
-                Erscheinungsbild
+                {t('appearance')}
               </CardTitle>
-              <CardDescription>Logo und Farben für Buchungsseiten und Rechnungen</CardDescription>
+              <CardDescription>{t('appearanceDesc')}</CardDescription>
             </div>
             <Button variant="ghost" size="sm" onClick={() => setEditSection('branding')}>
               <Pencil className="h-4 w-4" />
@@ -153,7 +155,7 @@ export default function BrandingPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-gray-500">Logo</label>
+              <label className="text-sm font-medium text-gray-500">{t('logo')}</label>
               {business.logoUrl ? (
                 <img
                   src={business.logoUrl}
@@ -161,11 +163,11 @@ export default function BrandingPage() {
                   className="mt-2 h-16 w-auto rounded border bg-white p-2"
                 />
               ) : (
-                <p className="mt-1 text-sm text-gray-400">Kein Logo hochgeladen</p>
+                <p className="mt-1 text-sm text-gray-400">{t('noLogo')}</p>
               )}
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-500">Primärfarbe</label>
+              <label className="text-sm font-medium text-gray-500">{t('primaryColor')}</label>
               <div className="mt-1 flex items-center gap-2">
                 <div
                   className="h-6 w-6 rounded border"
@@ -183,9 +185,9 @@ export default function BrandingPage() {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                Social Media
+                {t('socialMedia')}
               </CardTitle>
-              <CardDescription>Ihre Profile in sozialen Netzwerken</CardDescription>
+              <CardDescription>{t('socialMediaDesc')}</CardDescription>
             </div>
             <Button variant="ghost" size="sm" onClick={() => setEditSection('social')}>
               <Pencil className="h-4 w-4" />
@@ -225,7 +227,7 @@ export default function BrandingPage() {
               </div>
             )}
             {!business.socialInstagram && !business.socialFacebook && !business.socialLinkedin && !business.socialTwitter && (
-              <p className="text-sm text-gray-400">Keine Social Media Profile hinterlegt</p>
+              <p className="text-sm text-gray-400">{t('noSocialMedia')}</p>
             )}
           </CardContent>
         </Card>
@@ -235,14 +237,14 @@ export default function BrandingPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ExternalLink className="h-5 w-5" />
-              Buchungsseite Vorschau
+              {t('bookingPreview')}
             </CardTitle>
-            <CardDescription>So sehen Kunden Ihre Buchungsseite</CardDescription>
+            <CardDescription>{t('bookingPreviewDesc')}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-500">Ihre Buchungs-URL</p>
+                <p className="text-sm font-medium text-gray-500">{t('bookingUrl')}</p>
                 <code className="mt-1 block rounded bg-gray-100 px-3 py-2 text-sm">
                   hebelki.de/book/{business.slug}
                 </code>
@@ -251,7 +253,7 @@ export default function BrandingPage() {
                 <Link href={`/book/${business.slug}`} target="_blank">
                   <Button variant="outline" size="sm">
                     <ExternalLink className="mr-2 h-4 w-4" />
-                    Vorschau öffnen
+                    {t('openPreview')}
                   </Button>
                 </Link>
               </div>
@@ -276,7 +278,7 @@ export default function BrandingPage() {
                   <p className="font-semibold" style={{ color: business.primaryColor || '#3B82F6' }}>
                     {business.name}
                   </p>
-                  <p className="text-sm text-gray-500">Online Terminbuchung</p>
+                  <p className="text-sm text-gray-500">{t('onlineBooking')}</p>
                 </div>
               </div>
             </div>
@@ -297,13 +299,13 @@ export default function BrandingPage() {
       <FormDialog
         open={editSection === 'branding'}
         onOpenChange={(open) => !open && setEditSection(null)}
-        title="Erscheinungsbild bearbeiten"
+        title={t('editAppearance')}
         onSubmit={() => handleSave('branding', brandingForm)}
         isSubmitting={isSaving}
       >
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Logo</label>
+            <label className="text-sm font-medium">{t('logo')}</label>
             <div className="flex items-center gap-4">
               {brandingForm.logoUrl ? (
                 <img
@@ -324,22 +326,22 @@ export default function BrandingPage() {
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploading}
                 >
-                  {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Hochladen'}
+                  {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : t('uploadLogo')}
                 </Button>
-                <p className="text-xs text-gray-500">PNG, JPG bis 2MB</p>
+                <p className="text-xs text-gray-500">{t('logoFileHint')}</p>
               </div>
             </div>
           </div>
           <FormInput
-            label="Logo URL (alternativ)"
+            label={t('logoUrlAlt')}
             name="logoUrl"
             value={brandingForm.logoUrl}
             onChange={(e) => setBrandingForm({ ...brandingForm, logoUrl: e.target.value })}
             placeholder="https://..."
-            description="Wird auf Rechnungen und der Buchungsseite angezeigt"
+            description={t('logoUrlDesc')}
           />
           <div className="space-y-2">
-            <label className="text-sm font-medium">Primärfarbe</label>
+            <label className="text-sm font-medium">{t('primaryColor')}</label>
             <div className="flex items-center gap-3">
               <input
                 type="color"
@@ -364,7 +366,7 @@ export default function BrandingPage() {
       <FormDialog
         open={editSection === 'social'}
         onOpenChange={(open) => !open && setEditSection(null)}
-        title="Social Media bearbeiten"
+        title={t('editSocialMedia')}
         onSubmit={() => handleSave('social', socialForm)}
         isSubmitting={isSaving}
       >
@@ -373,28 +375,28 @@ export default function BrandingPage() {
           name="socialInstagram"
           value={socialForm.socialInstagram}
           onChange={(e) => setSocialForm({ ...socialForm, socialInstagram: e.target.value })}
-          placeholder="benutzername (ohne @)"
+          placeholder={t('username')}
         />
         <FormInput
           label="Facebook"
           name="socialFacebook"
           value={socialForm.socialFacebook}
           onChange={(e) => setSocialForm({ ...socialForm, socialFacebook: e.target.value })}
-          placeholder="seitenname"
+          placeholder={t('pageName')}
         />
         <FormInput
           label="LinkedIn"
           name="socialLinkedin"
           value={socialForm.socialLinkedin}
           onChange={(e) => setSocialForm({ ...socialForm, socialLinkedin: e.target.value })}
-          placeholder="firmenname"
+          placeholder={t('companyName')}
         />
         <FormInput
           label="Twitter / X"
           name="socialTwitter"
           value={socialForm.socialTwitter}
           onChange={(e) => setSocialForm({ ...socialForm, socialTwitter: e.target.value })}
-          placeholder="benutzername (ohne @)"
+          placeholder={t('username')}
         />
       </FormDialog>
     </div>

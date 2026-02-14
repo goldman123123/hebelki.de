@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Calendar } from '@/components/ui/calendar'
 import { format } from 'date-fns'
 import { Badge } from '@/components/ui/badge'
@@ -47,6 +48,7 @@ interface MonthlyCalendarProps {
 }
 
 export function MonthlyCalendar({ bookingsByDay, businessId, timezone, year, month, staffId, staffList }: MonthlyCalendarProps) {
+  const t = useTranslations('dashboard.calendar')
   const [selectedDate, setSelectedDate] = useState<Date | undefined>()
   const [updatingBookingId, setUpdatingBookingId] = useState<string | null>(null)
   const router = useRouter()
@@ -137,11 +139,11 @@ export function MonthlyCalendar({ bookingsByDay, businessId, timezone, year, mon
       if (response.ok) {
         window.location.reload() // Refresh to show updated data
       } else {
-        alert('Failed to update booking status')
+        alert(t('statusUpdateError'))
       }
     } catch (error) {
       log.error('Error updating booking:', error)
-      alert('Error updating booking status')
+      alert(t('statusUpdateError'))
     } finally {
       setUpdatingBookingId(null)
     }
@@ -150,7 +152,7 @@ export function MonthlyCalendar({ bookingsByDay, businessId, timezone, year, mon
   // Group bookings by service and time for capacity display
   const groupedBookings = selectedBookings.reduce((acc, booking) => {
     const timeKey = formatTime(booking.booking.startsAt, timezone)
-    const serviceKey = booking.service?.name || 'Unknown Service'
+    const serviceKey = booking.service?.name || t('unknownService')
     const key = `${timeKey}-${serviceKey}`
 
     if (!acc[key]) {
@@ -171,14 +173,14 @@ export function MonthlyCalendar({ bookingsByDay, businessId, timezone, year, mon
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between gap-4">
-              <CardTitle>Select Date</CardTitle>
+              <CardTitle>{t('selectDate')}</CardTitle>
               {staffList.length > 0 && (
                 <Select value={staffId || 'all'} onValueChange={handleStaffChange}>
                   <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Alle Mitarbeiter" />
+                    <SelectValue placeholder={t('allStaff')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Alle Mitarbeiter</SelectItem>
+                    <SelectItem value="all">{t('allStaff')}</SelectItem>
                     {staffList.map(s => (
                       <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                     ))}
@@ -189,22 +191,22 @@ export function MonthlyCalendar({ bookingsByDay, businessId, timezone, year, mon
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap items-center gap-4 mb-4 p-3 bg-gray-50 rounded-lg border">
-              <span className="text-sm font-medium text-gray-700">Legend:</span>
+              <span className="text-sm font-medium text-gray-700">{t('legend')}</span>
               <div className="flex items-center gap-2 text-sm">
                 <div className="w-3 h-3 bg-gray-100 rounded"></div>
-                <span className="text-gray-600">No bookings</span>
+                <span className="text-gray-600">{t('noBookings')}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <div className="w-3 h-3 bg-blue-100 rounded"></div>
-                <span className="text-gray-600">1-3 bookings</span>
+                <span className="text-gray-600">{t('fewBookings')}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <div className="w-3 h-3 bg-yellow-100 rounded"></div>
-                <span className="text-gray-600">4-6 bookings</span>
+                <span className="text-gray-600">{t('someBookings')}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <div className="w-3 h-3 bg-red-100 rounded"></div>
-                <span className="text-gray-600">7+ bookings</span>
+                <span className="text-gray-600">{t('manyBookings')}</span>
               </div>
             </div>
 
@@ -237,11 +239,11 @@ export function MonthlyCalendar({ bookingsByDay, businessId, timezone, year, mon
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>
-                  {selectedDate ? format(selectedDate, 'MMMM d, yyyy') : 'Select a date'}
+                  {selectedDate ? format(selectedDate, 'MMMM d, yyyy') : t('selectDate')}
                 </CardTitle>
                 {selectedDate && (
                   <p className="text-sm text-gray-500 mt-1">
-                    {selectedBookings.length} booking{selectedBookings.length !== 1 ? 's' : ''}
+                    {t('bookingCount', { count: selectedBookings.length })}
                   </p>
                 )}
               </div>
@@ -251,12 +253,12 @@ export function MonthlyCalendar({ bookingsByDay, businessId, timezone, year, mon
             {!selectedDate ? (
               <div className="text-center py-12 text-gray-500">
                 <Clock className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                <p>Select a date to view bookings</p>
+                <p>{t('selectADate')}</p>
               </div>
             ) : selectedBookings.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
                 <AlertCircle className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                <p>No bookings for this date</p>
+                <p>{t('noBookingsForDate')}</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -270,12 +272,12 @@ export function MonthlyCalendar({ bookingsByDay, businessId, timezone, year, mon
                           <Clock className="h-5 w-5 text-gray-600" />
                           <div>
                             <h3 className="font-semibold text-lg">{group.time}</h3>
-                            <p className="text-sm text-gray-600">{group.service?.name || 'Unknown Service'}</p>
+                            <p className="text-sm text-gray-600">{group.service?.name || t('unknownService')}</p>
                           </div>
                         </div>
                         {group.service?.capacity && group.service.capacity > 1 && (
                           <Badge variant="secondary" className="text-sm">
-                            {group.bookings.length}/{group.service.capacity} spots filled
+                            {t('spotsFilled', { filled: group.bookings.length, total: group.service.capacity })}
                           </Badge>
                         )}
                       </div>
@@ -293,7 +295,7 @@ export function MonthlyCalendar({ bookingsByDay, businessId, timezone, year, mon
                                 <div className="flex items-center gap-2">
                                   <User className="h-4 w-4 text-gray-500" />
                                   <span className="font-semibold text-gray-900">
-                                    {row.customer?.name || 'Unknown Customer'}
+                                    {row.customer?.name || t('unknownCustomer')}
                                   </span>
                                   <Badge className={cn('text-xs', getStatusColor(row.booking.status))}>
                                     <span className="flex items-center gap-1">
@@ -317,13 +319,13 @@ export function MonthlyCalendar({ bookingsByDay, businessId, timezone, year, mon
 
                                 {row.staff && (
                                   <p className="text-sm text-gray-600">
-                                    <span className="font-medium">Staff:</span> {row.staff.name}
+                                    <span className="font-medium">{t('staffLabel')}</span> {row.staff.name}
                                   </p>
                                 )}
 
                                 {row.booking.notes && (
                                   <div className="mt-2 p-2 bg-gray-50 rounded text-sm text-gray-700 italic">
-                                    <span className="font-medium not-italic">Note:</span> {row.booking.notes}
+                                    <span className="font-medium not-italic">{t('noteLabel')}</span> {row.booking.notes}
                                   </div>
                                 )}
                               </div>
@@ -343,7 +345,7 @@ export function MonthlyCalendar({ bookingsByDay, businessId, timezone, year, mon
                                       ) : (
                                         <CheckCircle className="h-4 w-4" />
                                       )}
-                                      <span className="ml-1">Accept</span>
+                                      <span className="ml-1">{t('accept')}</span>
                                     </Button>
                                     <Button
                                       size="sm"
@@ -353,7 +355,7 @@ export function MonthlyCalendar({ bookingsByDay, businessId, timezone, year, mon
                                       className="border-red-200 text-red-600 hover:bg-red-50"
                                     >
                                       <XCircle className="h-4 w-4" />
-                                      <span className="ml-1">Decline</span>
+                                      <span className="ml-1">{t('decline')}</span>
                                     </Button>
                                   </>
                                 )}
@@ -370,7 +372,7 @@ export function MonthlyCalendar({ bookingsByDay, businessId, timezone, year, mon
                                       ) : (
                                         <CheckCircle className="h-4 w-4" />
                                       )}
-                                      <span className="ml-1">Complete</span>
+                                      <span className="ml-1">{t('complete')}</span>
                                     </Button>
                                     <Button
                                       size="sm"
@@ -379,7 +381,7 @@ export function MonthlyCalendar({ bookingsByDay, businessId, timezone, year, mon
                                       disabled={updatingBookingId === row.booking.id}
                                     >
                                       <XCircle className="h-4 w-4" />
-                                      <span className="ml-1">Cancel</span>
+                                      <span className="ml-1">{t('cancel')}</span>
                                     </Button>
                                     <Button
                                       size="sm"
@@ -388,7 +390,7 @@ export function MonthlyCalendar({ bookingsByDay, businessId, timezone, year, mon
                                       disabled={updatingBookingId === row.booking.id}
                                     >
                                       <AlertCircle className="h-4 w-4" />
-                                      <span className="ml-1">No Show</span>
+                                      <span className="ml-1">{t('noShow')}</span>
                                     </Button>
                                   </>
                                 )}

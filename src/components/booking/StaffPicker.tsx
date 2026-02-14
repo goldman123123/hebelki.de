@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { User, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -12,10 +13,11 @@ interface StaffPickerProps {
 }
 
 export function StaffPicker({ staff, onSelect, allowAny = true }: StaffPickerProps) {
+  const t = useTranslations('booking')
   return (
     <div>
       <h2 className="mb-4 text-lg font-semibold text-gray-900">
-        Wählen Sie einen Mitarbeiter
+        {t('selectStaff')}
       </h2>
 
       <div className="space-y-3">
@@ -34,9 +36,9 @@ export function StaffPicker({ staff, onSelect, allowAny = true }: StaffPickerPro
                 <Users className="h-6 w-6 text-gray-500" />
               </div>
               <div>
-                <h4 className="font-medium text-gray-900">Beliebiger Mitarbeiter</h4>
+                <h4 className="font-medium text-gray-900">{t('anyStaff')}</h4>
                 <p className="text-sm text-gray-500">
-                  Erster verfügbarer Mitarbeiter
+                  {t('firstAvailable')}
                 </p>
               </div>
             </div>
@@ -79,7 +81,7 @@ export function StaffPicker({ staff, onSelect, allowAny = true }: StaffPickerPro
 
       {staff.length === 0 && !allowAny && (
         <div className="rounded-lg border border-dashed border-gray-300 p-8 text-center">
-          <p className="text-gray-500">Keine Mitarbeiter verfügbar.</p>
+          <p className="text-gray-500">{t('noStaff')}</p>
         </div>
       )}
     </div>

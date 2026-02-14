@@ -11,9 +11,17 @@ import { getStaffForService } from '@/lib/db/queries'
 import { hybridSearch, searchWithCategoryThreshold, type AccessContext } from '@/lib/search/hybrid-search'
 import { updateConversationIntent } from '../../conversation'
 import type { InternalAccessContext } from '../types'
+import { getEmailTranslations } from '@/lib/email-i18n'
+import { getBusinessLocale } from '@/lib/locale'
 import { createLogger } from '@/lib/logger'
 
 const log = createLogger('chatbot:tools:handlers:public')
+
+/** Helper to get tool translations for a business */
+async function getToolTranslations(businessId: string) {
+  const locale = await getBusinessLocale(businessId)
+  return getEmailTranslations(locale, 'chatbotPrompts.tools')
+}
 
 /** Availability API response slot */
 interface AvailabilitySlot {
@@ -105,7 +113,7 @@ export const publicHandlers = {
 
           // Day of week info (in business timezone)
           dayOfWeek: businessNow.getDay(), // 0=Sunday, 6=Saturday
-          dayName: ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'][businessNow.getDay()],
+          dayName: (['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'])[businessNow.getDay()],
 
           // Timezone
           timezone,
@@ -113,7 +121,8 @@ export const publicHandlers = {
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Abrufen des Datums' }
+      const t = await getToolTranslations(args.businessId)
+      return { success: false, error: t('errorFetchingDate') }
     }
   },
 
@@ -263,6 +272,7 @@ export const publicHandlers = {
       }
 
       const totalAvailable = slots.filter((s) => s.available).length
+      const t = await getToolTranslations(args.businessId)
 
       return {
         success: true,
@@ -273,13 +283,14 @@ export const publicHandlers = {
           totalSlotsAvailable: totalAvailable,
           slots: availableSlots,
           message: availableSlots.length > 0
-            ? `${availableSlots.length} freie Termine angezeigt${totalAvailable > availableSlots.length ? ` (von insgesamt ${totalAvailable} verfügbaren)` : ''} (Zeiten in ${timezone}). Zeigen Sie die Slots mit Nummern an (z.B. "Slot 1: 07:00 Uhr").`
-            : 'Keine freien Termine an diesem Tag',
+            ? `${totalAvailable > availableSlots.length ? t('slotsShownOfTotal', { count: String(availableSlots.length), total: String(totalAvailable) }) : t('slotsShown', { count: String(availableSlots.length) })} (${t('slotsTimezone', { timezone })}). ${t('slotsInstruction')}`
+            : t('noSlotsForDay'),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Abrufen der Verfügbarkeit' }
+      const t = await getToolTranslations(args.businessId)
+      return { success: false, error: t('errorFetchingAvailability') }
     }
   },
 
@@ -299,9 +310,10 @@ export const publicHandlers = {
       // VALIDATE PAYLOAD - Check required parameters
       if (!args.businessId || !args.serviceId || !args.startsAt) {
         log.info('Validation failed - missing parameters')
+        const t = await getToolTranslations(args.businessId)
         return {
           success: false,
-          error: 'Fehlende Parameter für die Reservierung.',
+          error: t('missingHoldParams'),
           code: 'INVALID_PAYLOAD',
           details: {
             hasBusinessId: !!args.businessId,
@@ -315,16 +327,18 @@ export const publicHandlers = {
       try {
         const timestamp = new Date(args.startsAt)
         if (isNaN(timestamp.getTime())) {
+          const t2 = await getToolTranslations(args.businessId)
           return {
             success: false,
-            error: 'Ungültiges Zeitformat. Bitte prüfen Sie erneut die Verfügbarkeit.',
+            error: t2('invalidTimeFormat'),
             code: 'INVALID_TIMESTAMP',
           }
         }
       } catch {
+        const t2 = await getToolTranslations(args.businessId)
         return {
           success: false,
-          error: 'Zeitformat konnte nicht verarbeitet werden.',
+          error: t2('timeFormatError'),
           code: 'INVALID_TIMESTAMP',
         }
       }
@@ -369,18 +383,20 @@ export const publicHandlers = {
       if (!response.ok) {
         // CATEGORIZE API ERRORS
         if (response.status === 409) {
+          const t3 = await getToolTranslations(args.businessId)
           return {
             success: false,
-            error: 'Dieser Zeitslot ist leider nicht mehr verfügbar. Möchten Sie einen anderen Termin wählen?',
+            error: t3('slotUnavailable'),
             code: 'SLOT_UNAVAILABLE',
             details: data.details || {},
           }
         }
 
         if (response.status === 400) {
+          const t4 = await getToolTranslations(args.businessId)
           return {
             success: false,
-            error: 'Ungültige Anfrage. Bitte versuchen Sie es erneut.',
+            error: t4('invalidRequest'),
             code: 'INVALID_REQUEST',
             details: data,
           }
@@ -388,7 +404,7 @@ export const publicHandlers = {
 
         return {
           success: false,
-          error: data.error || 'Fehler beim Erstellen der Reservierung.',
+          error: data.error || 'Error creating reservation.',
           code: data.code || 'UNKNOWN_ERROR',
         }
       }
@@ -444,14 +460,14 @@ export const publicHandlers = {
           staffId: assignedStaffId,
           expiresInMinutes: 5,
         },
-        nextStep: 'WICHTIG: Der Termin ist NOCH NICHT gebucht — nur für 5 Minuten reserviert. Du MUSST jetzt Name, E-Mail und Telefon des Kunden erfragen und dann confirm_booking() aufrufen, um die Buchung abzuschließen.',
+        nextStep: (await getToolTranslations(args.businessId))('holdNextStep'),
       }
     } catch (error) {
       log.error('EXCEPTION caught:', error)
       log.error('Error details:', error instanceof Error ? error.message : String(error))
       return {
         success: false,
-        error: 'Fehler beim Erstellen der Reservierung. Bitte versuchen Sie es erneut.',
+        error: (await getToolTranslations(args.businessId))('errorCreatingHoldRetry'),
         code: 'INTERNAL_ERROR',
       }
     }
@@ -512,7 +528,7 @@ export const publicHandlers = {
           }
           return {
             success: false,
-            error: 'Reservierung abgelaufen. Bitte wählen Sie einen neuen Termin.',
+            error: (await getToolTranslations(args.businessId))('holdExpired'),
             code: 'HOLD_EXPIRED',
           }
         }
@@ -538,7 +554,7 @@ export const publicHandlers = {
         data: {
           bookingId: data.bookingId,
           confirmationToken: data.confirmationToken,
-          message: 'Buchung erfolgreich! Bestätigungs-E-Mail wurde gesendet.',
+          message: (await getToolTranslations(args.businessId))('bookingSuccess'),
           // Include booking details for reference
           startsAt: data.booking?.startsAt,
           endsAt: data.booking?.endsAt,
@@ -550,7 +566,7 @@ export const publicHandlers = {
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Bestätigen der Buchung' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorConfirmingBooking') }
     }
   },
 
@@ -607,15 +623,15 @@ export const publicHandlers = {
           })),
           count: results.length,
           message: results.length > 0
-            ? `${results.length} relevante Einträge gefunden (Hybrid-Suche: semantisch + Stichwortsuche)`
-            : 'Keine passenden Einträge in der Wissensdatenbank gefunden. Bitte informieren Sie den Kunden, dass diese Information derzeit nicht verfügbar ist.',
+            ? (await getToolTranslations(businessId))('knowledgeResultsFound', { count: String(results.length) })
+            : (await getToolTranslations(businessId))('knowledgeNoResults'),
         },
       }
     } catch (error) {
       log.error('Knowledge base search error:', error)
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Suchfehler',
+        error: error instanceof Error ? error.message : (await getToolTranslations(businessId))('searchError'),
         data: {
           results: [],
           count: 0,
@@ -642,21 +658,21 @@ export const publicHandlers = {
       if (!response.ok) {
         return {
           success: false,
-          error: 'Fehler beim Erstellen der Löschanfrage. Bitte versuchen Sie es später erneut.',
+          error: (await getToolTranslations(args.businessId))('errorCreatingDeletionRequest'),
         }
       }
 
       return {
         success: true,
         data: {
-          message: 'Falls ein Konto mit dieser E-Mail existiert, wird eine Bestätigungs-E-Mail gesendet. Der Kunde muss die Löschung per Link in der E-Mail bestätigen. Der Link ist 7 Tage gültig.',
+          message: (await getToolTranslations(args.businessId))('deletionRequestSent'),
         },
       }
     } catch (error) {
       log.error('Error:', error)
       return {
         success: false,
-        error: 'Fehler bei der Verarbeitung der Löschanfrage.',
+        error: (await getToolTranslations(args.businessId))('errorProcessingDeletionRequest'),
       }
     }
   },

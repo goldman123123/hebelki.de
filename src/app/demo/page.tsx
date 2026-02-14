@@ -8,15 +8,20 @@ import { db } from '@/lib/db'
 import { businesses } from '@/lib/db/schema'
 import { sql } from 'drizzle-orm'
 import { DemoPageClient } from './components/DemoPageClient'
+import { getTranslations } from 'next-intl/server'
 
-export const metadata = {
-  title: 'Demo – Hebelki',
-  description: 'Testen Sie Hebelki live — als Kunde oder als Geschäftsinhaber',
+export async function generateMetadata() {
+  const t = await getTranslations('demo')
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+  }
 }
 
 export default async function DemoPage() {
   const { userId } = await auth()
   const isLoggedIn = !!userId
+  const tNav = await getTranslations('nav')
 
   const demoBusinesses = await db.select({
     id: businesses.id,
@@ -44,30 +49,30 @@ export default async function DemoPage() {
           <div className="flex items-center gap-4">
             <DevUserSwitcherPublic />
             <Link href="/demo" className="text-sm font-medium text-gray-900 hidden sm:block">
-              Demo
+              {tNav('demo')}
             </Link>
             <Link href="/pricing" className="text-sm font-medium text-gray-600 hover:text-gray-900">
-              Preise
+              {tNav('pricing')}
             </Link>
             {isLoggedIn ? (
               <>
                 <Link href="/dashboard">
-                  <Button>Dashboard</Button>
+                  <Button>{tNav('dashboard')}</Button>
                 </Link>
                 <SignOutButton>
                   <Button variant="ghost" size="sm">
                     <LogOut className="h-4 w-4 mr-2" />
-                    Abmelden
+                    {tNav('signOut')}
                   </Button>
                 </SignOutButton>
               </>
             ) : (
               <>
                 <Link href="/sign-in">
-                  <Button variant="ghost">Anmelden</Button>
+                  <Button variant="ghost">{tNav('signIn')}</Button>
                 </Link>
                 <Link href="/sign-up">
-                  <Button>Jetzt starten</Button>
+                  <Button>{tNav('signUp')}</Button>
                 </Link>
               </>
             )}

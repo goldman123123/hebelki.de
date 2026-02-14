@@ -1,8 +1,11 @@
 import Link from 'next/link'
 import { Calendar } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { getTranslations } from 'next-intl/server'
 
-export default function AuthLayout({ children }: { children: React.ReactNode }) {
+export default async function AuthLayout({ children }: { children: React.ReactNode }) {
+  const t = await getTranslations('auth')
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
@@ -15,13 +18,13 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </Link>
           <div className="flex items-center gap-4">
             <Link href="/demo" className="text-sm font-medium text-gray-600 hover:text-gray-900 hidden sm:block">
-              Demo
+              {t('demo')}
             </Link>
             <Link href="/pricing" className="text-sm font-medium text-gray-600 hover:text-gray-900">
-              Preise
+              {t('pricing')}
             </Link>
             <Link href="/sign-in">
-              <Button variant="ghost">Anmelden</Button>
+              <Button variant="ghost">{t('signIn')}</Button>
             </Link>
           </div>
         </div>

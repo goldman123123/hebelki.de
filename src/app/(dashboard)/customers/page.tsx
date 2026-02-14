@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -59,6 +60,8 @@ interface Pagination {
 }
 
 export default function CustomersPage() {
+  const t = useTranslations('dashboard.customers')
+  const tc = useTranslations('common')
   const router = useRouter()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [pagination, setPagination] = useState<Pagination | null>(null)
@@ -99,11 +102,11 @@ export default function CustomersPage() {
         setCustomers(data.customers)
         setPagination(data.pagination)
       } else {
-        toast.error(data.error || 'Fehler beim Laden der Kunden')
+        toast.error(data.error || t('errorLoading'))
       }
     } catch (error) {
       log.error('Failed to fetch customers:', error)
-      toast.error('Fehler beim Laden der Kunden')
+      toast.error(t('errorLoading'))
     } finally {
       setLoading(false)
     }
@@ -116,7 +119,7 @@ export default function CustomersPage() {
   // Create customer
   const handleCreateCustomer = async () => {
     if (!newCustomer.name.trim()) {
-      toast.error('Name ist erforderlich')
+      toast.error(t('nameRequired'))
       return
     }
 
@@ -135,17 +138,17 @@ export default function CustomersPage() {
       const data = await response.json()
 
       if (response.ok) {
-        toast.success('Kunde erstellt')
+        toast.success(t('customerCreated'))
         setCreateDialogOpen(false)
         setNewCustomer({ name: '', email: '', phone: '' })
         // Navigate to the new customer
         router.push(`/customers/${data.customer.id}`)
       } else {
-        toast.error(data.error || 'Fehler beim Erstellen des Kunden')
+        toast.error(data.error || t('errorCreating'))
       }
     } catch (error) {
       log.error('Failed to create customer:', error)
-      toast.error('Fehler beim Erstellen des Kunden')
+      toast.error(t('errorCreating'))
     } finally {
       setCreating(false)
     }
@@ -156,14 +159,14 @@ export default function CustomersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Kunden</h1>
+          <h1 className="text-3xl font-bold text-gray-900">{t('title')}</h1>
           <p className="mt-2 text-gray-600">
-            Verwalten Sie Ihre Kundendaten und Dokumente
+            {t('subtitle')}
           </p>
         </div>
         <Button onClick={() => setCreateDialogOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          Neuer Kunde
+          {t('newCustomer')}
         </Button>
       </div>
 
@@ -172,7 +175,7 @@ export default function CustomersPage() {
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <Input
           type="text"
-          placeholder="Kunden suchen (Name, E-Mail, Telefon)..."
+          placeholder={t('searchPlaceholder')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-10 pr-10"
@@ -190,7 +193,7 @@ export default function CustomersPage() {
       {/* Results info */}
       {pagination && (
         <div className="text-sm text-gray-600">
-          {pagination.total} {pagination.total === 1 ? 'Kunde' : 'Kunden'} gefunden
+          {t('customersFound', { total: pagination.total })}
         </div>
       )}
 
@@ -199,24 +202,24 @@ export default function CustomersPage() {
         <div className="flex min-h-[400px] items-center justify-center">
           <div className="flex items-center gap-2 text-gray-500">
             <Loader2 className="h-5 w-5 animate-spin" />
-            <span>Lädt...</span>
+            <span>{t('loading')}</span>
           </div>
         </div>
       ) : customers.length === 0 ? (
         <Card className="p-12 text-center">
           <UserRound className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-4 text-lg font-medium text-gray-900">
-            {debouncedSearch ? 'Keine Kunden gefunden' : 'Noch keine Kunden'}
+            {debouncedSearch ? t('noCustomersFound') : t('noCustomersYet')}
           </h3>
           <p className="mt-2 text-sm text-gray-500">
             {debouncedSearch
-              ? 'Versuchen Sie es mit anderen Suchbegriffen.'
-              : 'Erstellen Sie Ihren ersten Kunden oder Kunden werden automatisch bei Buchungen angelegt.'}
+              ? t('tryDifferentSearch')
+              : t('autoCreated')}
           </p>
           {!debouncedSearch && (
             <Button className="mt-4" onClick={() => setCreateDialogOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
-              Ersten Kunden anlegen
+              {t('createFirstCustomer')}
             </Button>
           )}
         </Card>
@@ -239,7 +242,7 @@ export default function CustomersPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-medium text-gray-900 truncate">
-                        {customer.name || 'Unbenannt'}
+                        {customer.name || t('unnamed')}
                       </h3>
                       {customer.tags.length > 0 && (
                         <div className="flex items-center gap-1">
@@ -279,17 +282,17 @@ export default function CustomersPage() {
 
                 {/* Stats */}
                 <div className="flex items-center gap-6 text-sm text-gray-500">
-                  <div className="flex items-center gap-1" title="Buchungen">
+                  <div className="flex items-center gap-1" title={t('bookings')}>
                     <Calendar className="h-4 w-4" />
                     <span>{customer.bookingCount}</span>
                   </div>
-                  <div className="flex items-center gap-1" title="Konversationen">
+                  <div className="flex items-center gap-1" title={t('conversations')}>
                     <MessageSquare className="h-4 w-4" />
                     <span>{customer.conversationCount}</span>
                   </div>
                   {customer.lastActivity && (
                     <div className="text-gray-400 text-xs whitespace-nowrap">
-                      Letzte Aktivität:{' '}
+                      {t('lastActivity')}:{' '}
                       {formatDistanceToNow(new Date(customer.lastActivity), {
                         addSuffix: true,
                         locale: de,
@@ -308,16 +311,16 @@ export default function CustomersPage() {
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Neuen Kunden anlegen</DialogTitle>
+            <DialogTitle>{t('createCustomer')}</DialogTitle>
             <DialogDescription>
-              Erstellen Sie einen neuen Kunden in Ihrer Datenbank.
+              {t('createCustomerDesc')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div>
               <label className="text-sm font-medium text-gray-700">
-                Name <span className="text-red-500">*</span>
+                {t('name')} <span className="text-red-500">*</span>
               </label>
               <Input
                 placeholder="Max Mustermann"
@@ -329,7 +332,7 @@ export default function CustomersPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700">E-Mail</label>
+              <label className="text-sm font-medium text-gray-700">{t('email')}</label>
               <Input
                 type="email"
                 placeholder="max@example.com"
@@ -341,7 +344,7 @@ export default function CustomersPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700">Telefon</label>
+              <label className="text-sm font-medium text-gray-700">{t('phone')}</label>
               <Input
                 type="tel"
                 placeholder="+49 123 456789"
@@ -360,18 +363,18 @@ export default function CustomersPage() {
               onClick={() => setCreateDialogOpen(false)}
               disabled={creating}
             >
-              Abbrechen
+              {tc('cancel')}
             </Button>
             <Button onClick={handleCreateCustomer} disabled={creating}>
               {creating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Erstellen...
+                  {t('creating')}
                 </>
               ) : (
                 <>
                   <Plus className="mr-2 h-4 w-4" />
-                  Erstellen
+                  {tc('create')}
                 </>
               )}
             </Button>

@@ -8,6 +8,7 @@ import {
   Field, FieldGroup, FieldLabel, FieldLegend, FieldSet,
 } from '@/components/ui/field'
 import { Palette, Pencil, Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import type { Business } from '../types'
 
 interface BrandingCardProps {
@@ -29,6 +30,8 @@ export function BrandingCard({
   isSaving,
   onRefresh,
 }: BrandingCardProps) {
+  const t = useTranslations('dashboard.business.branding')
+  const tc = useTranslations('dashboard.business')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isUploading, setIsUploading] = useState(false)
 
@@ -100,18 +103,18 @@ export function BrandingCard({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Palette className="h-5 w-5" />
-          Branding & Social Media
+          {t('title')}
         </CardTitle>
-        <CardDescription>Logo, Farben und Social-Media-Profile</CardDescription>
+        <CardDescription>{t('description')}</CardDescription>
         <CardAction>
           {editing ? (
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={handleCancel} disabled={isSaving}>
-                Abbrechen
+                {tc('cancel')}
               </Button>
               <Button size="sm" onClick={handleSave} disabled={isSaving}>
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Speichern
+                {tc('save')}
               </Button>
             </div>
           ) : (
@@ -126,10 +129,10 @@ export function BrandingCard({
           {/* Erscheinungsbild */}
           <div className="rounded-lg border p-4">
             <FieldSet className="gap-3">
-              <FieldLegend className="mb-1">Erscheinungsbild</FieldLegend>
+              <FieldLegend className="mb-1">{t('appearance')}</FieldLegend>
               <FieldGroup className="gap-4">
                 <Field>
-                  <FieldLabel>Logo URL</FieldLabel>
+                  <FieldLabel>{t('logoUrl')}</FieldLabel>
                   <div className="flex items-center gap-2">
                     <Input
                       className="flex-1"
@@ -152,7 +155,7 @@ export function BrandingCard({
                   </div>
                 </Field>
                 <Field>
-                  <FieldLabel>Primärfarbe</FieldLabel>
+                  <FieldLabel>{t('primaryColor')}</FieldLabel>
                   <div className="flex items-center gap-2">
                     {editing && (
                       <input
@@ -184,24 +187,24 @@ export function BrandingCard({
           {/* Social Media 1 */}
           <div className="rounded-lg border p-4">
             <FieldSet className="gap-3">
-              <FieldLegend className="mb-1">Social Media</FieldLegend>
+              <FieldLegend className="mb-1">{t('socialMedia')}</FieldLegend>
               <FieldGroup className="gap-4">
                 <Field>
-                  <FieldLabel>Instagram</FieldLabel>
+                  <FieldLabel>{t('instagram')}</FieldLabel>
                   <Input
                     value={socialForm.socialInstagram}
                     onChange={(e) => setSocialForm({ ...socialForm, socialInstagram: e.target.value })}
                     readOnly={!editing}
-                    placeholder="benutzername"
+                    placeholder={t('instagramPlaceholder')}
                   />
                 </Field>
                 <Field>
-                  <FieldLabel>Facebook</FieldLabel>
+                  <FieldLabel>{t('facebook')}</FieldLabel>
                   <Input
                     value={socialForm.socialFacebook}
                     onChange={(e) => setSocialForm({ ...socialForm, socialFacebook: e.target.value })}
                     readOnly={!editing}
-                    placeholder="seitenname"
+                    placeholder={t('facebookPlaceholder')}
                   />
                 </Field>
               </FieldGroup>
@@ -211,24 +214,24 @@ export function BrandingCard({
           {/* Social Media 2 */}
           <div className="rounded-lg border p-4">
             <FieldSet className="gap-3">
-              <FieldLegend className="mb-1">Weitere Profile</FieldLegend>
+              <FieldLegend className="mb-1">{t('moreProfiles')}</FieldLegend>
               <FieldGroup className="gap-4">
                 <Field>
-                  <FieldLabel>LinkedIn</FieldLabel>
+                  <FieldLabel>{t('linkedin')}</FieldLabel>
                   <Input
                     value={socialForm.socialLinkedin}
                     onChange={(e) => setSocialForm({ ...socialForm, socialLinkedin: e.target.value })}
                     readOnly={!editing}
-                    placeholder="firmenname"
+                    placeholder={t('linkedinPlaceholder')}
                   />
                 </Field>
                 <Field>
-                  <FieldLabel>Twitter / X</FieldLabel>
+                  <FieldLabel>{t('twitter')}</FieldLabel>
                   <Input
                     value={socialForm.socialTwitter}
                     onChange={(e) => setSocialForm({ ...socialForm, socialTwitter: e.target.value })}
                     readOnly={!editing}
-                    placeholder="benutzername"
+                    placeholder={t('twitterPlaceholder')}
                   />
                 </Field>
               </FieldGroup>

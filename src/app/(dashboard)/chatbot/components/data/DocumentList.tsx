@@ -20,6 +20,7 @@ import {
   FileSpreadsheet,
   Loader2,
 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { DocumentCard, Document } from './DocumentCard'
 
 export type DataPurpose = 'chatbot' | 'intern' | 'kunden' | 'daten'
@@ -32,55 +33,28 @@ interface DocumentListProps {
   onRefresh?: () => void
 }
 
-// Type filter options vary by purpose
-const getTypeFilterOptions = (purpose: DataPurpose) => {
-  if (purpose === 'daten') {
-    return [
-      { value: 'all', label: 'Alle Typen' },
-      { value: 'csv', label: 'CSV' },
-      { value: 'xlsx,xls', label: 'Excel' },
-    ]
-  }
-  return [
-    { value: 'all', label: 'Alle Typen' },
-    { value: 'pdf', label: 'PDF' },
-    { value: 'docx,doc', label: 'Word' },
-    { value: 'txt', label: 'Text' },
-    { value: 'html,htm', label: 'HTML' },
-    { value: 'website', label: 'Website' },
-  ]
+// Empty state icons per purpose
+const EMPTY_ICONS: Record<DataPurpose, React.ElementType> = {
+  chatbot: FileText,
+  intern: FileText,
+  kunden: FileText,
+  daten: FileSpreadsheet,
 }
 
-// Status filter options (only for knowledge documents)
-const STATUS_FILTER_OPTIONS = [
-  { value: 'all', label: 'Alle Status' },
-  { value: 'done', label: 'Indexiert' },
-  { value: 'processing', label: 'Verarbeitung' },
-  { value: 'failed', label: 'Fehler' },
-]
+// Empty state title keys per purpose
+const EMPTY_TITLE_KEYS: Record<DataPurpose, string> = {
+  chatbot: 'emptyChatbot',
+  intern: 'emptyIntern',
+  kunden: 'emptyKunden',
+  daten: 'emptyDaten',
+}
 
-// Empty state messages per purpose
-const emptyStateMessages: Record<DataPurpose, { title: string; description: string; icon: React.ElementType }> = {
-  chatbot: {
-    title: 'Keine Chatbot-Dokumente',
-    description: 'Laden Sie Dokumente hoch, die für Kunden über den Chatbot zugänglich sein sollen.',
-    icon: FileText,
-  },
-  intern: {
-    title: 'Keine internen Dokumente',
-    description: 'Laden Sie interne Dokumente hoch, die nur für Mitarbeiter sichtbar sein sollen.',
-    icon: FileText,
-  },
-  kunden: {
-    title: 'Keine Kundendokumente',
-    description: 'Laden Sie Dokumente für einzelne Kunden hoch.',
-    icon: FileText,
-  },
-  daten: {
-    title: 'Keine Datenimporte',
-    description: 'Laden Sie CSV- oder Excel-Dateien mit Geschäftsdaten hoch.',
-    icon: FileSpreadsheet,
-  },
+// Empty state description keys per purpose
+const EMPTY_DESC_KEYS: Record<DataPurpose, string> = {
+  chatbot: 'emptyChatbotDesc',
+  intern: 'emptyInternDesc',
+  kunden: 'emptyKundenDesc',
+  daten: 'emptyDatenDesc',
 }
 
 export function DocumentList({
@@ -90,11 +64,33 @@ export function DocumentList({
   loading,
   onRefresh,
 }: DocumentListProps) {
+  const t = useTranslations('dashboard.chatbot.data.list')
   const [searchQuery, setSearchQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
 
-  const typeFilterOptions = getTypeFilterOptions(purpose)
+  const typeFilterOptions = purpose === 'daten'
+    ? [
+        { value: 'all', label: t('allTypes') },
+        { value: 'csv', label: 'CSV' },
+        { value: 'xlsx,xls', label: 'Excel' },
+      ]
+    : [
+        { value: 'all', label: t('allTypes') },
+        { value: 'pdf', label: 'PDF' },
+        { value: 'docx,doc', label: 'Word' },
+        { value: 'txt', label: 'Text' },
+        { value: 'html,htm', label: 'HTML' },
+        { value: 'website', label: 'Website' },
+      ]
+
+  const statusFilterOptions = [
+    { value: 'all', label: t('allStatuses') },
+    { value: 'done', label: t('statusIndexed') },
+    { value: 'processing', label: t('statusProcessing') },
+    { value: 'failed', label: t('statusError') },
+  ]
+
   const showStatusFilter = purpose !== 'daten' // Daten tab has no processing status
 
   // Filter documents
@@ -137,8 +133,7 @@ export function DocumentList({
   }, [documents, searchQuery, typeFilter, statusFilter, showStatusFilter])
 
   const hasActiveFilters = searchQuery || typeFilter !== 'all' || statusFilter !== 'all'
-  const emptyState = emptyStateMessages[purpose]
-  const EmptyIcon = emptyState.icon
+  const EmptyIcon = EMPTY_ICONS[purpose]
 
   // Determine which badges to show based on purpose
   const getBadgeProps = () => {
@@ -159,7 +154,7 @@ export function DocumentList({
       <Card className="p-8">
         <div className="flex items-center justify-center gap-2 text-gray-500">
           <Loader2 className="h-5 w-5 animate-spin" />
-          <span>Lädt Dokumente...</span>
+          <span>{t('loadingDocuments')}</span>
         </div>
       </Card>
     )
@@ -175,7 +170,7 @@ export function DocumentList({
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <Input
               type="text"
-              placeholder={purpose === 'kunden' ? 'Nach Name oder Kunde suchen...' : 'Dokumente durchsuchen...'}
+              placeholder={purpose === 'kunden' ? t('searchByNameOrCustomer') : t('searchDocuments')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 pr-10"
@@ -214,7 +209,7 @@ export function DocumentList({
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="h-10 px-3 pr-8 border border-gray-200 rounded-md bg-white text-sm font-medium text-gray-700 cursor-pointer appearance-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               >
-                {STATUS_FILTER_OPTIONS.map(option => (
+                {statusFilterOptions.map(option => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -230,9 +225,9 @@ export function DocumentList({
       {hasActiveFilters && documents.length > 0 && (
         <div className="flex items-center justify-between text-sm text-gray-600">
           <span>
-            {filteredDocuments.length} {filteredDocuments.length === 1 ? 'Dokument' : 'Dokumente'} gefunden
+            {t('documentsFound', { count: filteredDocuments.length })}
             {filteredDocuments.length < documents.length && (
-              <span className="text-gray-400"> von {documents.length} gesamt</span>
+              <span className="text-gray-400"> {t('ofTotal', { total: documents.length })}</span>
             )}
           </span>
           <button
@@ -243,7 +238,7 @@ export function DocumentList({
             }}
             className="text-primary hover:text-primary/80 font-medium"
           >
-            Filter zurücksetzen
+            {t('resetFilters')}
           </button>
         </div>
       )}
@@ -254,10 +249,10 @@ export function DocumentList({
         <Card className="p-12 text-center">
           <EmptyIcon className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-4 text-lg font-medium text-gray-900">
-            {emptyState.title}
+            {t(EMPTY_TITLE_KEYS[purpose])}
           </h3>
           <p className="mt-2 text-sm text-gray-500">
-            {emptyState.description}
+            {t(EMPTY_DESC_KEYS[purpose])}
           </p>
         </Card>
       ) : filteredDocuments.length === 0 ? (
@@ -265,10 +260,10 @@ export function DocumentList({
         <Card className="p-12 text-center">
           <Search className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-4 text-lg font-medium text-gray-900">
-            Keine passenden Dokumente
+            {t('noMatchingDocuments')}
           </h3>
           <p className="mt-2 text-sm text-gray-500">
-            Versuchen Sie es mit anderen Suchbegriffen oder Filtern.
+            {t('noMatchingDesc')}
           </p>
           <Button
             variant="outline"
@@ -280,7 +275,7 @@ export function DocumentList({
             }}
           >
             <X className="mr-2 h-4 w-4" />
-            Filter zurücksetzen
+            {t('resetFilters')}
           </Button>
         </Card>
       ) : (

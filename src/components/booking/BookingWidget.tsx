@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations, useLocale } from 'next-intl'
 import { ServicePicker } from './ServicePicker'
 import { StaffPicker } from './StaffPicker'
 import { DatePicker } from './DatePicker'
@@ -64,6 +65,9 @@ export type Step = 'service' | 'staff' | 'date' | 'time' | 'customer' | 'confirm
 const STEPS: Step[] = ['service', 'staff', 'date', 'time', 'customer', 'confirmation']
 
 export function BookingWidget({ business, services, staff, onStepChange, onBookingComplete }: BookingWidgetProps) {
+  const t = useTranslations('booking')
+  const locale = useLocale()
+  const dateLocale = locale === 'de' ? 'de-DE' : 'en-US'
   const [currentStep, setCurrentStep] = useState<Step>('service')
   const [selectedService, setSelectedService] = useState<Service | null>(null)
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null)
@@ -193,7 +197,7 @@ export function BookingWidget({ business, services, staff, onStepChange, onBooki
                 </Button>
               )}
               <span className="text-sm font-medium text-gray-700">
-                Schritt {currentStepIndex + 1} von {STEPS.length - 1}
+                {t('step', { current: currentStepIndex + 1, total: STEPS.length - 1 })}
               </span>
             </div>
             <div className="flex gap-1">
@@ -230,7 +234,7 @@ export function BookingWidget({ business, services, staff, onStepChange, onBooki
             {selectedDate && (
               <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700 ring-1 ring-gray-200">
                 <Check className="h-3 w-3 text-green-500" />
-                {selectedDate.toLocaleDateString('de-DE', {
+                {selectedDate.toLocaleDateString(dateLocale, {
                   month: 'short',
                   day: 'numeric',
                 })}
@@ -239,7 +243,7 @@ export function BookingWidget({ business, services, staff, onStepChange, onBooki
             {selectedTime && (
               <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700 ring-1 ring-gray-200">
                 <Check className="h-3 w-3 text-green-500" />
-                {selectedTime.toLocaleTimeString('de-DE', {
+                {selectedTime.toLocaleTimeString(dateLocale, {
                   hour: '2-digit',
                   minute: '2-digit',
                 })}

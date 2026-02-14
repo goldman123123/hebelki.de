@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import {
   Brain, Key, BarChart3, Zap, Eye, EyeOff, Save, RotateCcw, Loader2,
 } from 'lucide-react'
@@ -51,13 +52,7 @@ interface UsageData {
   byModel: UsageByModel[]
 }
 
-const CHANNEL_LABELS: Record<string, string> = {
-  chatbot: 'Chatbot',
-  website_gen: 'Website',
-  knowledge_extraction: 'Extraktion',
-  post_gen: 'Social Media',
-  embedding: 'Embeddings',
-}
+const CHANNEL_KEYS = ['chatbot', 'website_gen', 'knowledge_extraction', 'post_gen', 'embedding'] as const
 
 const TIER_STYLES: Record<string, { label: string; className: string }> = {
   premium: { label: 'Premium', className: 'bg-amber-100 text-amber-800' },
@@ -76,6 +71,7 @@ function formatTokens(tokens: number): string {
 }
 
 export default function AISettingsPage() {
+  const t = useTranslations('dashboard.aiSettings')
   const [settings, setSettings] = useState<AISettings | null>(null)
   const [usage, setUsage] = useState<UsageData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -219,7 +215,7 @@ export default function AISettingsPage() {
   if (!settings) {
     return (
       <div className="py-12 text-center">
-        <p className="text-gray-500">KI-Einstellungen konnten nicht geladen werden.</p>
+        <p className="text-gray-500">{t('loadError')}</p>
       </div>
     )
   }
@@ -229,8 +225,8 @@ export default function AISettingsPage() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">KI-Einstellungen</h1>
-        <p className="text-gray-600">Modelle, API-Schluessel und Verbrauch verwalten</p>
+        <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+        <p className="text-gray-600">{t('subtitle')}</p>
       </div>
 
       <div className="space-y-6">
@@ -239,34 +235,34 @@ export default function AISettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Brain className="h-5 w-5" />
-              KI-Modelle
+              {t('models')}
             </CardTitle>
             <CardDescription>
-              Waehlen Sie fuer jeden Kanal das bevorzugte KI-Modell aus.
+              {t('modelsDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 sm:grid-cols-2">
               <ModelSelect
-                label="Chatbot-Modell"
+                label={t('chatbotModel')}
                 value={chatbotModel}
                 onChange={setChatbotModel}
                 models={models}
               />
               <ModelSelect
-                label="Website-Modell"
+                label={t('websiteModel')}
                 value={websiteModel}
                 onChange={setWebsiteModel}
                 models={models}
               />
               <ModelSelect
-                label="Wissensextraktion"
+                label={t('extractionModel')}
                 value={extractionModel}
                 onChange={setExtractionModel}
                 models={models}
               />
               <ModelSelect
-                label="Social Media"
+                label={t('postModel')}
                 value={postModel}
                 onChange={setPostModel}
                 models={models}
@@ -281,11 +277,11 @@ export default function AISettingsPage() {
                 ) : (
                   <Save className="mr-2 h-4 w-4" />
                 )}
-                {modelSaved ? 'Gespeichert' : 'Speichern'}
+                {modelSaved ? t('saved') : t('save')}
               </Button>
               <Button variant="outline" onClick={handleResetModels} disabled={modelSaving}>
                 <RotateCcw className="mr-2 h-4 w-4" />
-                Standard wiederherstellen
+                {t('resetDefaults')}
               </Button>
             </div>
           </CardContent>
@@ -296,10 +292,10 @@ export default function AISettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Key className="h-5 w-5" />
-              Eigener API-Schluessel
+              {t('apiKey')}
             </CardTitle>
             <CardDescription>
-              Verwenden Sie Ihren eigenen OpenRouter-API-Schluessel, um Kosten direkt ueber OpenRouter zu bezahlen.
+              {t('apiKeyDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -307,9 +303,9 @@ export default function AISettingsPage() {
               <div className="flex items-center gap-3">
                 <span className="text-sm font-medium text-gray-700">Status:</span>
                 {settings.hasCustomApiKey ? (
-                  <Badge className="bg-green-100 text-green-800">Eigener Schluessel aktiv</Badge>
+                  <Badge className="bg-green-100 text-green-800">{t('customKeyActive')}</Badge>
                 ) : (
-                  <Badge variant="secondary">Hebelki-Standard</Badge>
+                  <Badge variant="secondary">{t('defaultKey')}</Badge>
                 )}
               </div>
 
@@ -343,12 +339,12 @@ export default function AISettingsPage() {
                   className="text-red-600 hover:text-red-700"
                 >
                   {keyRemoving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Entfernen
+                  {t('remove')}
                 </Button>
               )}
 
               <p className="text-xs text-gray-500">
-                API-Schluessel erhalten Sie unter{' '}
+                {t('apiKeyHint')}{' '}
                 <a
                   href="https://openrouter.ai"
                   target="_blank"
@@ -367,24 +363,24 @@ export default function AISettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5" />
-              Verbrauch
+              {t('usage')}
             </CardTitle>
             <CardDescription>
-              Token-Verbrauch und geschaetzte Kosten nach Zeitraum.
+              {t('usageDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
               {/* Period selector */}
               <div className="flex gap-2">
-                {([['day', 'Heute'], ['week', 'Diese Woche'], ['month', 'Dieser Monat']] as const).map(([p, label]) => (
+                {(['day', 'week', 'month'] as const).map((p) => (
                   <Button
                     key={p}
                     variant={period === p ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setPeriod(p)}
                   >
-                    {label}
+                    {t(`period.${p}`)}
                   </Button>
                 ))}
               </div>
@@ -400,21 +396,21 @@ export default function AISettingsPage() {
                     <div className="rounded-lg border p-4">
                       <div className="flex items-center gap-2 text-sm text-gray-500">
                         <Zap className="h-4 w-4" />
-                        Tokens gesamt
+                        {t('totalTokens')}
                       </div>
                       <p className="mt-1 text-2xl font-bold">{formatTokens(usage.totalTokens)}</p>
                     </div>
                     <div className="rounded-lg border p-4">
                       <div className="flex items-center gap-2 text-sm text-gray-500">
                         <BarChart3 className="h-4 w-4" />
-                        Geschaetzte Kosten
+                        {t('estimatedCost')}
                       </div>
                       <p className="mt-1 text-2xl font-bold">{formatCost(usage.totalCostCents)}</p>
                     </div>
                     <div className="rounded-lg border p-4">
                       <div className="flex items-center gap-2 text-sm text-gray-500">
                         <Brain className="h-4 w-4" />
-                        API-Aufrufe
+                        {t('apiCalls')}
                       </div>
                       <p className="mt-1 text-2xl font-bold">{usage.totalCalls}</p>
                     </div>
@@ -423,21 +419,21 @@ export default function AISettingsPage() {
                   {/* Usage by channel */}
                   {usage.byChannel.length > 0 && (
                     <div>
-                      <h3 className="mb-3 text-sm font-semibold text-gray-700">Nach Kanal</h3>
+                      <h3 className="mb-3 text-sm font-semibold text-gray-700">{t('byChannel')}</h3>
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b text-left text-gray-500">
-                              <th className="pb-2 font-medium">Kanal</th>
-                              <th className="pb-2 font-medium text-right">Tokens</th>
-                              <th className="pb-2 font-medium text-right">Kosten</th>
-                              <th className="pb-2 font-medium text-right">Aufrufe</th>
+                              <th className="pb-2 font-medium">{t('channel')}</th>
+                              <th className="pb-2 font-medium text-right">{t('tokens')}</th>
+                              <th className="pb-2 font-medium text-right">{t('cost')}</th>
+                              <th className="pb-2 font-medium text-right">{t('calls')}</th>
                             </tr>
                           </thead>
                           <tbody>
                             {usage.byChannel.map((row) => (
                               <tr key={row.channel} className="border-b last:border-0">
-                                <td className="py-2">{CHANNEL_LABELS[row.channel] || row.channel}</td>
+                                <td className="py-2">{t(`channels.${row.channel}`)}</td>
                                 <td className="py-2 text-right">{formatTokens(row.tokens)}</td>
                                 <td className="py-2 text-right">{formatCost(row.costCents)}</td>
                                 <td className="py-2 text-right">{row.calls}</td>
@@ -452,15 +448,15 @@ export default function AISettingsPage() {
                   {/* Usage by model */}
                   {usage.byModel.length > 0 && (
                     <div>
-                      <h3 className="mb-3 text-sm font-semibold text-gray-700">Nach Modell</h3>
+                      <h3 className="mb-3 text-sm font-semibold text-gray-700">{t('byModel')}</h3>
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b text-left text-gray-500">
-                              <th className="pb-2 font-medium">Modell</th>
-                              <th className="pb-2 font-medium text-right">Tokens</th>
-                              <th className="pb-2 font-medium text-right">Kosten</th>
-                              <th className="pb-2 font-medium text-right">Aufrufe</th>
+                              <th className="pb-2 font-medium">{t('model')}</th>
+                              <th className="pb-2 font-medium text-right">{t('tokens')}</th>
+                              <th className="pb-2 font-medium text-right">{t('cost')}</th>
+                              <th className="pb-2 font-medium text-right">{t('calls')}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -480,7 +476,7 @@ export default function AISettingsPage() {
                 </>
               ) : (
                 <p className="py-4 text-center text-sm text-gray-500">
-                  Keine Verbrauchsdaten vorhanden.
+                  {t('noUsageData')}
                 </p>
               )}
             </div>

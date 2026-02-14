@@ -31,6 +31,7 @@ import { Plus, Edit, Trash2, Loader2, BookOpen, Calendar, Search, X, ChevronDown
 import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { fetchWithRetry, handleError, safeAsync } from '@/lib/errors/error-handler'
 
 interface KnowledgeEntry {
@@ -49,6 +50,7 @@ interface KnowledgeBaseTabProps {
 }
 
 export function KnowledgeBaseTab({ businessId }: KnowledgeBaseTabProps) {
+  const t = useTranslations('dashboard.chatbot.knowledge')
   const [entries, setEntries] = useState<KnowledgeEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -63,10 +65,10 @@ export function KnowledgeBaseTab({ businessId }: KnowledgeBaseTabProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const categories = [
-    { value: 'faq', label: 'FAQs' },
-    { value: 'services', label: 'Dienstleistungen' },
-    { value: 'policies', label: 'Richtlinien' },
-    { value: 'other', label: 'Sonstiges' },
+    { value: 'faq', label: t('catFaq') },
+    { value: 'services', label: t('catServices') },
+    { value: 'policies', label: t('catPolicies') },
+    { value: 'other', label: t('catOther') },
   ]
 
   const fetchEntries = async () => {
@@ -83,7 +85,7 @@ export function KnowledgeBaseTab({ businessId }: KnowledgeBaseTabProps) {
         return response.json()
       },
       {
-        errorMessage: 'Fehler beim Laden der Wissensdatenbank',
+        errorMessage: t('loadError'),
       }
     )
 
@@ -126,22 +128,22 @@ export function KnowledgeBaseTab({ businessId }: KnowledgeBaseTabProps) {
   const handleSave = async () => {
     // Frontend validation
     if (!formData.title.trim()) {
-      toast.error('Bitte geben Sie einen Titel ein')
+      toast.error(t('titleRequired'))
       return
     }
 
     if (formData.title.trim().length < 3) {
-      toast.error('Titel muss mindestens 3 Zeichen lang sein')
+      toast.error(t('titleMinLength'))
       return
     }
 
     if (!formData.content.trim()) {
-      toast.error('Bitte geben Sie Inhalt ein')
+      toast.error(t('contentRequired'))
       return
     }
 
     if (formData.content.trim().length < 50) {
-      toast.error('Inhalt muss mindestens 50 Zeichen lang sein')
+      toast.error(t('contentMinLength'))
       return
     }
 
@@ -183,8 +185,8 @@ export function KnowledgeBaseTab({ businessId }: KnowledgeBaseTabProps) {
       if (data.success) {
         toast.success(
           editingEntry
-            ? 'Eintrag erfolgreich aktualisiert'
-            : 'Eintrag erfolgreich erstellt'
+            ? t('entryUpdated')
+            : t('entryCreated')
         )
         await fetchEntries()
         handleCloseDialog()
@@ -192,17 +194,17 @@ export function KnowledgeBaseTab({ businessId }: KnowledgeBaseTabProps) {
         // Handle validation errors from backend
         if (data.code === 'VALIDATION_ERROR' && data.details) {
           const errorMessages = data.details.map((issue: { message: string }) => issue.message).join(', ')
-          toast.error(`Validierungsfehler: ${errorMessages}`)
+          toast.error(t('validationError', { errors: errorMessages }))
         } else {
-          toast.error(data.error || 'Fehler beim Speichern')
+          toast.error(data.error || t('saveError'))
         }
       }
     } catch (error) {
       handleError(
         error,
         editingEntry
-          ? 'Fehler beim Aktualisieren des Eintrags'
-          : 'Fehler beim Erstellen des Eintrags'
+          ? t('updateError')
+          : t('createError')
       )
     } finally {
       setSaving(false)
@@ -210,7 +212,7 @@ export function KnowledgeBaseTab({ businessId }: KnowledgeBaseTabProps) {
   }
 
   const handleDelete = async (entry: KnowledgeEntry) => {
-    if (!confirm(`Möchten Sie "${entry.title}" wirklich löschen?`)) {
+    if (!confirm(t('confirmDelete', { title: entry.title }))) {
       return
     }
 
@@ -230,8 +232,8 @@ export function KnowledgeBaseTab({ businessId }: KnowledgeBaseTabProps) {
         return response.json()
       },
       {
-        errorMessage: 'Fehler beim Löschen des Eintrags',
-        successMessage: 'Eintrag erfolgreich gelöscht',
+        errorMessage: t('deleteError'),
+        successMessage: t('deleteSuccess'),
       }
     )
 
@@ -257,7 +259,7 @@ export function KnowledgeBaseTab({ businessId }: KnowledgeBaseTabProps) {
       <Card className="p-8">
         <div className="flex items-center justify-center gap-2 text-gray-500">
           <Loader2 className="h-5 w-5 animate-spin" />
-          <span>Lädt Wissensdatenbank...</span>
+          <span>{t('loadingKB')}</span>
         </div>
       </Card>
     )
@@ -269,15 +271,15 @@ export function KnowledgeBaseTab({ businessId }: KnowledgeBaseTabProps) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">
-            Wissensdatenbank
+            {t('title')}
           </h2>
           <p className="text-sm text-gray-500">
-            Verwalten Sie Informationen, die Ihr Chatbot verwenden kann
+            {t('subtitle')}
           </p>
         </div>
         <Button onClick={() => handleOpenDialog()}>
           <Plus className="mr-2 h-4 w-4" />
-          Neuer Eintrag
+          {t('addEntry')}
         </Button>
       </div>
 
@@ -287,7 +289,7 @@ export function KnowledgeBaseTab({ businessId }: KnowledgeBaseTabProps) {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input
             type="text"
-            placeholder="Durchsuchen Sie die Wissensdatenbank..."
+            placeholder={t('searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10 pr-10"
@@ -306,9 +308,9 @@ export function KnowledgeBaseTab({ businessId }: KnowledgeBaseTabProps) {
       {/* Results count */}
       {searchQuery && (
         <div className="text-sm text-gray-600">
-          {filteredEntries.length} {filteredEntries.length === 1 ? 'Eintrag' : 'Einträge'} gefunden
+          {t('entriesFound', { count: filteredEntries.length })}
           {filteredEntries.length < entries.length && (
-            <span className="text-gray-400"> von {entries.length} gesamt</span>
+            <span className="text-gray-400"> {t('ofTotal', { total: entries.length })}</span>
           )}
         </div>
       )}
@@ -318,25 +320,24 @@ export function KnowledgeBaseTab({ businessId }: KnowledgeBaseTabProps) {
         <Card className="p-12 text-center">
           <BookOpen className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-4 text-lg font-medium text-gray-900">
-            Noch keine Einträge
+            {t('noEntries')}
           </h3>
           <p className="mt-2 text-sm text-gray-500">
-            Erstellen Sie Ihren ersten Wissensdatenbank-Eintrag, damit Ihr Chatbot
-            Fragen beantworten kann.
+            {t('noEntriesDesc')}
           </p>
           <Button className="mt-4" onClick={() => handleOpenDialog()}>
             <Plus className="mr-2 h-4 w-4" />
-            Ersten Eintrag erstellen
+            {t('createFirst')}
           </Button>
         </Card>
       ) : filteredEntries.length === 0 ? (
         <Card className="p-12 text-center">
           <Search className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-4 text-lg font-medium text-gray-900">
-            Keine passenden Einträge
+            {t('noResults')}
           </h3>
           <p className="mt-2 text-sm text-gray-500">
-            Versuchen Sie es mit anderen Suchbegriffen oder löschen Sie die Suche.
+            {t('noResultsDesc')}
           </p>
           <Button
             variant="outline"
@@ -344,7 +345,7 @@ export function KnowledgeBaseTab({ businessId }: KnowledgeBaseTabProps) {
             onClick={() => setSearchQuery('')}
           >
             <X className="mr-2 h-4 w-4" />
-            Suche zurücksetzen
+            {t('clearSearch')}
           </Button>
         </Card>
       ) : (
@@ -379,7 +380,7 @@ export function KnowledgeBaseTab({ businessId }: KnowledgeBaseTabProps) {
                             locale: de,
                           })}
                         </span>
-                        <span>Quelle: {entry.source === 'manual' ? 'Manuell' : entry.source}</span>
+                        <span>{t('source')} {entry.source === 'manual' ? t('sourceManual') : entry.source}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
@@ -387,7 +388,7 @@ export function KnowledgeBaseTab({ businessId }: KnowledgeBaseTabProps) {
                         variant="ghost"
                         size="sm"
                         onClick={() => setExpandedId(isExpanded ? null : entry.id)}
-                        title={isExpanded ? 'Einklappen' : 'Ausklappen'}
+                        title={isExpanded ? t('collapse') : t('expand')}
                       >
                         <ChevronDown
                           className={`h-4 w-4 transition-transform duration-200 ${
@@ -399,7 +400,7 @@ export function KnowledgeBaseTab({ businessId }: KnowledgeBaseTabProps) {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleOpenDialog(entry)}
-                        title="Bearbeiten"
+                        title={t('edit')}
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -407,7 +408,7 @@ export function KnowledgeBaseTab({ businessId }: KnowledgeBaseTabProps) {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDelete(entry)}
-                        title="Löschen"
+                        title={t('delete')}
                       >
                         <Trash2 className="h-4 w-4 text-red-500" />
                       </Button>
@@ -433,17 +434,17 @@ export function KnowledgeBaseTab({ businessId }: KnowledgeBaseTabProps) {
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>
-              {editingEntry ? 'Eintrag bearbeiten' : 'Neuer Eintrag'}
+              {editingEntry ? t('editEntry') : t('newEntry')}
             </DialogTitle>
             <DialogDescription>
-              Fügen Sie Informationen hinzu, die Ihr Chatbot verwenden kann, um Fragen zu beantworten.
+              {t('dialogDesc')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="title">Titel</Label>
+                <Label htmlFor="title">{t('titleLabel')}</Label>
                 <span className="text-xs text-gray-500">
                   {formData.title.length}/255
                 </span>
@@ -452,22 +453,22 @@ export function KnowledgeBaseTab({ businessId }: KnowledgeBaseTabProps) {
                 id="title"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="z.B. Öffnungszeiten"
+                placeholder={t('titlePlaceholder')}
                 maxLength={255}
               />
               {formData.title.length > 0 && formData.title.length < 3 && (
-                <p className="text-xs text-red-500">Mindestens 3 Zeichen erforderlich</p>
+                <p className="text-xs text-red-500">{t('titleMinChars')}</p>
               )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="category">Kategorie (optional)</Label>
+              <Label htmlFor="category">{t('categoryLabel')}</Label>
               <Select
                 value={formData.category}
                 onValueChange={(value) => setFormData({ ...formData, category: value })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Kategorie wählen" />
+                  <SelectValue placeholder={t('categoryPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((cat) => (
@@ -481,7 +482,7 @@ export function KnowledgeBaseTab({ businessId }: KnowledgeBaseTabProps) {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="content">Inhalt</Label>
+                <Label htmlFor="content">{t('contentLabel')}</Label>
                 <span
                   className={`text-xs ${
                     formData.content.length < 50
@@ -490,40 +491,40 @@ export function KnowledgeBaseTab({ businessId }: KnowledgeBaseTabProps) {
                   }`}
                 >
                   {formData.content.length}/50000
-                  {formData.content.length < 50 && ` (mind. 50)`}
+                  {formData.content.length < 50 && ` (${t('contentMin')})`}
                 </span>
               </div>
               <Textarea
                 id="content"
                 value={formData.content}
                 onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                placeholder="z.B. Wir sind Mo-Fr 8-18 Uhr und Sa 9-13 Uhr geöffnet. Termine können online oder telefonisch vereinbart werden..."
+                placeholder={t('contentPlaceholder')}
                 rows={8}
                 maxLength={50000}
               />
               {formData.content.length > 0 && formData.content.length < 50 && (
                 <p className="text-xs text-red-500">
-                  Noch {50 - formData.content.length} Zeichen bis zum Minimum (50 Zeichen)
+                  {t('contentMinRemaining', { remaining: 50 - formData.content.length })}
                 </p>
               )}
               <p className="text-xs text-gray-500">
-                Der Inhalt wird automatisch für die semantische Suche indexiert (Embedding-Generierung).
+                {t('contentIndexed')}
               </p>
             </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={handleCloseDialog}>
-              Abbrechen
+              {t('cancel')}
             </Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Speichert...
+                  {t('saving')}
                 </>
               ) : (
-                'Speichern'
+                t('save')
               )}
             </Button>
           </DialogFooter>

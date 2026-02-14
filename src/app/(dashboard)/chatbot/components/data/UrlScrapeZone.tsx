@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { DataPurpose } from './DocumentList'
 import { createLogger } from '@/lib/logger'
@@ -40,14 +41,14 @@ interface UrlScrapeZoneProps {
 
 type DiscoverState = 'idle' | 'discovering' | 'discovered' | 'scraping' | 'complete' | 'error'
 
-const categoryLabels: Record<string, string> = {
-  home: 'Startseite',
-  about: 'Über uns',
-  services: 'Leistungen',
-  contact: 'Kontakt',
-  blog: 'Blog',
-  legal: 'Rechtliches',
-  other: 'Andere',
+const CATEGORY_KEYS: Record<string, string> = {
+  home: 'catHome',
+  about: 'catAbout',
+  services: 'catServices',
+  contact: 'catContact',
+  blog: 'catBlog',
+  legal: 'catLegal',
+  other: 'catOther',
 }
 
 const priorityColors: Record<string, string> = {
@@ -61,6 +62,7 @@ export function UrlScrapeZone({
   purpose,
   onScrapeComplete,
 }: UrlScrapeZoneProps) {
+  const t = useTranslations('dashboard.chatbot.data.scrape')
   const [url, setUrl] = useState('')
   const [state, setState] = useState<DiscoverState>('idle')
   const [pages, setPages] = useState<CategorizedPage[]>([])
@@ -83,13 +85,13 @@ export function UrlScrapeZone({
           clearInterval(pollInterval)
           setState('complete')
           setProgress(null)
-          toast.success('Website-Inhalte erfolgreich importiert')
+          toast.success(t('importSuccess'))
           onScrapeComplete?.()
         } else if (data.status === 'failed') {
           clearInterval(pollInterval)
           setState('error')
-          setError(data.error || 'Scraping fehlgeschlagen')
-          toast.error('Scraping fehlgeschlagen')
+          setError(data.error || t('scrapingFailed'))
+          toast.error(t('scrapingFailed'))
         } else {
           setProgress({
             stage: data.stage || 'processing',
@@ -104,16 +106,18 @@ export function UrlScrapeZone({
     return () => clearInterval(pollInterval)
   }, [jobId, state, businessId, onScrapeComplete])
 
+  const STAGE_KEYS: Record<string, string> = {
+    discovering: 'stageDiscovering',
+    scraping: 'stageScraping',
+    chunking: 'stageChunking',
+    embedding: 'stageEmbedding',
+    extracting: 'stageExtracting',
+    saving: 'stageSaving',
+  }
+
   const getStageMessage = (stage: string) => {
-    const messages: Record<string, string> = {
-      discovering: 'Seiten werden entdeckt...',
-      scraping: 'Inhalte werden geladen...',
-      chunking: 'Inhalte werden aufbereitet...',
-      embedding: 'Embeddings werden erstellt...',
-      extracting: 'Wissen wird extrahiert...',
-      saving: 'Daten werden gespeichert...',
-    }
-    return messages[stage] || 'Verarbeitung...'
+    const key = STAGE_KEYS[stage]
+    return key ? t(key) : t('stageDefault')
   }
 
   const handleDiscover = async () => {
@@ -128,7 +132,7 @@ export function UrlScrapeZone({
     try {
       new URL(normalizedUrl)
     } catch {
-      toast.error('Ungültige URL')
+      toast.error(t('invalidUrl'))
       return
     }
 
@@ -146,7 +150,7 @@ export function UrlScrapeZone({
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Fehler beim Entdecken der Seiten')
+        throw new Error(data.error || t('discoverError'))
       }
 
       setPages(data.pages)
@@ -154,11 +158,11 @@ export function UrlScrapeZone({
       setState('discovered')
 
       const selectedCount = data.pages.filter((p: CategorizedPage) => p.selected).length
-      toast.success(`${data.pages.length} Seiten gefunden, ${selectedCount} vorausgewählt`)
+      toast.success(t('pagesFound', { total: data.pages.length, selected: selectedCount }))
     } catch (err) {
       setState('error')
-      setError(err instanceof Error ? err.message : 'Unbekannter Fehler')
-      toast.error('Fehler beim Entdecken der Seiten')
+      setError(err instanceof Error ? err.message : t('unknownError'))
+      toast.error(t('discoverError'))
     }
   }
 
@@ -166,12 +170,12 @@ export function UrlScrapeZone({
     const selectedPages = pages.filter(p => p.selected)
 
     if (selectedPages.length === 0) {
-      toast.error('Bitte wählen Sie mindestens eine Seite aus')
+      toast.error(t('selectAtLeast'))
       return
     }
 
     setState('scraping')
-    setProgress({ stage: 'starting', message: 'Job wird gestartet...' })
+    setProgress({ stage: 'starting', message: t('jobStarting') })
 
     try {
       const response = await fetch('/api/data/scrape-url', {
@@ -188,15 +192,15 @@ export function UrlScrapeZone({
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Fehler beim Starten des Scrapings')
+        throw new Error(data.error || t('startError'))
       }
 
       setJobId(data.jobId)
-      toast.success('Scraping gestartet')
+      toast.success(t('scrapingStarted'))
     } catch (err) {
       setState('error')
-      setError(err instanceof Error ? err.message : 'Unbekannter Fehler')
-      toast.error('Fehler beim Starten')
+      setError(err instanceof Error ? err.message : t('unknownError'))
+      toast.error(t('startingError'))
     }
   }
 
@@ -232,10 +236,10 @@ export function UrlScrapeZone({
       <div className="p-4 border-b">
         <div className="flex items-center gap-2">
           <Globe className="h-5 w-5 text-muted-foreground" />
-          <h3 className="font-medium">Von Website importieren</h3>
+          <h3 className="font-medium">{t('title')}</h3>
         </div>
         <p className="text-sm text-muted-foreground mt-1">
-          Importieren Sie Inhalte direkt von einer Website in die Wissensdatenbank
+          {t('description')}
         </p>
       </div>
 
@@ -259,7 +263,7 @@ export function UrlScrapeZone({
               ) : (
                 <Search className="h-4 w-4" />
               )}
-              <span className="ml-2">Entdecken</span>
+              <span className="ml-2">{t('discover')}</span>
             </Button>
           </div>
         )}
@@ -277,19 +281,19 @@ export function UrlScrapeZone({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="text-sm text-muted-foreground">
-                {selectedCount} von {pages.length} Seiten ausgewählt
+                {t('pagesSelected', { selected: selectedCount, total: pages.length })}
                 {discoverySource && (
                   <span className="ml-2">
-                    (via {discoverySource === 'sitemap' ? 'Sitemap' : 'Crawling'})
+                    ({discoverySource === 'sitemap' ? t('viaSitemap') : t('viaCrawling')})
                   </span>
                 )}
               </div>
               <div className="flex gap-2">
                 <Button variant="ghost" size="sm" onClick={selectAll}>
-                  Alle
+                  {t('selectAll')}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={selectNone}>
-                  Keine
+                  {t('selectNone')}
                 </Button>
               </div>
             </div>
@@ -316,7 +320,7 @@ export function UrlScrapeZone({
                     </div>
                   </div>
                   <Badge variant="secondary" className={priorityColors[page.priority]}>
-                    {categoryLabels[page.category] || page.category}
+                    {CATEGORY_KEYS[page.category] ? t(CATEGORY_KEYS[page.category]) : page.category}
                   </Badge>
                 </div>
               ))}
@@ -332,12 +336,12 @@ export function UrlScrapeZone({
                 {showAllPages ? (
                   <>
                     <ChevronUp className="h-4 w-4 mr-2" />
-                    Weniger anzeigen
+                    {t('showLess')}
                   </>
                 ) : (
                   <>
                     <ChevronDown className="h-4 w-4 mr-2" />
-                    {pages.length - 10} weitere anzeigen
+                    {t('showMore', { count: pages.length - 10 })}
                   </>
                 )}
               </Button>
@@ -345,10 +349,10 @@ export function UrlScrapeZone({
 
             <div className="flex gap-2">
               <Button variant="outline" onClick={reset}>
-                Abbrechen
+                {t('cancel')}
               </Button>
               <Button onClick={handleScrape} disabled={selectedCount === 0}>
-                {selectedCount} Seiten importieren
+                {t('importPages', { count: selectedCount })}
               </Button>
             </div>
           </div>
@@ -361,7 +365,7 @@ export function UrlScrapeZone({
             <div>
               <div className="font-medium">{progress.message}</div>
               <div className="text-sm text-muted-foreground">
-                Das kann einige Minuten dauern...
+                {t('mayTakeMinutes')}
               </div>
             </div>
           </div>
@@ -372,13 +376,13 @@ export function UrlScrapeZone({
           <div className="flex items-center gap-3 py-4">
             <CheckCircle2 className="h-5 w-5 text-green-600" />
             <div>
-              <div className="font-medium text-green-600">Import abgeschlossen</div>
+              <div className="font-medium text-green-600">{t('importComplete')}</div>
               <div className="text-sm text-muted-foreground">
-                Die Inhalte wurden zur Wissensdatenbank hinzugefügt
+                {t('importCompleteDesc')}
               </div>
             </div>
             <Button variant="outline" size="sm" className="ml-auto" onClick={reset}>
-              Weitere importieren
+              {t('importMore')}
             </Button>
           </div>
         )}

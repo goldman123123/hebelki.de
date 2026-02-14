@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { ConversationList } from './ConversationList'
 import { ChatThread } from './ChatThread'
 import { Headphones } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { useIsMobile } from '@/hooks/use-mobile'
 
 interface SupportChatDashboardProps {
@@ -12,6 +13,7 @@ interface SupportChatDashboardProps {
 }
 
 export function SupportChatDashboard({ businessId, businessName }: SupportChatDashboardProps) {
+  const t = useTranslations('dashboard.supportChat')
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
   const isMobile = useIsMobile()
 
@@ -21,9 +23,9 @@ export function SupportChatDashboard({ businessId, businessName }: SupportChatDa
       return (
         <div className="space-y-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Live-Chat</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
             <p className="text-sm text-gray-500">
-              Beantworten Sie Kundenanfragen in Echtzeit
+              {t('subtitle')}
             </p>
           </div>
           <div className="h-[calc(100vh-180px)] min-h-[400px]">
@@ -41,9 +43,9 @@ export function SupportChatDashboard({ businessId, businessName }: SupportChatDa
     return (
       <div className="space-y-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Live-Chat</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
           <p className="text-sm text-gray-500">
-            Beantworten Sie Kundenanfragen in Echtzeit
+            {t('subtitle')}
           </p>
         </div>
         <div className="h-[calc(100vh-180px)] min-h-[400px]">
@@ -60,9 +62,9 @@ export function SupportChatDashboard({ businessId, businessName }: SupportChatDa
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Live-Chat</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
         <p className="text-sm text-gray-500">
-          Beantworten Sie Kundenanfragen in Echtzeit
+          {t('subtitle')}
         </p>
       </div>
 
@@ -86,9 +88,9 @@ export function SupportChatDashboard({ businessId, businessName }: SupportChatDa
             <div className="flex h-full items-center justify-center rounded-lg border bg-white">
               <div className="text-center text-gray-500">
                 <Headphones className="mx-auto mb-4 h-12 w-12 text-gray-300" />
-                <p className="text-lg font-medium">Keine offenen Gespräche</p>
+                <p className="text-lg font-medium">{t('noOpenConversations')}</p>
                 <p className="mt-1 text-sm">
-                  Wählen Sie ein Gespräch aus der Liste aus
+                  {t('selectConversation')}
                 </p>
               </div>
             </div>

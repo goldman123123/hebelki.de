@@ -47,6 +47,7 @@ import {
 import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { UploadModal } from '@/components/documents/UploadModal'
 import { createLogger } from '@/lib/logger'
 
@@ -90,17 +91,41 @@ interface CustomerDocumentsTabProps {
   businessId: string
 }
 
-// Status badge configuration
-const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  queued: { label: 'Wartend', color: 'bg-gray-100 text-gray-700', icon: Clock },
-  uploaded: { label: 'Hochgeladen', color: 'bg-blue-100 text-blue-700', icon: Upload },
-  processing: { label: 'Verarbeitung...', color: 'bg-yellow-100 text-yellow-700', icon: RefreshCw },
-  parsing: { label: 'Analysiert...', color: 'bg-yellow-100 text-yellow-700', icon: RefreshCw },
-  chunking: { label: 'Aufteilen...', color: 'bg-yellow-100 text-yellow-700', icon: RefreshCw },
-  embedding: { label: 'Indexieren...', color: 'bg-yellow-100 text-yellow-700', icon: RefreshCw },
-  done: { label: 'Indexiert', color: 'bg-green-100 text-green-700', icon: CheckCircle2 },
-  failed: { label: 'Fehler', color: 'bg-red-100 text-red-700', icon: AlertCircle },
-  stored_only: { label: 'Gespeichert', color: 'bg-gray-100 text-gray-700', icon: File },
+// Status badge configuration (colors and icons only - labels come from translations)
+const DOC_STATUS_COLORS: Record<string, string> = {
+  queued: 'bg-gray-100 text-gray-700',
+  uploaded: 'bg-blue-100 text-blue-700',
+  processing: 'bg-yellow-100 text-yellow-700',
+  parsing: 'bg-yellow-100 text-yellow-700',
+  chunking: 'bg-yellow-100 text-yellow-700',
+  embedding: 'bg-yellow-100 text-yellow-700',
+  done: 'bg-green-100 text-green-700',
+  failed: 'bg-red-100 text-red-700',
+  stored_only: 'bg-gray-100 text-gray-700',
+}
+
+const DOC_STATUS_ICONS: Record<string, React.ElementType> = {
+  queued: Clock,
+  uploaded: Upload,
+  processing: RefreshCw,
+  parsing: RefreshCw,
+  chunking: RefreshCw,
+  embedding: RefreshCw,
+  done: CheckCircle2,
+  failed: AlertCircle,
+  stored_only: File,
+}
+
+const DOC_STATUS_KEYS: Record<string, string> = {
+  queued: 'docStatusQueued',
+  uploaded: 'docStatusUploaded',
+  processing: 'docStatusProcessing',
+  parsing: 'docStatusParsing',
+  chunking: 'docStatusChunking',
+  embedding: 'docStatusEmbedding',
+  done: 'docStatusDone',
+  failed: 'docStatusFailed',
+  stored_only: 'docStatusStoredOnly',
 }
 
 // Get file icon based on type
@@ -140,7 +165,7 @@ function getFileTypeLabel(filename: string): string {
     html: 'HTML',
     htm: 'HTML',
   }
-  return labels[ext || ''] || 'Datei'
+  return labels[ext || ''] || ''
 }
 
 export function CustomerDocumentsTab({
@@ -148,6 +173,7 @@ export function CustomerDocumentsTab({
   customerName,
   businessId,
 }: CustomerDocumentsTabProps) {
+  const t = useTranslations('dashboard.customers.detail')
   const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
   const [deleteDialog, setDeleteDialog] = useState<Document | null>(null)
@@ -174,7 +200,7 @@ export function CustomerDocumentsTab({
       }
     } catch (error) {
       log.error('Failed to fetch documents:', error)
-      toast.error('Fehler beim Laden der Dokumente')
+      toast.error(t('errorLoadingDocuments'))
     } finally {
       setLoading(false)
     }
@@ -203,9 +229,9 @@ export function CustomerDocumentsTab({
           await fetchDocuments()
 
           if (job.status === 'done') {
-            toast.success('Dokument erfolgreich verarbeitet')
+            toast.success(t('documentProcessed'))
           } else if (job.status === 'failed') {
-            toast.error('Verarbeitung fehlgeschlagen')
+            toast.error(t('processingFailed'))
           }
         }
       } catch (error) {
@@ -225,16 +251,16 @@ export function CustomerDocumentsTab({
       )
 
       if (response.ok) {
-        toast.success('Dokument wird gelöscht')
+        toast.success(t('documentDeleted'))
         setDeleteDialog(null)
         await fetchDocuments()
       } else {
         const data = await response.json()
-        throw new Error(data.error || 'Fehler beim Löschen')
+        throw new Error(data.error || t('errorDeletingDocument'))
       }
     } catch (error) {
       log.error('Delete error:', error)
-      toast.error(error instanceof Error ? error.message : 'Fehler beim Löschen')
+      toast.error(error instanceof Error ? error.message : t('errorDeletingDocument'))
     } finally {
       setDeleting(false)
     }
@@ -245,8 +271,8 @@ export function CustomerDocumentsTab({
     try {
       const response = await fetch(`/api/documents/${doc.id}?businessId=${businessId}`)
       const data = await response.json()
-      if (!response.ok) throw new Error(data.error || 'Fehler beim Laden')
-      if (!data.downloadUrl) throw new Error('Keine Download-URL verfügbar')
+      if (!response.ok) throw new Error(data.error || t('errorLoadingDocument'))
+      if (!data.downloadUrl) throw new Error(t('noDownloadUrl'))
       if (action === 'view') {
         window.open(data.downloadUrl, '_blank')
       } else {
@@ -260,7 +286,7 @@ export function CustomerDocumentsTab({
       }
     } catch (error) {
       log.error(`${action} error:`, error)
-      toast.error(error instanceof Error ? error.message : 'Fehler beim Laden')
+      toast.error(error instanceof Error ? error.message : t('errorLoadingDocument'))
     } finally {
       setActionLoading(null)
     }
@@ -283,7 +309,7 @@ export function CustomerDocumentsTab({
       <Card className="p-8">
         <div className="flex items-center justify-center gap-2 text-gray-500">
           <Loader2 className="h-5 w-5 animate-spin" />
-          <span>Lädt Dokumente...</span>
+          <span>{t('loadingDocuments')}</span>
         </div>
       </Card>
     )
@@ -294,14 +320,14 @@ export function CustomerDocumentsTab({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Kundendokumente</h2>
+          <h2 className="text-lg font-semibold text-gray-900">{t('customerDocuments')}</h2>
           <p className="text-sm text-gray-500">
-            Dokumente, die nur diesem Kunden zugeordnet sind
+            {t('customerDocumentsDesc')}
           </p>
         </div>
         <Button onClick={() => setUploadModalOpen(true)}>
           <Upload className="mr-2 h-4 w-4" />
-          Kundendokument hochladen
+          {t('uploadDocument')}
         </Button>
       </div>
 
@@ -310,15 +336,14 @@ export function CustomerDocumentsTab({
         <Card className="p-12 text-center">
           <FileText className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-4 text-lg font-medium text-gray-900">
-            Keine Dokumente
+            {t('noDocuments')}
           </h3>
           <p className="mt-2 text-sm text-gray-500">
-            Laden Sie ein Dokument hoch, das nur für diesen Kunden relevant ist
-            (z.B. Verträge, Gutachten).
+            {t('noDocumentsDesc')}
           </p>
           <Button className="mt-4" onClick={() => setUploadModalOpen(true)}>
             <Upload className="mr-2 h-4 w-4" />
-            Erstes Dokument hochladen
+            {t('uploadFirst')}
           </Button>
         </Card>
       ) : (
@@ -329,8 +354,9 @@ export function CustomerDocumentsTab({
             if (doc.dataClass === 'stored_only') {
               displayStatus = 'stored_only'
             }
-            const config = statusConfig[displayStatus] || statusConfig.queued
-            const StatusIcon = config.icon
+            const statusColor = DOC_STATUS_COLORS[displayStatus] || DOC_STATUS_COLORS.queued
+            const StatusIcon = DOC_STATUS_ICONS[displayStatus] || DOC_STATUS_ICONS.queued
+            const statusKey = DOC_STATUS_KEYS[displayStatus]
 
             return (
               <Card key={doc.id} className="p-4">
@@ -357,18 +383,18 @@ export function CustomerDocumentsTab({
                           ) : (
                             <Lock className="h-3 w-3" />
                           )}
-                          {doc.audience === 'public' ? 'Öffentlich' : 'Intern'}
+                          {doc.audience === 'public' ? t('audiencePublic') : t('audienceInternal')}
                         </span>
                         {/* Status badge */}
                         <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${config.color}`}
+                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColor}`}
                         >
                           <StatusIcon
                             className={`h-3 w-3 ${
                               displayStatus.includes('ing') ? 'animate-spin' : ''
                             }`}
                           />
-                          {config.label}
+                          {statusKey ? t(statusKey) : displayStatus}
                         </span>
                       </div>
                       <p className="mt-1 text-sm text-gray-500 truncate">
@@ -382,7 +408,7 @@ export function CustomerDocumentsTab({
                         )}
                       <div className="mt-2 flex items-center gap-4 text-xs text-gray-500 flex-wrap">
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-medium">
-                          {getFileTypeLabel(doc.originalFilename)}
+                          {getFileTypeLabel(doc.originalFilename) || t('fileTypeDefault')}
                         </span>
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
@@ -411,17 +437,17 @@ export function CustomerDocumentsTab({
                           ) : (
                             <MoreVertical className="h-4 w-4" />
                           )}
-                          <span className="sr-only">Aktionen</span>
+                          <span className="sr-only">{t('actions')}</span>
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-48">
                         <DropdownMenuItem onClick={() => handleViewOrDownload(doc, 'view')}>
                           <Eye className="mr-2 h-4 w-4" />
-                          Anzeigen
+                          {t('view')}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleViewOrDownload(doc, 'download')}>
                           <Download className="mr-2 h-4 w-4" />
-                          Herunterladen
+                          {t('download')}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -429,7 +455,7 @@ export function CustomerDocumentsTab({
                           variant="destructive"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
-                          Löschen
+                          {t('delete')}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -456,10 +482,9 @@ export function CustomerDocumentsTab({
       <Dialog open={!!deleteDialog} onOpenChange={() => setDeleteDialog(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Dokument löschen</DialogTitle>
+            <DialogTitle>{t('deleteDocument')}</DialogTitle>
             <DialogDescription>
-              Möchten Sie &quot;{deleteDialog?.title}&quot; wirklich löschen?
-              Diese Aktion kann nicht rückgängig gemacht werden.
+              {t('deleteDocumentDesc', { title: deleteDialog?.title || '' })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -468,18 +493,18 @@ export function CustomerDocumentsTab({
               onClick={() => setDeleteDialog(null)}
               disabled={deleting}
             >
-              Abbrechen
+              {t('cancel')}
             </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
               {deleting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Löschen...
+                  {t('deleting')}
                 </>
               ) : (
                 <>
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Löschen
+                  {t('delete')}
                 </>
               )}
             </Button>

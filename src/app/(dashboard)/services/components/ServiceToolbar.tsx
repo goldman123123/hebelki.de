@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Search, X, CheckSquare, Square, Trash2 } from 'lucide-react'
@@ -25,6 +26,7 @@ export function ServiceToolbar({
   onSelectAll,
   onBulkDelete,
 }: ServiceToolbarProps) {
+  const t = useTranslations('dashboard.services')
   return (
     <div className="space-y-3">
       {/* Search Bar */}
@@ -32,7 +34,7 @@ export function ServiceToolbar({
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <Input
           type="text"
-          placeholder="Services durchsuchen..."
+          placeholder={t('searchPlaceholder')}
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           className="pl-10 pr-10"
@@ -59,12 +61,12 @@ export function ServiceToolbar({
             {allSelected ? (
               <>
                 <Square className="h-4 w-4" />
-                <span className="hidden sm:inline">Alle abwählen</span>
+                <span className="hidden sm:inline">{t('deselectAll')}</span>
               </>
             ) : (
               <>
                 <CheckSquare className="h-4 w-4" />
-                <span className="hidden sm:inline">Alle auswählen</span>
+                <span className="hidden sm:inline">{t('selectAll')}</span>
                 <span className="sm:hidden">{filteredCount}</span>
                 <span className="hidden sm:inline">({filteredCount})</span>
               </>
@@ -73,7 +75,7 @@ export function ServiceToolbar({
 
           {selectedCount > 0 && (
             <span className="text-sm text-gray-600">
-              {selectedCount} ausgewählt
+              {t('selected', { count: selectedCount })}
             </span>
           )}
         </div>
@@ -86,7 +88,7 @@ export function ServiceToolbar({
             className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2"
           >
             <Trash2 className="h-4 w-4" />
-            <span className="hidden sm:inline">Ausgewählte</span> löschen ({selectedCount})
+            {t('deleteSelected', { count: selectedCount })}
           </Button>
         )}
       </div>
@@ -94,9 +96,9 @@ export function ServiceToolbar({
       {/* Search Results Info */}
       {searchQuery && (
         <div className="text-sm text-gray-600">
-          {filteredCount} {filteredCount === 1 ? 'Service' : 'Services'} gefunden
+          {t('searchResults', { count: filteredCount })}
           {filteredCount < totalCount && (
-            <span className="text-gray-400"> von {totalCount} gesamt</span>
+            <span className="text-gray-400"> {t('searchResultsOf', { total: totalCount })}</span>
           )}
         </div>
       )}

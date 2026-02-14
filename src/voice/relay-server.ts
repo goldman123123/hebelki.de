@@ -104,13 +104,15 @@ async function loadBusinessContext(businessId: string) {
     .where(and(eq(services.businessId, businessId), eq(services.isActive, true)))
     .orderBy(services.sortOrder)
 
+  const settings = typeof business.settings === 'object' && business.settings !== null
+    ? (business.settings as { chatbotInstructions?: string; language?: string })
+    : undefined
+
   return {
     business,
     services: businessServices,
-    customInstructions:
-      typeof business.settings === 'object' && business.settings !== null
-        ? (business.settings as { chatbotInstructions?: string }).chatbotInstructions
-        : undefined,
+    customInstructions: settings?.chatbotInstructions,
+    locale: (settings?.language === 'en' ? 'en' : 'de') as 'de' | 'en',
   }
 }
 
@@ -495,8 +497,8 @@ async function main() {
               }
 
               const systemPrompt = isOwnerCaller
-                ? buildOwnerVoiceSystemPrompt(voiceContext, businessId)
-                : buildVoiceSystemPrompt(voiceContext, businessId)
+                ? await buildOwnerVoiceSystemPrompt(voiceContext, businessId, ctx.locale)
+                : await buildVoiceSystemPrompt(voiceContext, businessId, ctx.locale)
 
               // Get voice tool definitions (owner gets all tools, customers get subset)
               const voiceTools = isOwnerCaller

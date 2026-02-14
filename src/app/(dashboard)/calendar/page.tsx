@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
+import { getTranslations } from 'next-intl/server'
 import { getUserFirstBusiness } from '@/lib/auth-helpers'
 import { db } from '@/lib/db'
 import { bookings, services, staff, customers } from '@/lib/db/schema'
@@ -21,6 +22,7 @@ export default async function CalendarPage({
   if (!memberData?.business) redirect('/onboarding')
 
   const business = memberData.business
+  const t = await getTranslations('dashboard.calendar')
 
   // Use search params or default to current month
   const now = new Date()
@@ -94,31 +96,31 @@ export default async function CalendarPage({
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Kalender</h1>
-          <p className="text-gray-600 mt-1">Buchungen für {format(monthStart, 'MMMM yyyy')} verwalten</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+          <p className="text-gray-600 mt-1">{t('subtitle', { month: format(monthStart, 'MMMM yyyy') })}</p>
         </div>
       </div>
 
       {/* Stats Overview */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <div className="bg-white rounded-lg border p-4">
-          <p className="text-sm text-gray-600">Gesamt</p>
+          <p className="text-sm text-gray-600">{t('total')}</p>
           <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
         </div>
         <div className="bg-white rounded-lg border p-4">
-          <p className="text-sm text-gray-600">Ausstehend</p>
+          <p className="text-sm text-gray-600">{t('pending')}</p>
           <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
         </div>
         <div className="bg-white rounded-lg border p-4">
-          <p className="text-sm text-gray-600">Bestätigt</p>
+          <p className="text-sm text-gray-600">{t('confirmed')}</p>
           <p className="text-2xl font-bold text-green-600">{stats.confirmed}</p>
         </div>
         <div className="bg-white rounded-lg border p-4">
-          <p className="text-sm text-gray-600">Abgeschlossen</p>
+          <p className="text-sm text-gray-600">{t('completed')}</p>
           <p className="text-2xl font-bold text-blue-600">{stats.completed}</p>
         </div>
         <div className="bg-white rounded-lg border p-4">
-          <p className="text-sm text-gray-600">Storniert</p>
+          <p className="text-sm text-gray-600">{t('cancelled')}</p>
           <p className="text-2xl font-bold text-red-600">{stats.cancelled}</p>
         </div>
       </div>

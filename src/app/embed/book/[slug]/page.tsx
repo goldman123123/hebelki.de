@@ -1,6 +1,9 @@
 import { notFound } from 'next/navigation'
 import { getBusinessBySlug, getServicesByBusiness, getStaffByBusiness } from '@/lib/db/queries'
 import { EmbedBookingWrapper } from '@/components/embed/EmbedBookingWrapper'
+import { getBusinessLocale } from '@/lib/locale'
+import { getMessagesForLocale } from '@/lib/email-i18n'
+import { BusinessLocaleProvider } from '@/components/BusinessLocaleProvider'
 
 interface EmbedBookingPageProps {
   params: Promise<{ slug: string }>
@@ -23,9 +26,13 @@ export default async function EmbedBookingPage({ params, searchParams }: EmbedBo
 
   const primaryColor = color ? `#${color}` : business.primaryColor || '#3B82F6'
 
+  const locale = await getBusinessLocale(business.id)
+  const messages = await getMessagesForLocale(locale)
+
   return (
-    <div style={{ '--primary-color': primaryColor } as React.CSSProperties}>
-      <EmbedBookingWrapper
+    <BusinessLocaleProvider locale={locale} messages={messages}>
+      <div style={{ '--primary-color': primaryColor } as React.CSSProperties}>
+        <EmbedBookingWrapper
         business={{
           id: business.id,
           name: business.name,
@@ -52,7 +59,8 @@ export default async function EmbedBookingPage({ params, searchParams }: EmbedBo
           title: s.title,
           avatarUrl: s.avatarUrl,
         }))}
-      />
-    </div>
+        />
+      </div>
+    </BusinessLocaleProvider>
   )
 }

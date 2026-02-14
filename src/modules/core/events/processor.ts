@@ -7,7 +7,7 @@
  */
 
 import { db } from '@/lib/db'
-import { eventOutbox } from '@/lib/db/schema'
+import { eventOutbox, businesses } from '@/lib/db/schema'
 import { isNull, lt, lte, and, or, eq } from 'drizzle-orm'
 import { sendEmail } from '@/lib/email'
 import {
@@ -22,6 +22,8 @@ import {
   chatEscalatedEmail,
 } from '@/lib/email-templates'
 import { getDownloadUrl } from '@/lib/r2/client'
+import { getBusinessLocale } from '@/lib/locale'
+import type { Locale } from '@/i18n/config'
 import type {
   EventType,
   BookingCreatedPayload,
@@ -36,6 +38,23 @@ import type {
 import { createLogger } from '@/lib/logger'
 
 const log = createLogger('core:events:processor')
+
+// ============================================
+// LOCALE RESOLUTION
+// ============================================
+
+/**
+ * Resolve business locale from event's businessId.
+ * Falls back to 'de' if business not found.
+ */
+async function resolveLocale(businessId: string | null | undefined): Promise<Locale> {
+  if (!businessId) return 'de'
+  try {
+    return await getBusinessLocale(businessId)
+  } catch {
+    return 'de'
+  }
+}
 
 // ============================================
 // EVENT PROCESSOR
@@ -93,8 +112,11 @@ async function processEvent(event: typeof eventOutbox.$inferSelect): Promise<voi
   log.info(`Processing event ${event.id} (${event.eventType}), attempt ${event.attempts + 1}`)
 
   try {
+    // Resolve business locale for email translations
+    const locale = await resolveLocale(event.businessId)
+
     // Handle event based on type
-    await handleEvent(event.eventType as EventType, event.payload as Record<string, unknown>)
+    await handleEvent(event.eventType as EventType, event.payload as Record<string, unknown>, locale)
 
     // Mark as processed
     await db
@@ -148,38 +170,38 @@ async function processEvent(event: typeof eventOutbox.$inferSelect): Promise<voi
 /**
  * Handle an event based on its type.
  */
-async function handleEvent(eventType: EventType, payload: Record<string, unknown>): Promise<void> {
+async function handleEvent(eventType: EventType, payload: Record<string, unknown>, locale: Locale): Promise<void> {
   switch (eventType) {
     case 'booking.created':
-      await handleBookingCreated(payload as unknown as BookingCreatedPayload)
+      await handleBookingCreated(payload as unknown as BookingCreatedPayload, locale)
       break
 
     case 'booking.confirmed':
-      await handleBookingConfirmed(payload as unknown as BookingConfirmedPayload)
+      await handleBookingConfirmed(payload as unknown as BookingConfirmedPayload, locale)
       break
 
     case 'booking.cancelled':
-      await handleBookingCancelled(payload as unknown as BookingCancelledPayload)
+      await handleBookingCancelled(payload as unknown as BookingCancelledPayload, locale)
       break
 
     case 'booking.rescheduled':
-      await handleBookingRescheduled(payload as unknown as BookingRescheduledPayload)
+      await handleBookingRescheduled(payload as unknown as BookingRescheduledPayload, locale)
       break
 
     case 'booking.reminded':
-      await handleBookingReminded(payload as unknown as BookingRemindedPayload)
+      await handleBookingReminded(payload as unknown as BookingRemindedPayload, locale)
       break
 
     case 'invoice.sent':
-      await handleInvoiceSent(payload as unknown as InvoiceSentPayload)
+      await handleInvoiceSent(payload as unknown as InvoiceSentPayload, locale)
       break
 
     case 'chat.live_requested':
-      await handleChatLiveRequested(payload as unknown as ChatLiveRequestedPayload)
+      await handleChatLiveRequested(payload as unknown as ChatLiveRequestedPayload, locale)
       break
 
     case 'chat.escalated':
-      await handleChatEscalated(payload as unknown as ChatEscalatedPayload)
+      await handleChatEscalated(payload as unknown as ChatEscalatedPayload, locale)
       break
 
     default:
@@ -191,7 +213,7 @@ async function handleEvent(eventType: EventType, payload: Record<string, unknown
 /**
  * Handle booking.created event: Send confirmation email to customer + notification to business.
  */
-async function handleBookingCreated(payload: BookingCreatedPayload): Promise<void> {
+async function handleBookingCreated(payload: BookingCreatedPayload, locale: Locale): Promise<void> {
   log.info('Handling booking.created event')
 
   // Build confirmation URL for email confirmation flow
@@ -205,7 +227,7 @@ async function handleBookingCreated(payload: BookingCreatedPayload): Promise<voi
     : undefined
 
   // Send confirmation email to customer
-  const customerEmail = bookingConfirmationEmail({
+  const customerEmail = await bookingConfirmationEmail({
     customerName: payload.customerName,
     customerEmail: payload.customerEmail,
     serviceName: payload.serviceName,
@@ -220,7 +242,7 @@ async function handleBookingCreated(payload: BookingCreatedPayload): Promise<voi
     bookingStatus: payload.bookingStatus,
     confirmationUrl,
     manageUrl,
-  })
+  }, locale)
 
   await sendEmail({
     to: payload.customerEmail,
@@ -233,7 +255,7 @@ async function handleBookingCreated(payload: BookingCreatedPayload): Promise<voi
 
   // Send notification email to business (if email configured)
   if (payload.businessEmail) {
-    const notificationEmail = bookingNotificationEmail({
+    const notificationEmail = await bookingNotificationEmail({
       customerName: payload.customerName,
       customerEmail: payload.customerEmail,
       customerPhone: payload.customerPhone,
@@ -247,7 +269,7 @@ async function handleBookingCreated(payload: BookingCreatedPayload): Promise<voi
       price: payload.price,
       currency: payload.currency,
       bookingStatus: payload.bookingStatus,
-    })
+    }, locale)
 
     await sendEmail({
       to: payload.businessEmail,
@@ -263,14 +285,14 @@ async function handleBookingCreated(payload: BookingCreatedPayload): Promise<voi
 /**
  * Handle booking.confirmed event: Send confirmation email to customer.
  */
-async function handleBookingConfirmed(payload: BookingConfirmedPayload): Promise<void> {
+async function handleBookingConfirmed(payload: BookingConfirmedPayload, locale: Locale): Promise<void> {
   log.info('Handling booking.confirmed event')
 
   const manageUrl = payload.confirmationToken
     ? `https://www.hebelki.de/manage/${payload.confirmationToken}`
     : undefined
 
-  const email = bookingConfirmedEmail({
+  const email = await bookingConfirmedEmail({
     customerName: payload.customerName,
     customerEmail: payload.customerEmail,
     serviceName: payload.serviceName,
@@ -282,7 +304,7 @@ async function handleBookingConfirmed(payload: BookingConfirmedPayload): Promise
     price: payload.price,
     currency: payload.currency,
     manageUrl,
-  })
+  }, locale)
 
   await sendEmail({
     to: payload.customerEmail,
@@ -297,10 +319,10 @@ async function handleBookingConfirmed(payload: BookingConfirmedPayload): Promise
 /**
  * Handle booking.cancelled event: Send cancellation email to customer.
  */
-async function handleBookingCancelled(payload: BookingCancelledPayload): Promise<void> {
+async function handleBookingCancelled(payload: BookingCancelledPayload, locale: Locale): Promise<void> {
   log.info('Handling booking.cancelled event')
 
-  const email = bookingCancellationEmail({
+  const email = await bookingCancellationEmail({
     customerName: payload.customerName,
     customerEmail: payload.customerEmail,
     serviceName: payload.serviceName,
@@ -312,7 +334,7 @@ async function handleBookingCancelled(payload: BookingCancelledPayload): Promise
     confirmationToken: '',
     price: 0,
     currency: 'EUR',
-  })
+  }, locale)
 
   await sendEmail({
     to: payload.customerEmail,
@@ -327,14 +349,14 @@ async function handleBookingCancelled(payload: BookingCancelledPayload): Promise
 /**
  * Handle booking.rescheduled event: Send reschedule confirmation email to customer.
  */
-async function handleBookingRescheduled(payload: BookingRescheduledPayload): Promise<void> {
+async function handleBookingRescheduled(payload: BookingRescheduledPayload, locale: Locale): Promise<void> {
   log.info('Handling booking.rescheduled event')
 
   const manageUrl = payload.confirmationToken
     ? `https://www.hebelki.de/manage/${payload.confirmationToken}`
     : undefined
 
-  const email = bookingRescheduledEmail({
+  const email = await bookingRescheduledEmail({
     customerName: payload.customerName,
     customerEmail: payload.customerEmail,
     serviceName: payload.serviceName,
@@ -346,7 +368,7 @@ async function handleBookingRescheduled(payload: BookingRescheduledPayload): Pro
     newEndsAt: new Date(payload.newEndsAt),
     confirmationToken: payload.confirmationToken || '',
     manageUrl,
-  })
+  }, locale)
 
   await sendEmail({
     to: payload.customerEmail,
@@ -361,14 +383,14 @@ async function handleBookingRescheduled(payload: BookingRescheduledPayload): Pro
 /**
  * Handle booking.reminded event: Send reminder email to customer.
  */
-async function handleBookingReminded(payload: BookingRemindedPayload): Promise<void> {
+async function handleBookingReminded(payload: BookingRemindedPayload, locale: Locale): Promise<void> {
   log.info('Handling booking.reminded event')
 
   const manageUrl = payload.confirmationToken
     ? `https://www.hebelki.de/manage/${payload.confirmationToken}`
     : undefined
 
-  const email = bookingReminderEmail({
+  const email = await bookingReminderEmail({
     customerName: payload.customerName,
     customerEmail: payload.customerEmail,
     serviceName: payload.serviceName,
@@ -380,7 +402,7 @@ async function handleBookingReminded(payload: BookingRemindedPayload): Promise<v
     price: 0,
     currency: 'EUR',
     manageUrl,
-  })
+  }, locale)
 
   await sendEmail({
     to: payload.customerEmail,
@@ -395,7 +417,7 @@ async function handleBookingReminded(payload: BookingRemindedPayload): Promise<v
 /**
  * Handle invoice.sent event: Send invoice PDF to customer via email.
  */
-async function handleInvoiceSent(payload: InvoiceSentPayload): Promise<void> {
+async function handleInvoiceSent(payload: InvoiceSentPayload, locale: Locale): Promise<void> {
   log.info('Handling invoice.sent event')
 
   // Load invoice + customer from DB to get email and details
@@ -425,29 +447,31 @@ async function handleInvoiceSent(payload: InvoiceSentPayload): Promise<void> {
     return
   }
 
+  const dateLocale = locale === 'de' ? 'de-DE' : 'en-US'
+
   // Format total for email
-  const total = new Intl.NumberFormat('de-DE', {
+  const total = new Intl.NumberFormat(dateLocale, {
     style: 'currency',
     currency: 'EUR',
   }).format(parseFloat(payload.total))
 
   // Format due date
   const dueDate = invoiceData.invoice.dueDate
-    ? new Date(invoiceData.invoice.dueDate).toLocaleDateString('de-DE', {
+    ? new Date(invoiceData.invoice.dueDate).toLocaleDateString(dateLocale, {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
       })
     : undefined
 
-  const email = invoiceSentEmail({
+  const email = await invoiceSentEmail({
     customerName: invoiceData.customer.name || '',
     invoiceNumber: payload.invoiceNumber,
     businessName: payload.businessName,
     total,
     pdfDownloadUrl,
     dueDate,
-  })
+  }, locale)
 
   await sendEmail({
     to: invoiceData.customer.email,
@@ -462,15 +486,15 @@ async function handleInvoiceSent(payload: InvoiceSentPayload): Promise<void> {
 /**
  * Handle chat.live_requested event: Notify business owner of new live chat request.
  */
-async function handleChatLiveRequested(payload: ChatLiveRequestedPayload): Promise<void> {
+async function handleChatLiveRequested(payload: ChatLiveRequestedPayload, locale: Locale): Promise<void> {
   log.info('Handling chat.live_requested event')
 
-  const email = liveChatRequestEmail({
+  const email = await liveChatRequestEmail({
     businessName: payload.businessName,
     customerName: payload.customerName,
     firstMessage: payload.firstMessage,
     dashboardUrl: payload.dashboardUrl,
-  })
+  }, locale)
 
   await sendEmail({
     to: payload.ownerEmail,
@@ -485,17 +509,17 @@ async function handleChatLiveRequested(payload: ChatLiveRequestedPayload): Promi
 /**
  * Handle chat.escalated event: Notify business owner of unanswered chat.
  */
-async function handleChatEscalated(payload: ChatEscalatedPayload): Promise<void> {
+async function handleChatEscalated(payload: ChatEscalatedPayload, locale: Locale): Promise<void> {
   log.info('Handling chat.escalated event')
 
-  const email = chatEscalatedEmail({
+  const email = await chatEscalatedEmail({
     businessName: payload.businessName,
     customerName: payload.customerName,
     customerEmail: payload.customerEmail,
     customerPhone: payload.customerPhone,
     conversationSummary: payload.conversationSummary,
     dashboardUrl: payload.dashboardUrl,
-  })
+  }, locale)
 
   await sendEmail({
     to: payload.ownerEmail,

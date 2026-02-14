@@ -12,6 +12,7 @@ import { LieferscheinCard } from '@/components/lieferschein/LieferscheinCard'
 import { auth } from '@clerk/nextjs/server'
 import { getUserFirstBusiness } from '@/lib/auth-helpers'
 import { getInvoiceByBookingId } from '@/lib/invoices'
+import { getTranslations } from 'next-intl/server'
 import type { InvoiceLineItem } from '@/lib/db/schema'
 
 interface PageProps {
@@ -28,6 +29,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
 
   const business = memberData.business
   const timezone = business.timezone || 'Europe/Berlin'
+  const t = await getTranslations('dashboard.bookings.detail')
 
   const result = await getBookingById(id)
 
@@ -53,13 +55,13 @@ export default async function BookingDetailPage({ params }: PageProps) {
           className="mb-4 inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
         >
           <ArrowLeft className="mr-1 h-4 w-4" />
-          Back to Bookings
+          {t('backToBookings')}
         </Link>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Booking Details</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{t('bookingDetails')}</h1>
             <p className="text-gray-600">
-              {formatDate(booking.startsAt, timezone)} at {formatTime(booking.startsAt, timezone)}
+              {formatDate(booking.startsAt, timezone)} {t('at')} {formatTime(booking.startsAt, timezone)}
             </p>
           </div>
           <StatusBadge status={booking.status || 'pending'} className="text-sm px-3 py-1" />
@@ -72,12 +74,12 @@ export default async function BookingDetailPage({ params }: PageProps) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5" />
-              Appointment
+              {t('appointment')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <p className="text-sm text-gray-500">Date & Time</p>
+              <p className="text-sm text-gray-500">{t('dateTime')}</p>
               <p className="font-medium">
                 {formatDate(booking.startsAt, timezone)}
               </p>
@@ -86,22 +88,22 @@ export default async function BookingDetailPage({ params }: PageProps) {
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Service</p>
-              <p className="font-medium">{service?.name || 'Unknown service'}</p>
+              <p className="text-sm text-gray-500">{t('service')}</p>
+              <p className="font-medium">{service?.name || t('unknownService')}</p>
               {service?.description && (
                 <p className="text-sm text-gray-600">{service.description}</p>
               )}
             </div>
             <div>
-              <p className="text-sm text-gray-500">Staff</p>
-              <p className="font-medium">{staffMember?.name || 'Any available'}</p>
+              <p className="text-sm text-gray-500">{t('staff')}</p>
+              <p className="font-medium">{staffMember?.name || t('anyAvailable')}</p>
               {staffMember?.title && (
                 <p className="text-sm text-gray-600">{staffMember.title}</p>
               )}
             </div>
             {booking.price && (
               <div>
-                <p className="text-sm text-gray-500">Price</p>
+                <p className="text-sm text-gray-500">{t('price')}</p>
                 <p className="text-lg font-semibold">
                   {formatCurrency(booking.price, 'EUR')}
                 </p>
@@ -115,17 +117,16 @@ export default async function BookingDetailPage({ params }: PageProps) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <User className="h-5 w-5" />
-              Customer
+              {t('customer')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <p className="text-sm text-gray-500">Name</p>
-              <p className="font-medium">{customer?.name || 'Unknown'}</p>
+              <p className="text-sm text-gray-500">{t('customer')}</p>
+              <p className="font-medium">{customer?.name || t('unknown')}</p>
             </div>
             {customer?.email && (
               <div>
-                <p className="text-sm text-gray-500">Email</p>
                 <a
                   href={`mailto:${customer.email}`}
                   className="flex items-center gap-1 text-primary hover:underline"
@@ -137,7 +138,6 @@ export default async function BookingDetailPage({ params }: PageProps) {
             )}
             {customer?.phone && (
               <div>
-                <p className="text-sm text-gray-500">Phone</p>
                 <a
                   href={`tel:${customer.phone}`}
                   className="flex items-center gap-1 text-primary hover:underline"
@@ -149,7 +149,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
             )}
             {(customer?.street || customer?.city || customer?.postalCode) && (
               <div>
-                <p className="text-sm text-gray-500">Address</p>
+                <p className="text-sm text-gray-500">{t('address')}</p>
                 <div className="font-medium">
                   {customer.street && <p>{customer.street}</p>}
                   {(customer.postalCode || customer.city) && (
@@ -170,19 +170,19 @@ export default async function BookingDetailPage({ params }: PageProps) {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5" />
-                Notes
+                {t('notes')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {booking.notes && (
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Customer Notes</p>
+                  <p className="text-sm font-medium text-gray-500">{t('customerNotes')}</p>
                   <p className="mt-1 whitespace-pre-wrap text-gray-700">{booking.notes}</p>
                 </div>
               )}
               {booking.internalNotes && (
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Internal Notes</p>
+                  <p className="text-sm font-medium text-gray-500">{t('internalNotes')}</p>
                   <p className="mt-1 whitespace-pre-wrap text-gray-700">{booking.internalNotes}</p>
                 </div>
               )}
@@ -194,17 +194,17 @@ export default async function BookingDetailPage({ params }: PageProps) {
         {booking.status === 'cancelled' && booking.cancellationReason && (
           <Card className="border-red-200 bg-red-50 md:col-span-2">
             <CardHeader>
-              <CardTitle className="text-red-800">Cancellation</CardTitle>
+              <CardTitle className="text-red-800">{t('cancellation')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
                 <p className="text-sm text-red-600">
-                  Cancelled by: {booking.cancelledBy || 'Unknown'}
+                  {t('cancelledBy')}: {booking.cancelledBy || t('unknown')}
                 </p>
                 <p className="text-red-700">{booking.cancellationReason}</p>
                 {booking.cancelledAt && (
                   <p className="text-sm text-red-600">
-                    {formatDate(booking.cancelledAt, timezone)} at {formatTime(booking.cancelledAt, timezone)}
+                    {formatDate(booking.cancelledAt, timezone)} {t('at')} {formatTime(booking.cancelledAt, timezone)}
                   </p>
                 )}
               </div>
@@ -250,7 +250,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
         {/* Actions */}
         <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle>Actions</CardTitle>
+            <CardTitle>{t('actions')}</CardTitle>
           </CardHeader>
           <CardContent>
             <BookingDetailActions

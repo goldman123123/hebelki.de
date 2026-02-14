@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -29,6 +30,7 @@ interface ServiceEditSheetProps {
 }
 
 export function ServiceEditSheet({ open, onOpenChange, serviceId, initialData, onSave, isNew }: ServiceEditSheetProps) {
+  const t = useTranslations('dashboard.services')
   const [data, setData] = useState<EditingService>(initialData || {
     name: '',
     description: '',
@@ -65,12 +67,10 @@ export function ServiceEditSheet({ open, onOpenChange, serviceId, initialData, o
       <SheetContent side="right" className="w-full sm:max-w-[500px] p-0 flex flex-col">
         <SheetHeader className="px-6 pt-6 pb-4 border-b">
           <SheetTitle>
-            {isNew ? 'Neue Dienstleistung' : 'Dienstleistung bearbeiten'}
+            {isNew ? t('newService') : t('editService')}
           </SheetTitle>
           <SheetDescription>
-            {isNew
-              ? 'Geben Sie die Details für Ihre neue Dienstleistung ein'
-              : 'Bearbeiten Sie die Details dieser Dienstleistung'}
+            {isNew ? t('newServiceDesc') : t('editServiceDesc')}
           </SheetDescription>
         </SheetHeader>
 
@@ -81,9 +81,9 @@ export function ServiceEditSheet({ open, onOpenChange, serviceId, initialData, o
             {/* Staff Priority Section (only for existing services) */}
             {serviceId && !isNew && (
               <div className="border-t pt-4">
-                <h4 className="text-sm font-semibold text-gray-900 mb-3">Mitarbeiter-Priorität</h4>
+                <h4 className="text-sm font-semibold text-gray-900 mb-3">{t('staffPriorityTitle')}</h4>
                 <p className="text-xs text-gray-500 mb-3">
-                  Ziehen zum Sortieren. Obere Mitarbeiter werden bei automatischer Zuweisung zuerst versucht.
+                  {t('staffPriorityDesc')}
                 </p>
                 <StaffPriorityInline serviceId={serviceId} />
               </div>
@@ -101,12 +101,12 @@ export function ServiceEditSheet({ open, onOpenChange, serviceId, initialData, o
             {saving ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Wird gespeichert...
+                {t('saving')}
               </>
             ) : (
               <>
                 <Check className="w-4 h-4 mr-2" />
-                {isNew ? 'Dienstleistung erstellen' : 'Änderungen speichern'}
+                {isNew ? t('createService') : t('saveChanges')}
               </>
             )}
           </Button>
@@ -116,7 +116,7 @@ export function ServiceEditSheet({ open, onOpenChange, serviceId, initialData, o
             disabled={saving}
           >
             <X className="w-4 h-4 mr-2" />
-            Abbrechen
+            {t('cancel')}
           </Button>
         </div>
       </SheetContent>

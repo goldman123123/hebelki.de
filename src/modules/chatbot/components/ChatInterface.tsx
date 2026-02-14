@@ -8,6 +8,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useTranslations, useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -63,11 +64,14 @@ export function ChatInterface({
   businessId,
   businessName,
   primaryColor = '#3B82F6',
-  welcomeMessage = 'Willkommen! Wie kann ich Ihnen helfen?',
+  welcomeMessage,
   liveChatEnabled = false,
   chatDefaultMode = 'ai',
   onNewMessage,
 }: ChatInterfaceProps) {
+  const t = useTranslations('chat')
+  const locale = useLocale()
+  const dateLocale = locale === 'de' ? 'de-DE' : 'en-US'
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -229,7 +233,7 @@ export function ChatInterface({
 
       const errorMessage: Message = {
         role: 'assistant',
-        content: 'Entschuldigung, es ist ein Fehler aufgetreten. Bitte versuchen Sie es erneut.',
+        content: t('chatError'),
         timestamp: new Date(),
       }
 
@@ -253,7 +257,7 @@ export function ChatInterface({
 
   const handleEscalate = async () => {
     if (!conversationId) {
-      alert('Bitte senden Sie zuerst eine Nachricht.')
+      alert(t('sendFirstMessage'))
       return
     }
 
@@ -286,7 +290,7 @@ export function ChatInterface({
         }
       } else {
         log.error('Escalation failed:', data.error)
-        alert('Fehler beim Weiterleiten. Bitte versuchen Sie es erneut.')
+        alert(t('escalateError'))
       }
     } catch (error) {
       log.error('Escalation error:', error)
@@ -306,12 +310,12 @@ export function ChatInterface({
                 style={{ color: primaryColor }}
               />
               <h3 className="text-lg font-medium text-gray-900">
-                {welcomeMessage}
+                {welcomeMessage || t('defaultWelcome', { businessName })}
               </h3>
               <p className="mt-2 text-sm text-gray-500">
                 {liveChatEnabled && chatDefaultMode === 'live'
-                  ? 'Schreiben Sie uns eine Nachricht, unser Team antwortet in Kürze.'
-                  : 'Stellen Sie eine Frage oder bitten Sie um einen Termin.'}
+                  ? t('liveChatHint')
+                  : t('aiChatHint')}
               </p>
             </div>
           </div>
@@ -342,7 +346,7 @@ export function ChatInterface({
                       <div className="max-w-[70%] rounded-lg bg-green-50 border border-green-200 px-4 py-2">
                         <Linkify className="whitespace-pre-wrap text-sm">{message.content}</Linkify>
                         <p className="mt-1 text-xs text-gray-500">
-                          {message.timestamp.toLocaleTimeString('de-DE', {
+                          {message.timestamp.toLocaleTimeString(dateLocale, {
                             hour: '2-digit',
                             minute: '2-digit',
                           })}
@@ -386,7 +390,7 @@ export function ChatInterface({
                           : 'text-gray-500'
                       }`}
                     >
-                      {message.timestamp.toLocaleTimeString('de-DE', {
+                      {message.timestamp.toLocaleTimeString(dateLocale, {
                         hour: '2-digit',
                         minute: '2-digit',
                       })}
@@ -413,7 +417,7 @@ export function ChatInterface({
                 <div className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2">
                   <Loader2 className="h-4 w-4 animate-spin text-gray-600" />
                   <span className="text-sm text-gray-600">
-                    {isLiveChatMode ? 'Wird gesendet...' : 'Denkt nach...'}
+                    {isLiveChatMode ? t('sending') : t('thinking')}
                   </span>
                 </div>
               </div>
@@ -422,7 +426,7 @@ export function ChatInterface({
             {isLiveChatMode && !isLoading && !staffJoined && (
               <div className="text-center">
                 <span className="inline-block rounded-full bg-yellow-50 border border-yellow-200 px-3 py-1 text-xs text-yellow-700">
-                  Warten auf Mitarbeiter...
+                  {t('waitingForStaff')}
                 </span>
               </div>
             )}
@@ -430,7 +434,7 @@ export function ChatInterface({
             {isLiveChatMode && !isLoading && staffJoined && (
               <div className="text-center">
                 <span className="inline-block rounded-full bg-green-50 border border-green-200 px-3 py-1 text-xs text-green-700">
-                  Mitarbeiter ist verbunden
+                  {t('staffConnected')}
                 </span>
               </div>
             )}
@@ -445,7 +449,7 @@ export function ChatInterface({
         <div className="flex gap-2">
           <Input
             type="text"
-            placeholder="Nachricht eingeben..."
+            placeholder={t('inputPlaceholder')}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={handleKeyPress}
@@ -480,13 +484,13 @@ export function ChatInterface({
             disabled={!conversationId}
           >
             <User className="h-3 w-3 mr-2" />
-            Mit einem Menschen sprechen
+            {t('talkToHuman')}
           </Button>
         )}
 
         {isEscalated && !isLiveChatMode && (
           <div className="text-xs text-center text-green-600">
-            An Team weitergeleitet
+            {t('escalated')}
           </div>
         )}
       </div>

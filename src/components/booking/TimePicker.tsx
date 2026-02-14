@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslations, useLocale } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -31,6 +32,9 @@ export function TimePicker({
   date,
   onSelect,
 }: TimePickerProps) {
+  const t = useTranslations('booking')
+  const locale = useLocale()
+  const dateLocale = locale === 'de' ? 'de-DE' : 'en-US'
   const [slots, setSlots] = useState<TimeSlot[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -86,7 +90,7 @@ export function TimePicker({
 
   const formatTime = (isoString: string) => {
     const date = new Date(isoString)
-    return date.toLocaleTimeString('de-DE', {
+    return date.toLocaleTimeString(dateLocale, {
       hour: '2-digit',
       minute: '2-digit',
     })
@@ -137,11 +141,11 @@ export function TimePicker({
     return (
       <div>
         <h2 className="mb-4 text-lg font-semibold text-gray-900">
-          Wählen Sie eine Uhrzeit
+          {t('selectTime')}
         </h2>
         <div className="rounded-lg border border-dashed border-gray-300 p-8 text-center">
           <p className="text-gray-500">
-            Keine verfügbaren Zeitfenster für dieses Datum. Bitte wählen Sie ein anderes Datum.
+            {t('noSlots')}
           </p>
         </div>
       </div>
@@ -151,13 +155,13 @@ export function TimePicker({
   return (
     <div>
       <h2 className="mb-4 text-lg font-semibold text-gray-900">
-        Choose a Time
+        {t('selectTime')}
       </h2>
 
       <div className="space-y-6">
         {groupedSlots.morning.length > 0 && (
           <div>
-            <h3 className="mb-3 text-sm font-medium text-gray-500">Vormittag</h3>
+            <h3 className="mb-3 text-sm font-medium text-gray-500">{t('morning')}</h3>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
               {groupedSlots.morning.map((slot) => renderSlotButton(slot))}
             </div>
@@ -166,7 +170,7 @@ export function TimePicker({
 
         {groupedSlots.afternoon.length > 0 && (
           <div>
-            <h3 className="mb-3 text-sm font-medium text-gray-500">Nachmittag</h3>
+            <h3 className="mb-3 text-sm font-medium text-gray-500">{t('afternoon')}</h3>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
               {groupedSlots.afternoon.map((slot) => renderSlotButton(slot))}
             </div>
@@ -175,7 +179,7 @@ export function TimePicker({
 
         {groupedSlots.evening.length > 0 && (
           <div>
-            <h3 className="mb-3 text-sm font-medium text-gray-500">Abend</h3>
+            <h3 className="mb-3 text-sm font-medium text-gray-500">{t('evening')}</h3>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
               {groupedSlots.evening.map((slot) => renderSlotButton(slot))}
             </div>

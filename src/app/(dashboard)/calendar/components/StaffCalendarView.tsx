@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { format } from 'date-fns'
 import { formatTime } from '@/lib/utils'
 
@@ -29,12 +30,13 @@ interface StaffCalendarViewProps {
 }
 
 export function StaffCalendarView({ staff, date, bookings, timezone }: StaffCalendarViewProps) {
+  const t = useTranslations('dashboard.calendar')
   // Show timeline view for a staff member
   const hours = Array.from({ length: 12 }, (_, i) => i + 8) // 8am-8pm
 
   return (
     <div className="border rounded-lg p-4">
-      <h3 className="font-semibold mb-4">{staff.name}&apos;s Schedule</h3>
+      <h3 className="font-semibold mb-4">{t('schedule', { name: staff.name })}</h3>
 
       <div className="space-y-2">
         {hours.map((hour) => {
@@ -61,7 +63,7 @@ export function StaffCalendarView({ staff, date, bookings, timezone }: StaffCale
                 </div>
               ) : (
                 <div className="flex-1 bg-gray-50 border border-gray-200 rounded p-2">
-                  <p className="text-sm text-gray-400">Available</p>
+                  <p className="text-sm text-gray-400">{t('available')}</p>
                 </div>
               )}
             </div>

@@ -11,6 +11,7 @@ import {
 import {
   Phone, Pencil, CheckCircle, XCircle, Copy, Check, Loader2, Info
 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import type { Business } from '../types'
 
 interface VoiceCardProps {
@@ -30,6 +31,8 @@ export function VoiceCard({
   onSave,
   isSaving,
 }: VoiceCardProps) {
+  const t = useTranslations('dashboard.business.voice')
+  const tc = useTranslations('dashboard.business')
   const [webhookCopied, setWebhookCopied] = useState(false)
 
   const [voiceForm, setVoiceForm] = useState({
@@ -72,18 +75,18 @@ export function VoiceCard({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Phone className="h-5 w-5" />
-          Sprachassistent
+          {t('title')}
         </CardTitle>
-        <CardDescription>KI-Telefonassistent für eingehende Anrufe (Twilio + OpenAI)</CardDescription>
+        <CardDescription>{t('description')}</CardDescription>
         <CardAction>
           {editing ? (
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={handleCancel} disabled={isSaving}>
-                Abbrechen
+                {tc('cancel')}
               </Button>
               <Button size="sm" onClick={handleSave} disabled={isSaving}>
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Speichern
+                {tc('save')}
               </Button>
             </div>
           ) : (
@@ -98,12 +101,12 @@ export function VoiceCard({
           {/* Status */}
           <div className="rounded-lg border p-4">
             <FieldSet className="gap-3">
-              <FieldLegend className="mb-1">Status</FieldLegend>
+              <FieldLegend className="mb-1">{t('status')}</FieldLegend>
               <FieldGroup className="gap-4">
                 <Field orientation="horizontal">
                   <FieldContent>
-                    <FieldLabel>Sprachassistent</FieldLabel>
-                    <FieldDescription>Eingehende Anrufe vom KI-Assistenten beantworten</FieldDescription>
+                    <FieldLabel>{t('voiceAssistant')}</FieldLabel>
+                    <FieldDescription>{t('voiceDesc')}</FieldDescription>
                   </FieldContent>
                   {editing ? (
                     <Switch
@@ -113,18 +116,18 @@ export function VoiceCard({
                   ) : business.settings?.voiceEnabled ? (
                     <span className="flex items-center gap-1.5 text-sm text-green-600">
                       <CheckCircle className="h-4 w-4" />
-                      Aktiviert
+                      {t('enabled')}
                     </span>
                   ) : (
                     <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
                       <XCircle className="h-4 w-4" />
-                      Deaktiviert
+                      {t('disabled')}
                     </span>
                   )}
                 </Field>
 
                 <Field>
-                  <FieldLabel>Telefonnummer</FieldLabel>
+                  <FieldLabel>{t('phoneNumber')}</FieldLabel>
                   {business.twilioPhoneNumber ? (
                     <p className="flex items-center gap-2 text-sm text-green-600">
                       <CheckCircle className="h-4 w-4" />
@@ -133,7 +136,7 @@ export function VoiceCard({
                   ) : (
                     <p className="flex items-center gap-2 text-muted-foreground text-sm">
                       <XCircle className="h-4 w-4" />
-                      Nicht konfiguriert
+                      {t('notConfigured')}
                     </p>
                   )}
                 </Field>
@@ -144,24 +147,24 @@ export function VoiceCard({
           {/* Telefonnummer */}
           <div className="rounded-lg border p-4">
             <FieldSet className="gap-3">
-              <FieldLegend className="mb-1">Telefonnummer</FieldLegend>
+              <FieldLegend className="mb-1">{t('phoneNumber')}</FieldLegend>
               <FieldGroup className="gap-4">
                 <Field>
-                  <FieldLabel>Twilio-Rufnummer</FieldLabel>
+                  <FieldLabel>{t('twilioNumber')}</FieldLabel>
                   <Input
                     value={voiceForm.twilioPhoneNumber}
                     onChange={(e) => setVoiceForm({ ...voiceForm, twilioPhoneNumber: e.target.value })}
                     readOnly={!editing}
                     placeholder="+15754047792"
                   />
-                  <FieldDescription>Twilio-Nummer im E.164-Format (z.B. +49...)</FieldDescription>
+                  <FieldDescription>{t('twilioNumberDesc')}</FieldDescription>
                 </Field>
 
                 {editing && (
                   <div className="rounded-md border border-blue-200 bg-blue-50 p-3">
                     <p className="text-sm text-blue-700 flex items-center gap-2">
                       <Info className="h-4 w-4 flex-shrink-0" />
-                      Kaufen Sie eine Nummer in der Twilio-Konsole und tragen Sie sie hier ein.
+                      {t('buyNumberInfo')}
                     </p>
                   </div>
                 )}
@@ -172,10 +175,10 @@ export function VoiceCard({
           {/* Webhook */}
           <div className="rounded-lg border p-4">
             <FieldSet className="gap-3">
-              <FieldLegend className="mb-1">Webhook</FieldLegend>
+              <FieldLegend className="mb-1">{t('webhook')}</FieldLegend>
               <FieldGroup className="gap-4">
                 <Field>
-                  <FieldLabel>Voice-Webhook-URL</FieldLabel>
+                  <FieldLabel>{t('webhookUrl')}</FieldLabel>
                   <div className="flex items-center gap-2">
                     <Input
                       readOnly
@@ -186,7 +189,7 @@ export function VoiceCard({
                       {webhookCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                     </Button>
                   </div>
-                  <FieldDescription>In Twilio unter Phone Numbers &rarr; Voice &rarr; &quot;A call comes in&quot; eintragen (POST)</FieldDescription>
+                  <FieldDescription>{t('webhookDesc')}</FieldDescription>
                 </Field>
 
                 {editing && (
@@ -194,7 +197,7 @@ export function VoiceCard({
                     <p className="text-sm text-amber-700 flex items-start gap-2">
                       <Info className="h-4 w-4 flex-shrink-0 mt-0.5" />
                       <span>
-                        <strong>Twilio-Konfiguration:</strong> Unter Phone Numbers &rarr; Active Numbers &rarr; Nummer auswählen &rarr; Voice &amp; Fax &rarr; &quot;A call comes in&quot; auf die Webhook-URL setzen.
+                        {t('twilioConfigInfo')}
                       </span>
                     </p>
                   </div>

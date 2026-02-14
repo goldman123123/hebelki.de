@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import { Globe, Loader2 } from 'lucide-react'
 import { TemplatePicker } from './components/TemplatePicker'
 import { WebsiteBuilder } from './components/WebsiteBuilder'
@@ -26,6 +27,7 @@ interface BusinessData {
 }
 
 export default function MakeWebsitePage() {
+  const t = useTranslations('dashboard.tools.website')
   const [view, setView] = useState<ViewState>('loading')
   const [website, setWebsite] = useState<WebsiteData | null>(null)
   const [business, setBusiness] = useState<BusinessData | null>(null)
@@ -56,7 +58,7 @@ export default function MakeWebsitePage() {
         setView('pick-template')
       }
     } catch {
-      setError('Fehler beim Laden der Website-Daten')
+      setError(t('errorLoading'))
       setView('pick-template')
     }
   }, [])
@@ -79,7 +81,7 @@ export default function MakeWebsitePage() {
       setWebsite(data.website)
       setView('building')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Fehler bei der Generierung')
+      setError(err instanceof Error ? err.message : t('errorGenerating'))
     } finally {
       setGenerating(false)
     }
@@ -98,9 +100,9 @@ export default function MakeWebsitePage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
           <Globe className="h-6 w-6" />
-          Make Website
+          {t('title')}
         </h1>
-        <p className="text-gray-600">KI-generierte Landing Page für Ihren Betrieb</p>
+        <p className="text-gray-600">{t('subtitle')}</p>
       </div>
 
       {error && (

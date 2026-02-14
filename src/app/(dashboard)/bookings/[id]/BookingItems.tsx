@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Package, Plus, Trash2, Save, Loader2, AlertTriangle } from 'lucide-react'
@@ -20,6 +21,7 @@ interface BookingItemsProps {
 }
 
 export function BookingItems({ bookingId, initialItems, invoiceStatus }: BookingItemsProps) {
+  const t = useTranslations('dashboard.bookings.detail')
   const router = useRouter()
   const [items, setItems] = useState<LineItem[]>(initialItems || [])
   const [saving, setSaving] = useState(false)
@@ -69,14 +71,14 @@ export function BookingItems({ bookingId, initialItems, invoiceStatus }: Booking
 
       if (!res.ok) {
         const data = await res.json()
-        setError(data.error || 'Fehler beim Speichern')
+        setError(data.error || t('saveError'))
         return
       }
 
       setIsDirty(false)
       router.refresh()
     } catch {
-      setError('Fehler beim Speichern')
+      setError(t('saveError'))
     } finally {
       setSaving(false)
     }
@@ -99,11 +101,11 @@ export function BookingItems({ bookingId, initialItems, invoiceStatus }: Booking
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
-            Positionen / Lieferschein
+            {t('items')}
           </CardTitle>
           <Button variant="outline" size="sm" onClick={addItem}>
             <Plus className="mr-1 h-4 w-4" />
-            Position
+            {t('addItem')}
           </Button>
         </div>
       </CardHeader>
@@ -112,24 +114,24 @@ export function BookingItems({ bookingId, initialItems, invoiceStatus }: Booking
           <div className="mb-4 rounded-md bg-amber-50 border border-amber-200 p-3 flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
             <p className="text-sm text-amber-800">
-              Es existiert eine versendete Rechnung. Änderungen werden erst nach Stornierung und Neuerstellung übernommen.
+              {t('invoiceWarning')}
             </p>
           </div>
         )}
         {items.length === 0 ? (
           <div className="text-center py-6 text-gray-500">
             <Package className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-            <p className="text-sm">Keine Positionen vorhanden.</p>
-            <p className="text-xs text-gray-400 mt-1">Positionen hinzufügen, um einen Lieferschein zu erstellen.</p>
+            <p className="text-sm">{t('noItems')}</p>
+            <p className="text-xs text-gray-400 mt-1">{t('noItemsDesc')}</p>
           </div>
         ) : (
           <div className="space-y-3">
             {/* Header */}
             <div className="grid grid-cols-12 gap-2 text-xs font-medium text-gray-500 uppercase tracking-wide px-1">
-              <div className="col-span-5">Beschreibung</div>
-              <div className="col-span-2">Menge</div>
-              <div className="col-span-2">Einzelpreis</div>
-              <div className="col-span-2 text-right">Gesamt</div>
+              <div className="col-span-5">{t('itemDescription')}</div>
+              <div className="col-span-2">{t('quantity')}</div>
+              <div className="col-span-2">{t('unitPrice')}</div>
+              <div className="col-span-2 text-right">{t('total')}</div>
               <div className="col-span-1"></div>
             </div>
 
@@ -140,7 +142,7 @@ export function BookingItems({ bookingId, initialItems, invoiceStatus }: Booking
                   <input
                     type="text"
                     className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                    placeholder="z.B. Feuerlöscher ABC 6kg"
+                    placeholder={t('itemPlaceholder')}
                     value={item.description}
                     onChange={(e) => updateItem(i, 'description', e.target.value)}
                   />
@@ -186,7 +188,7 @@ export function BookingItems({ bookingId, initialItems, invoiceStatus }: Booking
             {grandTotal > 0 && (
               <div className="border-t pt-3 flex justify-end">
                 <div className="text-sm">
-                  <span className="text-gray-500 mr-4">Gesamt:</span>
+                  <span className="text-gray-500 mr-4">{t('totalLabel')}</span>
                   <span className="font-semibold">{formatCurrency(grandTotal.toFixed(2))}</span>
                 </div>
               </div>
@@ -208,7 +210,7 @@ export function BookingItems({ bookingId, initialItems, invoiceStatus }: Booking
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
-              Positionen speichern
+              {t('saveItems')}
             </Button>
           </div>
         )}

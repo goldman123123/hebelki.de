@@ -27,193 +27,178 @@ import {
   ArrowRight,
 } from 'lucide-react'
 import { DevUserSwitcherPublic } from '@/components/DevUserSwitcherPublic'
-
-// Data structures
-const stats = [
-  { value: '1.000+', label: 'Termine gebucht' },
-  { value: '90%', label: 'weniger Telefonanfragen' },
-  { value: '5 Min', label: 'Setup-Zeit' },
-]
-
-const useCases = [
-  {
-    icon: Stethoscope,
-    title: 'Physiotherapie',
-    problem: '30+ WhatsApp-Nachrichten täglich?',
-    solution: 'Ihr Chatbot beantwortet Fragen und bucht automatisch',
-    metric: '3 Stunden/Woche gespart',
-  },
-  {
-    icon: Scissors,
-    title: 'Friseursalon',
-    problem: 'Ständige Telefonanrufe während der Arbeit?',
-    solution: 'Chat-Widget auf Ihrer Website – 24/7 erreichbar',
-    metric: '-50% Telefonanrufe',
-  },
-  {
-    icon: Dumbbell,
-    title: 'Fitness & Beratung',
-    problem: 'Keine Online-Buchung für Kurse?',
-    solution: 'Kunden buchen Kurse selbst – ohne Anruf',
-    metric: '+30% mehr Buchungen',
-  },
-]
-
-const featuresCustomers = [
-  {
-    icon: Bot,
-    title: 'KI-Chatbot',
-    description: 'Beantwortet Fragen automatisch, bucht Termine',
-  },
-  {
-    icon: Clock,
-    title: '24/7 Buchung',
-    description: 'Termine buchen wann es passt',
-  },
-  {
-    icon: Smartphone,
-    title: 'WhatsApp & Web',
-    description: 'Dort wo Kunden bereits sind',
-  },
-  {
-    icon: Mail,
-    title: 'Automatische Bestätigungen',
-    description: 'Per E-Mail und SMS',
-  },
-]
-
-const featuresOwners = [
-  {
-    icon: Brain,
-    title: 'Wissensdatenbank',
-    description: 'KI lernt aus Ihrer Website automatisch',
-  },
-  {
-    icon: Calendar,
-    title: 'Google Kalender-Sync',
-    description: 'Termine direkt im Kalender',
-  },
-  {
-    icon: Users,
-    title: 'Team-Verwaltung',
-    description: 'Mehrere Mitarbeiter mit eigenen Zeiten',
-  },
-  {
-    icon: BarChart3,
-    title: 'Einfaches Dashboard',
-    description: 'Buchungen, Kunden, Statistiken',
-  },
-]
-
-const steps = [
-  {
-    icon: MessageSquare,
-    title: 'Kunde schreibt',
-    description: '"Hallo, ich brauche einen Termin für morgen um 14 Uhr"',
-  },
-  {
-    icon: Bot,
-    title: 'KI antwortet',
-    description: 'Chatbot prüft Verfügbarkeit, bietet Slots an',
-  },
-  {
-    icon: Calendar,
-    title: 'Termin gebucht',
-    description: 'Automatische Bestätigung per E-Mail + Erinnerung',
-  },
-]
-
-const chatbotFeatures = [
-  'Beantwortet FAQs automatisch',
-  'Prüft Verfügbarkeit in Echtzeit',
-  'Bucht Termine ohne Ihr Zutun',
-  'Lernt aus Ihrer Website-Inhalte',
-]
-
-const pricingPlans = [
-  {
-    name: 'Kostenlos',
-    price: '€0',
-    period: 'für immer',
-    features: ['1 Mitarbeiter', '50 Buchungen/Monat', 'KI-Chatbot inklusive'],
-    cta: 'Starten',
-    href: '/sign-up',
-    highlighted: false,
-  },
-  {
-    name: 'Starter',
-    price: '€19',
-    period: '/Monat',
-    features: ['3 Mitarbeiter', 'Unbegrenzte Buchungen', 'E-Mail-Support'],
-    cta: 'Testen',
-    href: '/sign-up',
-    highlighted: true,
-  },
-  {
-    name: 'Professional',
-    price: '€49',
-    period: '/Monat',
-    features: ['Unbegrenzt Mitarbeiter', 'WhatsApp-Integration', 'Prioritäts-Support'],
-    cta: 'Testen',
-    href: '/sign-up',
-    highlighted: false,
-  },
-]
-
-const testimonials = [
-  {
-    quote: 'Der Chatbot beantwortet 90% meiner WhatsApp-Anfragen automatisch. Ich spare jeden Tag mindestens eine Stunde.',
-    author: 'Marcus R.',
-    role: 'Physiotherapeut',
-  },
-  {
-    quote: 'Meine Kunden buchen jetzt 24/7 online. Die Telefonanrufe während der Arbeit sind fast komplett weg.',
-    author: 'Julia K.',
-    role: 'Friseurmeisterin',
-  },
-  {
-    quote: 'Endlich eine Software, die wirklich Zeit spart. Setup hat keine 10 Minuten gedauert.',
-    author: 'Thomas W.',
-    role: 'Personal Trainer',
-  },
-]
-
-const trustBadges = [
-  { icon: Shield, label: 'DSGVO-konform' },
-  { icon: Lock, label: 'SSL-verschlüsselt' },
-  { icon: Zap, label: 'Keine Kreditkarte nötig' },
-]
-
-const faqs = [
-  {
-    question: 'Wie schwierig ist das Setup?',
-    answer: '5 Minuten. Unsere KI scannt Ihre Website automatisch und lernt aus Ihren Inhalten. Sie müssen nur Ihre Dienstleistungen und Verfügbarkeit eingeben.',
-  },
-  {
-    question: 'Funktioniert das wirklich auf WhatsApp?',
-    answer: 'Ja, über die WhatsApp Business API. Ihre Kunden können direkt in WhatsApp mit Ihrem Chatbot chatten und Termine buchen. Testen Sie unsere Live-Demo.',
-  },
-  {
-    question: 'Was wenn die KI nicht antworten kann?',
-    answer: 'Komplexe Anfragen werden automatisch an Sie weitergeleitet. Sie erhalten eine Benachrichtigung und können direkt übernehmen.',
-  },
-  {
-    question: 'Ist die KI im kostenlosen Plan enthalten?',
-    answer: 'Ja, der Chatbot ist in allen Plänen inklusive – auch im kostenlosen. Sie bekommen die volle KI-Funktionalität ohne Aufpreis.',
-  },
-  {
-    question: 'Wie wird der Chatbot auf mein Geschäft trainiert?',
-    answer: 'Automatisch aus Ihrer Website, Services und FAQs. Sie können auch eigene Inhalte in der Wissensdatenbank hinzufügen. Sie haben volle Kontrolle über die Antworten.',
-  },
-  {
-    question: 'Kann ich meine Daten exportieren?',
-    answer: 'Ja, jederzeit. Alle Geschäftsdaten gehören Ihnen und können als CSV oder PDF exportiert werden.',
-  },
-]
+import { getTranslations } from 'next-intl/server'
 
 export default async function Home() {
   const { userId } = await auth()
   const isLoggedIn = !!userId
+  const t = await getTranslations('landing')
+  const tNav = await getTranslations('nav')
+
+  // Data structures
+  const stats = [
+    { value: '1.000+', label: t('stats.booked') },
+    { value: '90%', label: t('stats.calls') },
+    { value: '5 Min', label: t('stats.setup') },
+  ]
+
+  const useCases = [
+    {
+      icon: Stethoscope,
+      title: t('useCases.physio.title'),
+      problem: t('useCases.physio.problem'),
+      solution: t('useCases.physio.solution'),
+      metric: t('useCases.physio.metric'),
+    },
+    {
+      icon: Scissors,
+      title: t('useCases.salon.title'),
+      problem: t('useCases.salon.problem'),
+      solution: t('useCases.salon.solution'),
+      metric: t('useCases.salon.metric'),
+    },
+    {
+      icon: Dumbbell,
+      title: t('useCases.fitness.title'),
+      problem: t('useCases.fitness.problem'),
+      solution: t('useCases.fitness.solution'),
+      metric: t('useCases.fitness.metric'),
+    },
+  ]
+
+  const featuresCustomers = [
+    {
+      icon: Bot,
+      title: t('features.chatbot'),
+      description: t('features.chatbotDesc'),
+    },
+    {
+      icon: Clock,
+      title: t('features.booking247'),
+      description: t('features.booking247Desc'),
+    },
+    {
+      icon: Smartphone,
+      title: t('features.channels'),
+      description: t('features.channelsDesc'),
+    },
+    {
+      icon: Mail,
+      title: t('features.confirmations'),
+      description: t('features.confirmationsDesc'),
+    },
+  ]
+
+  const featuresOwners = [
+    {
+      icon: Brain,
+      title: t('features.knowledgeBase'),
+      description: t('features.knowledgeBaseDesc'),
+    },
+    {
+      icon: Calendar,
+      title: t('features.calendarSync'),
+      description: t('features.calendarSyncDesc'),
+    },
+    {
+      icon: Users,
+      title: t('features.teamMgmt'),
+      description: t('features.teamMgmtDesc'),
+    },
+    {
+      icon: BarChart3,
+      title: t('features.dashboard'),
+      description: t('features.dashboardDesc'),
+    },
+  ]
+
+  const steps = [
+    {
+      icon: MessageSquare,
+      title: t('howItWorks.step1Title'),
+      description: t('howItWorks.step1Desc'),
+    },
+    {
+      icon: Bot,
+      title: t('howItWorks.step2Title'),
+      description: t('howItWorks.step2Desc'),
+    },
+    {
+      icon: Calendar,
+      title: t('howItWorks.step3Title'),
+      description: t('howItWorks.step3Desc'),
+    },
+  ]
+
+  const chatbotFeatures = [
+    t('chatbotShowcase.feature1'),
+    t('chatbotShowcase.feature2'),
+    t('chatbotShowcase.feature3'),
+    t('chatbotShowcase.feature4'),
+  ]
+
+  const pricingPlans = [
+    {
+      name: t('pricingTeaser.free.name'),
+      price: t('pricingTeaser.free.price'),
+      period: t('pricingTeaser.free.period'),
+      features: [t('pricingTeaser.free.feature1'), t('pricingTeaser.free.feature2'), t('pricingTeaser.free.feature3')],
+      cta: t('pricingTeaser.free.cta'),
+      href: '/sign-up',
+      highlighted: false,
+    },
+    {
+      name: t('pricingTeaser.starter.name'),
+      price: t('pricingTeaser.starter.price'),
+      period: t('pricingTeaser.starter.period'),
+      features: [t('pricingTeaser.starter.feature1'), t('pricingTeaser.starter.feature2'), t('pricingTeaser.starter.feature3')],
+      cta: t('pricingTeaser.starter.cta'),
+      href: '/sign-up',
+      highlighted: true,
+    },
+    {
+      name: t('pricingTeaser.professional.name'),
+      price: t('pricingTeaser.professional.price'),
+      period: t('pricingTeaser.professional.period'),
+      features: [t('pricingTeaser.professional.feature1'), t('pricingTeaser.professional.feature2'), t('pricingTeaser.professional.feature3')],
+      cta: t('pricingTeaser.professional.cta'),
+      href: '/sign-up',
+      highlighted: false,
+    },
+  ]
+
+  const testimonials = [
+    {
+      quote: t('testimonials.quote1'),
+      author: t('testimonials.author1'),
+      role: t('testimonials.role1'),
+    },
+    {
+      quote: t('testimonials.quote2'),
+      author: t('testimonials.author2'),
+      role: t('testimonials.role2'),
+    },
+    {
+      quote: t('testimonials.quote3'),
+      author: t('testimonials.author3'),
+      role: t('testimonials.role3'),
+    },
+  ]
+
+  const trustBadges = [
+    { icon: Shield, label: t('trust.gdpr') },
+    { icon: Lock, label: t('trust.ssl') },
+    { icon: Zap, label: t('trust.noCreditCard') },
+  ]
+
+  const faqs = [
+    { question: t('faq.q1'), answer: t('faq.a1') },
+    { question: t('faq.q2'), answer: t('faq.a2') },
+    { question: t('faq.q3'), answer: t('faq.a3') },
+    { question: t('faq.q4'), answer: t('faq.a4') },
+    { question: t('faq.q5'), answer: t('faq.a5') },
+    { question: t('faq.q6'), answer: t('faq.a6') },
+  ]
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
@@ -229,30 +214,30 @@ export default async function Home() {
           <div className="flex items-center gap-4">
             <DevUserSwitcherPublic />
             <Link href="/demo" className="text-sm font-medium text-gray-600 hover:text-gray-900 hidden sm:block">
-              Demo
+              {tNav('demo')}
             </Link>
             <Link href="/pricing" className="text-sm font-medium text-gray-600 hover:text-gray-900">
-              Preise
+              {tNav('pricing')}
             </Link>
             {isLoggedIn ? (
               <>
                 <Link href="/dashboard">
-                  <Button>Dashboard</Button>
+                  <Button>{tNav('dashboard')}</Button>
                 </Link>
                 <SignOutButton>
                   <Button variant="ghost" size="sm">
                     <LogOut className="h-4 w-4 mr-2" />
-                    Abmelden
+                    {tNav('signOut')}
                   </Button>
                 </SignOutButton>
               </>
             ) : (
               <>
                 <Link href="/sign-in">
-                  <Button variant="ghost">Anmelden</Button>
+                  <Button variant="ghost">{tNav('signIn')}</Button>
                 </Link>
                 <Link href="/sign-up">
-                  <Button>Jetzt starten</Button>
+                  <Button>{tNav('signUp')}</Button>
                 </Link>
               </>
             )}
@@ -264,29 +249,29 @@ export default async function Home() {
       <section className="mx-auto max-w-6xl px-4 py-20 md:py-28 text-center">
         <Badge variant="secondary" className="mb-6">
           <Bot className="h-3 w-3 mr-1" />
-          KI-gestützte Terminbuchung
+          {t('heroBadge')}
         </Badge>
         <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-gray-900">
-          Ihr KI-Assistent für
+          {t('heroTitle1')}
           <br />
-          <span className="text-primary">Terminbuchungen</span>
+          <span className="text-primary">{t('heroTitle2')}</span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg md:text-xl text-gray-600">
-          Kunden buchen 24/7 per Chat – auf Ihrer Website oder WhatsApp.
+          {t('heroDescription1')}
           <br className="hidden sm:block" />
-          Sparen Sie Stunden an Telefonzeit und WhatsApp-Nachrichten.
+          {t('heroDescription2')}
         </p>
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link href={isLoggedIn ? "/dashboard" : "/sign-up"}>
             <Button size="lg" className="text-lg w-full sm:w-auto">
-              {isLoggedIn ? "Zum Dashboard" : "Kostenlos starten"}
+              {isLoggedIn ? t('heroCtaLoggedIn') : t('heroCta')}
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </Link>
           <Link href="/demo">
             <Button size="lg" variant="outline" className="text-lg w-full sm:w-auto">
               <MessageSquare className="mr-2 h-5 w-5" />
-              Demo
+              {t('heroDemo')}
             </Button>
           </Link>
         </div>
@@ -310,10 +295,10 @@ export default async function Home() {
       <section className="py-20 md:py-24">
         <div className="mx-auto max-w-6xl px-4">
           <h2 className="text-center text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            Für wen ist Hebelki?
+            {t('useCases.title')}
           </h2>
           <p className="text-center text-gray-600 mb-12 max-w-2xl mx-auto">
-            Jedes Dienstleistungsunternehmen, das Zeit mit Terminkoordination verschwendet
+            {t('useCases.subtitle')}
           </p>
           <div className="grid gap-8 md:grid-cols-3">
             {useCases.map((useCase, index) => (
@@ -339,16 +324,16 @@ export default async function Home() {
       <section className="border-t bg-white py-20 md:py-24">
         <div className="mx-auto max-w-6xl px-4">
           <h2 className="text-center text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            Alles, was Sie brauchen
+            {t('features.title')}
           </h2>
           <p className="text-center text-gray-600 mb-16 max-w-2xl mx-auto">
-            Eine komplette Lösung für Terminbuchung und Kundenkommunikation
+            {t('features.subtitle')}
           </p>
 
           {/* For Customers */}
           <div className="mb-12">
             <h3 className="text-lg font-semibold text-gray-500 mb-6 text-center">
-              Für Ihre Kunden
+              {t('features.forCustomers')}
             </h3>
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {featuresCustomers.map((feature, index) => (
@@ -366,7 +351,7 @@ export default async function Home() {
           {/* For Owners */}
           <div>
             <h3 className="text-lg font-semibold text-gray-500 mb-6 text-center">
-              Für Sie als Inhaber
+              {t('features.forOwners')}
             </h3>
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {featuresOwners.map((feature, index) => (
@@ -387,10 +372,10 @@ export default async function Home() {
       <section className="py-20 md:py-24">
         <div className="mx-auto max-w-6xl px-4">
           <h2 className="text-center text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            So funktioniert es
+            {t('howItWorks.title')}
           </h2>
           <p className="text-center text-gray-600 mb-16 max-w-2xl mx-auto">
-            Von der Anfrage bis zur Buchung – vollautomatisch
+            {t('howItWorks.subtitle')}
           </p>
           <div className="grid gap-8 md:grid-cols-3">
             {steps.map((step, index) => (
@@ -421,14 +406,13 @@ export default async function Home() {
             <div>
               <Badge variant="secondary" className="mb-4">
                 <MessageSquare className="h-3 w-3 mr-1" />
-                KI-Chatbot
+                {t('chatbotShowcase.badge')}
               </Badge>
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-                Der Chatbot, der Ihre WhatsApp-Flut beendet
+                {t('chatbotShowcase.title')}
               </h2>
               <p className="text-gray-600 mb-6">
-                Ihr persönlicher KI-Assistent beantwortet Kundenanfragen, prüft Verfügbarkeiten
-                und bucht Termine – rund um die Uhr, ohne Ihr Zutun.
+                {t('chatbotShowcase.description')}
               </p>
               <ul className="space-y-3 mb-8">
                 {chatbotFeatures.map((feature, index) => (
@@ -440,7 +424,7 @@ export default async function Home() {
               </ul>
               <Link href="/physioplus/chat">
                 <Button size="lg">
-                  Jetzt live testen
+                  {t('chatbotShowcase.cta')}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
@@ -453,39 +437,37 @@ export default async function Home() {
                       <Bot className="h-5 w-5 text-white" />
                     </div>
                     <div>
-                      <p className="font-semibold">PhysioPlus Assistent</p>
-                      <p className="text-sm text-green-600">Online</p>
+                      <p className="font-semibold">{t('chatbotShowcase.assistantName')}</p>
+                      <p className="text-sm text-green-600">{t('chatbotShowcase.online')}</p>
                     </div>
                   </div>
                   <div className="space-y-4">
                     <div className="flex justify-end">
                       <div className="bg-primary text-white rounded-lg rounded-br-none px-4 py-2 max-w-[80%]">
-                        Hallo, ich brauche einen Termin für morgen
+                        {t('chatbotShowcase.chatMsg1')}
                       </div>
                     </div>
                     <div className="flex">
                       <div className="bg-gray-100 rounded-lg rounded-bl-none px-4 py-2 max-w-[80%]">
-                        Gerne! Für welche Behandlung möchten Sie einen Termin buchen?
-                        Wir haben folgende Slots morgen verfügbar: 9:00, 11:30, 14:00
+                        {t('chatbotShowcase.chatMsg2')}
                       </div>
                     </div>
                     <div className="flex justify-end">
                       <div className="bg-primary text-white rounded-lg rounded-br-none px-4 py-2 max-w-[80%]">
-                        14:00 wäre perfekt, Sportphysiotherapie bitte
+                        {t('chatbotShowcase.chatMsg3')}
                       </div>
                     </div>
                     <div className="flex">
                       <div className="bg-gray-100 rounded-lg rounded-bl-none px-4 py-2 max-w-[80%]">
                         <CheckCircle className="h-4 w-4 text-green-500 inline mr-1" />
-                        Termin gebucht! Morgen um 14:00 Uhr für Sportphysiotherapie.
-                        Sie erhalten eine Bestätigung per E-Mail.
+                        {t('chatbotShowcase.chatMsg4')}
                       </div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
               <div className="absolute -bottom-4 -right-4 bg-green-500 text-white text-sm font-medium px-3 py-1 rounded-full shadow-lg">
-                Automatisch gebucht!
+                {t('chatbotShowcase.autoBooked')}
               </div>
             </div>
           </div>
@@ -496,10 +478,10 @@ export default async function Home() {
       <section className="border-t py-20 md:py-24">
         <div className="mx-auto max-w-6xl px-4">
           <h2 className="text-center text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            Einfache, faire Preise
+            {t('pricingTeaser.title')}
           </h2>
           <p className="text-center text-gray-600 mb-12 max-w-2xl mx-auto">
-            Starten Sie kostenlos. Upgraden Sie wenn Sie wachsen.
+            {t('pricingTeaser.subtitle')}
           </p>
           <div className="grid gap-6 md:grid-cols-3 max-w-4xl mx-auto">
             {pricingPlans.map((plan, index) => (
@@ -509,7 +491,7 @@ export default async function Home() {
               >
                 {plan.highlighted && (
                   <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    Beliebt
+                    {t('pricingTeaser.popular')}
                   </Badge>
                 )}
                 <CardContent className="pt-6 text-center">
@@ -540,7 +522,7 @@ export default async function Home() {
           </div>
           <div className="text-center mt-8">
             <Link href="/pricing" className="text-primary hover:underline font-medium">
-              Alle Pläne vergleichen →
+              {t('pricingTeaser.comparePlans')}
             </Link>
           </div>
         </div>
@@ -550,7 +532,7 @@ export default async function Home() {
       <section className="border-t bg-white py-20 md:py-24">
         <div className="mx-auto max-w-6xl px-4">
           <h2 className="text-center text-3xl md:text-4xl font-bold text-gray-900 mb-12">
-            Das sagen unsere Kunden
+            {t('testimonials.title')}
           </h2>
           <div className="grid gap-8 md:grid-cols-3">
             {testimonials.map((testimonial, index) => (
@@ -604,10 +586,10 @@ export default async function Home() {
       <section className="border-t bg-white py-20 md:py-24">
         <div className="mx-auto max-w-3xl px-4">
           <h2 className="text-center text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            Häufige Fragen
+            {t('faq.title')}
           </h2>
           <p className="text-center text-gray-600 mb-12">
-            Haben Sie weitere Fragen? Kontaktieren Sie uns.
+            {t('faq.subtitle')}
           </p>
           <FAQAccordion faqs={faqs} />
         </div>
@@ -617,15 +599,15 @@ export default async function Home() {
       <section className="py-20 md:py-24 bg-primary">
         <div className="mx-auto max-w-6xl px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            Bereit, Ihre Terminverwaltung zu automatisieren?
+            {t('finalCta.title')}
           </h2>
           <p className="text-xl text-white/80 mb-8">
-            Starten Sie kostenlos – keine Kreditkarte erforderlich.
+            {t('finalCta.subtitle')}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href={isLoggedIn ? "/dashboard" : "/sign-up"}>
               <Button size="lg" variant="secondary" className="text-lg w-full sm:w-auto">
-                {isLoggedIn ? "Zum Dashboard" : "Kostenlos starten"}
+                {isLoggedIn ? t('heroCtaLoggedIn') : t('heroCta')}
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
@@ -636,7 +618,7 @@ export default async function Home() {
                 className="text-lg w-full sm:w-auto bg-transparent text-white border-white hover:bg-white/10"
               >
                 <MessageSquare className="mr-2 h-5 w-5" />
-                Demo
+                {t('heroDemo')}
               </Button>
             </Link>
           </div>
@@ -656,51 +638,51 @@ export default async function Home() {
                 <span className="text-xl font-bold">Hebelki</span>
               </Link>
               <p className="text-sm text-gray-500">
-                KI-gestützte Terminbuchung für Dienstleister
+                {t('footer.tagline')}
               </p>
             </div>
 
             {/* Produkt */}
             <div>
-              <h4 className="font-semibold mb-4">Produkt</h4>
+              <h4 className="font-semibold mb-4">{t('footer.product')}</h4>
               <ul className="space-y-2 text-sm text-gray-600">
                 <li>
-                  <Link href="/pricing" className="hover:text-gray-900">Funktionen</Link>
+                  <Link href="/pricing" className="hover:text-gray-900">{t('footer.features')}</Link>
                 </li>
                 <li>
-                  <Link href="/pricing" className="hover:text-gray-900">Preise</Link>
+                  <Link href="/pricing" className="hover:text-gray-900">{t('footer.pricing')}</Link>
                 </li>
                 <li>
-                  <Link href="/physioplus/chat" className="hover:text-gray-900">Demo</Link>
+                  <Link href="/physioplus/chat" className="hover:text-gray-900">{t('footer.demo')}</Link>
                 </li>
               </ul>
             </div>
 
             {/* Rechtliches */}
             <div>
-              <h4 className="font-semibold mb-4">Rechtliches</h4>
+              <h4 className="font-semibold mb-4">{t('footer.legal')}</h4>
               <ul className="space-y-2 text-sm text-gray-600">
                 <li>
-                  <Link href="/datenschutz" className="hover:text-gray-900">Datenschutz</Link>
+                  <Link href="/datenschutz" className="hover:text-gray-900">{t('footer.privacy')}</Link>
                 </li>
                 <li>
-                  <Link href="/impressum" className="hover:text-gray-900">Impressum</Link>
+                  <Link href="/impressum" className="hover:text-gray-900">{t('footer.imprint')}</Link>
                 </li>
                 <li>
-                  <Link href="/agb" className="hover:text-gray-900">AGB</Link>
+                  <Link href="/agb" className="hover:text-gray-900">{t('footer.terms')}</Link>
                 </li>
                 <li>
-                  <Link href="/legal/dpia" className="hover:text-gray-900">DSFA</Link>
+                  <Link href="/legal/dpia" className="hover:text-gray-900">{t('footer.dpia')}</Link>
                 </li>
                 <li>
-                  <Link href="/legal/ai-usage" className="hover:text-gray-900">KI-Nutzung</Link>
+                  <Link href="/legal/ai-usage" className="hover:text-gray-900">{t('footer.aiUsage')}</Link>
                 </li>
               </ul>
             </div>
 
             {/* Kontakt */}
             <div>
-              <h4 className="font-semibold mb-4">Kontakt</h4>
+              <h4 className="font-semibold mb-4">{t('footer.contact')}</h4>
               <ul className="space-y-2 text-sm text-gray-600">
                 <li>
                   <a href="mailto:support@hebelki.de" className="hover:text-gray-900">
@@ -709,7 +691,7 @@ export default async function Home() {
                 </li>
                 <li>
                   <Link href="/physioplus/chat" className="hover:text-gray-900">
-                    Chat-Support
+                    {t('footer.chatSupport')}
                   </Link>
                 </li>
               </ul>
@@ -717,7 +699,7 @@ export default async function Home() {
           </div>
 
           <div className="mt-12 pt-8 border-t text-center text-sm text-gray-500">
-            &copy; {new Date().getFullYear()} Hebelki. Alle Rechte vorbehalten.
+            &copy; {new Date().getFullYear()} {t('footer.copyright')}
           </div>
         </div>
       </footer>

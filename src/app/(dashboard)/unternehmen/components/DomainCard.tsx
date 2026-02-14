@@ -12,6 +12,7 @@ import {
   Globe, CheckCircle, XCircle, AlertTriangle,
   Copy, Check, Loader2, Trash2, ExternalLink
 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import type { Business } from '../types'
 
 interface DomainCardProps {
@@ -27,6 +28,7 @@ interface VerificationResult {
 }
 
 export function DomainCard({ business, onRefresh }: DomainCardProps) {
+  const t = useTranslations('dashboard.business.domain')
   const [domainInput, setDomainInput] = useState('')
   const [isAdding, setIsAdding] = useState(false)
   const [isVerifying, setIsVerifying] = useState(false)
@@ -53,7 +55,7 @@ export function DomainCard({ business, onRefresh }: DomainCardProps) {
       const data = await res.json()
 
       if (!res.ok) {
-        const errMsg = typeof data.error === 'string' ? data.error : 'Fehler beim Hinzufuegen der Domain'
+        const errMsg = typeof data.error === 'string' ? data.error : t('errorAddingDomain')
         setError(errMsg)
         return
       }
@@ -64,7 +66,7 @@ export function DomainCard({ business, onRefresh }: DomainCardProps) {
       // Auto-verify after adding
       await handleVerify()
     } catch {
-      setError('Netzwerkfehler')
+      setError(t('networkError'))
     } finally {
       setIsAdding(false)
     }
@@ -79,21 +81,21 @@ export function DomainCard({ business, onRefresh }: DomainCardProps) {
       const data = await res.json()
 
       if (!res.ok) {
-        const errMsg = typeof data.error === 'string' ? data.error : 'Fehler bei der Verifizierung'
+        const errMsg = typeof data.error === 'string' ? data.error : t('errorVerifying')
         setError(errMsg)
         return
       }
 
       setVerifyResult(data)
     } catch {
-      setError('Netzwerkfehler')
+      setError(t('networkError'))
     } finally {
       setIsVerifying(false)
     }
   }
 
   async function handleRemove() {
-    if (!confirm('Domain wirklich entfernen? Die DNS-Einstellungen muessen manuell geaendert werden.')) return
+    if (!confirm(t('confirmRemove'))) return
     setIsRemoving(true)
     setError(null)
 
@@ -102,7 +104,7 @@ export function DomainCard({ business, onRefresh }: DomainCardProps) {
       const data = await res.json()
 
       if (!res.ok) {
-        const errMsg = typeof data.error === 'string' ? data.error : 'Fehler beim Entfernen der Domain'
+        const errMsg = typeof data.error === 'string' ? data.error : t('errorRemoving')
         setError(errMsg)
         return
       }
@@ -110,7 +112,7 @@ export function DomainCard({ business, onRefresh }: DomainCardProps) {
       setVerifyResult(null)
       await onRefresh()
     } catch {
-      setError('Netzwerkfehler')
+      setError(t('networkError'))
     } finally {
       setIsRemoving(false)
     }
@@ -127,19 +129,19 @@ export function DomainCard({ business, onRefresh }: DomainCardProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Globe className="h-5 w-5" />
-          Domain & Buchungs-URL
+          {t('title')}
         </CardTitle>
-        <CardDescription>Buchungsseite und benutzerdefinierte Domain verwalten</CardDescription>
+        <CardDescription>{t('description')}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="grid gap-4 md:grid-cols-3">
           {/* Buchungs-URLs */}
           <div className="rounded-lg border p-4">
             <FieldSet className="gap-3">
-              <FieldLegend className="mb-1">Buchungs-URLs</FieldLegend>
+              <FieldLegend className="mb-1">{t('bookingUrls')}</FieldLegend>
               <FieldGroup className="gap-4">
                 <Field>
-                  <FieldLabel>Standard-URL</FieldLabel>
+                  <FieldLabel>{t('standardUrl')}</FieldLabel>
                   <div className="flex items-center gap-2">
                     <Input
                       readOnly
@@ -153,17 +155,17 @@ export function DomainCard({ business, onRefresh }: DomainCardProps) {
                 </Field>
 
                 <Field>
-                  <FieldLabel>Subdomain</FieldLabel>
-                  <FieldDescription>Automatisch erstellt</FieldDescription>
+                  <FieldLabel>{t('subdomain')}</FieldLabel>
+                  <FieldDescription>{t('autoCreated')}</FieldDescription>
                   <div className="mt-1 flex items-center gap-2 text-sm">
                     <span className="font-mono text-muted-foreground">{subdomainUrl}</span>
-                    <Badge variant="outline" className="text-xs">Automatisch</Badge>
+                    <Badge variant="outline" className="text-xs">{t('auto')}</Badge>
                   </div>
                 </Field>
 
                 {business.customDomain && (
                   <Field>
-                    <FieldLabel>Benutzerdefinierte Domain</FieldLabel>
+                    <FieldLabel>{t('customDomain')}</FieldLabel>
                     <div className="mt-1 flex items-center gap-2 text-sm">
                       <a
                         href={`https://${business.customDomain}`}
@@ -177,12 +179,12 @@ export function DomainCard({ business, onRefresh }: DomainCardProps) {
                       {verifyResult?.verified ? (
                         <Badge className="bg-green-500 text-white text-xs">
                           <CheckCircle className="mr-1 h-3 w-3" />
-                          Verifiziert
+                          {t('domainVerified')}
                         </Badge>
                       ) : (
                         <Badge variant="outline" className="text-amber-600 text-xs">
                           <AlertTriangle className="mr-1 h-3 w-3" />
-                          DNS ausstehend
+                          {t('dnsPending')}
                         </Badge>
                       )}
                     </div>
@@ -196,7 +198,7 @@ export function DomainCard({ business, onRefresh }: DomainCardProps) {
           <div className="rounded-lg border p-4">
             <FieldSet className="gap-3">
               <FieldLegend className="mb-1 flex items-center gap-2">
-                Benutzerdefinierte Domain
+                {t('customDomain')}
                 {!hasCustomDomainFeature && (
                   <Badge className="bg-purple-500 text-white text-xs">Pro+</Badge>
                 )}
@@ -205,14 +207,13 @@ export function DomainCard({ business, onRefresh }: DomainCardProps) {
                 {!hasCustomDomainFeature ? (
                   <div className="rounded-md border border-purple-200 bg-purple-50 p-3">
                     <p className="text-sm text-purple-700">
-                      Benutzerdefinierte Domains sind ab dem Pro-Tarif verfuegbar.
-                      Upgraden Sie, um Ihre eigene Domain zu verwenden.
+                      {t('proRequired')}
                     </p>
                   </div>
                 ) : business.customDomain ? (
                   <>
                     <Field>
-                      <FieldLabel>Aktuelle Domain</FieldLabel>
+                      <FieldLabel>{t('currentDomain')}</FieldLabel>
                       <p className="font-mono text-sm">{business.customDomain}</p>
                     </Field>
 
@@ -227,10 +228,10 @@ export function DomainCard({ business, onRefresh }: DomainCardProps) {
                         {isVerifying ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Pruefe...
+                            {t('checking')}
                           </>
                         ) : (
-                          'DNS pruefen'
+                          t('checkDns')
                         )}
                       </Button>
                       <Button
@@ -251,8 +252,8 @@ export function DomainCard({ business, onRefresh }: DomainCardProps) {
                 ) : (
                   <>
                     <Field>
-                      <FieldLabel>Domain hinzufuegen</FieldLabel>
-                      <FieldDescription>z.B. termine.meinbetrieb.de</FieldDescription>
+                      <FieldLabel>{t('addDomain')}</FieldLabel>
+                      <FieldDescription>{t('addDomainDesc')}</FieldDescription>
                       <div className="mt-1 flex items-center gap-2">
                         <Input
                           value={domainInput}
@@ -268,7 +269,7 @@ export function DomainCard({ business, onRefresh }: DomainCardProps) {
                           {isAdding ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
-                            'Hinzufuegen'
+                            t('add')
                           )}
                         </Button>
                       </div>
@@ -282,14 +283,14 @@ export function DomainCard({ business, onRefresh }: DomainCardProps) {
           {/* DNS-Anleitung */}
           <div className="rounded-lg border p-4">
             <FieldSet className="gap-3">
-              <FieldLegend className="mb-1">DNS-Einrichtung</FieldLegend>
+              <FieldLegend className="mb-1">{t('dnsSetup')}</FieldLegend>
               <FieldGroup className="gap-4">
                 {business.customDomain ? (
                   <>
                     <Field>
-                      <FieldLabel>DNS-Eintrag erstellen</FieldLabel>
+                      <FieldLabel>{t('createDnsRecord')}</FieldLabel>
                       <FieldDescription>
-                        Bei Ihrem DNS-Anbieter folgenden CNAME-Eintrag erstellen:
+                        {t('createDnsDesc')}
                       </FieldDescription>
                       <div className="mt-2 space-y-2">
                         <div className="rounded-md bg-muted p-3 font-mono text-xs space-y-1">
@@ -302,9 +303,9 @@ export function DomainCard({ business, onRefresh }: DomainCardProps) {
 
                     {verifyResult && !verifyResult.verified && verifyResult.verification && (
                       <Field>
-                        <FieldLabel>Zusaetzliche Verifizierung</FieldLabel>
+                        <FieldLabel>{t('additionalVerification')}</FieldLabel>
                         <FieldDescription>
-                          Folgenden TXT-Eintrag hinzufuegen:
+                          {t('addTxtRecord')}
                         </FieldDescription>
                         {verifyResult.verification.map((v, i) => (
                           <div key={i} className="mt-2 rounded-md bg-muted p-3 font-mono text-xs space-y-1">
@@ -320,7 +321,7 @@ export function DomainCard({ business, onRefresh }: DomainCardProps) {
                       <div className="rounded-md bg-green-50 p-3">
                         <p className="flex items-center gap-2 text-sm text-green-700">
                           <CheckCircle className="h-4 w-4" />
-                          Domain erfolgreich verifiziert und aktiv.
+                          {t('domainVerifiedActive')}
                         </p>
                       </div>
                     )}
@@ -329,7 +330,7 @@ export function DomainCard({ business, onRefresh }: DomainCardProps) {
                       <div className="rounded-md bg-amber-50 p-3">
                         <p className="flex items-center gap-2 text-sm text-amber-700">
                           <AlertTriangle className="h-4 w-4" />
-                          DNS-Aenderungen koennen bis zu 48 Stunden dauern.
+                          {t('dnsChangesNote')}
                         </p>
                       </div>
                     )}
@@ -337,12 +338,10 @@ export function DomainCard({ business, onRefresh }: DomainCardProps) {
                 ) : (
                   <div className="text-sm text-muted-foreground">
                     <p>
-                      Um eine benutzerdefinierte Domain zu verwenden, erstellen Sie einen
-                      CNAME-Eintrag bei Ihrem DNS-Anbieter, der auf{' '}
-                      <span className="font-mono">cname.vercel-dns.com</span> zeigt.
+                      {t('dnsInstructions')}
                     </p>
                     <p className="mt-2">
-                      DNS-Aenderungen koennen bis zu 48 Stunden dauern.
+                      {t('dnsChangesNote')}
                     </p>
                   </div>
                 )}

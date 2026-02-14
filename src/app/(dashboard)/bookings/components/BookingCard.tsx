@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Card, CardContent } from '@/components/ui/card'
 import { StatusBadge } from '@/components/dashboard/StatusBadge'
 import { BookingActions } from '@/components/dashboard/BookingActions'
@@ -26,6 +27,7 @@ interface BookingCardProps {
 }
 
 export function BookingCard({ booking: { booking, service, staffMember, customer }, timezone, onStatusChange }: BookingCardProps) {
+  const t = useTranslations('dashboard.bookings.detail')
   return (
     <Card>
       <CardContent className="p-4">
@@ -34,7 +36,7 @@ export function BookingCard({ booking: { booking, service, staffMember, customer
             {/* Customer name & status */}
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-gray-900 truncate">
-                {customer?.name || 'Unbekannt'}
+                {customer?.name || t('unknown')}
               </span>
               <StatusBadge status={booking.status || 'pending'} />
             </div>

@@ -10,6 +10,7 @@
  */
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -90,14 +91,14 @@ type DetectorState = 'idle' | 'discovering' | 'discovered' | 'detecting' | 'revi
 // Constants
 // ============================================
 
-const categoryLabels: Record<string, string> = {
-  home: 'Startseite',
-  about: 'Über uns',
-  services: 'Leistungen',
-  contact: 'Kontakt',
-  blog: 'Blog',
-  legal: 'Rechtliches',
-  other: 'Andere',
+const CATEGORY_KEYS: Record<string, string> = {
+  home: 'categoryHome',
+  about: 'categoryAbout',
+  services: 'categoryServices',
+  contact: 'categoryContact',
+  blog: 'categoryBlog',
+  legal: 'categoryLegal',
+  other: 'categoryOther',
 }
 
 const priorityColors: Record<string, string> = {
@@ -112,6 +113,7 @@ const priorityColors: Record<string, string> = {
 
 export function ServiceDetector({ businessId, businessError, onServicesAdded }: ServiceDetectorProps) {
   // ALL HOOKS MUST BE AT THE TOP - before any conditional returns
+  const t = useTranslations('dashboard.services.detector')
   // Tab state
   const [activeTab, setActiveTab] = useState<'domain' | 'data'>('domain')
   const [isExpanded, setIsExpanded] = useState(true)
@@ -171,7 +173,7 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-amber-500" />
             <div>
-              <CardTitle className="text-base">Automatische Service-Erkennung</CardTitle>
+              <CardTitle className="text-base">{t('title')}</CardTitle>
               <CardDescription className="text-amber-700">
                 {businessError}
               </CardDescription>
@@ -190,9 +192,9 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-blue-500" />
             <div>
-              <CardTitle className="text-base">Automatische Service-Erkennung</CardTitle>
+              <CardTitle className="text-base">{t('title')}</CardTitle>
               <CardDescription>
-                Wird geladen...
+                {t('loading')}
               </CardDescription>
             </div>
           </div>
@@ -221,7 +223,7 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
     try {
       new URL(normalizedUrl)
     } catch {
-      toast.error('Ungültige URL')
+      toast.error(t('invalidUrl'))
       return
     }
 
@@ -239,7 +241,7 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Fehler beim Entdecken der Seiten')
+        throw new Error(data.error || t('discoveryError'))
       }
 
       setPages(data.pages)
@@ -247,11 +249,11 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
       setState('discovered')
 
       const selectedCount = data.pages.filter((p: CategorizedPage) => p.selected).length
-      toast.success(`${data.pages.length} Seiten gefunden, ${selectedCount} vorausgewählt`)
+      toast.success(t('pagesFound', { count: data.pages.length, selected: selectedCount }))
     } catch (err) {
       setState('error')
-      setError(err instanceof Error ? err.message : 'Unbekannter Fehler')
-      toast.error('Fehler beim Entdecken der Seiten')
+      setError(err instanceof Error ? err.message : t('unknownError'))
+      toast.error(t('discoveryError'))
     }
   }
 
@@ -261,7 +263,7 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
   const handleDetectFromPages = async () => {
     const selectedPages = pages.filter(p => p.selected)
     if (selectedPages.length === 0) {
-      toast.error('Bitte wählen Sie mindestens eine Seite aus')
+      toast.error(t('selectPageError'))
       return
     }
 
@@ -282,7 +284,7 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Service-Erkennung fehlgeschlagen')
+        throw new Error(data.error || t('detectionFailed'))
       }
 
       // Convert to reviewable format with approved=true by default
@@ -296,14 +298,14 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
       setState('review')
 
       if (reviewableServices.length === 0) {
-        toast.warning('Keine Services auf den ausgewählten Seiten gefunden')
+        toast.warning(t('noServicesFound'))
       } else {
-        toast.success(`${reviewableServices.length} Services erkannt`)
+        toast.success(t('servicesDetected', { count: reviewableServices.length }))
       }
     } catch (err) {
       setState('error')
-      setError(err instanceof Error ? err.message : 'Erkennung fehlgeschlagen')
-      toast.error('Service-Erkennung fehlgeschlagen')
+      setError(err instanceof Error ? err.message : t('detectionFailedShort'))
+      toast.error(t('detectionFailed'))
     }
   }
 
@@ -312,7 +314,7 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
   // ============================================
   const handleDetectFromDocuments = async () => {
     if (selectedDocIds.length === 0) {
-      toast.error('Bitte wählen Sie mindestens ein Dokument aus')
+      toast.error(t('selectDocError'))
       return
     }
 
@@ -332,7 +334,7 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Service-Erkennung fehlgeschlagen')
+        throw new Error(data.error || t('detectionFailed'))
       }
 
       // Convert to reviewable format
@@ -346,14 +348,14 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
       setState('review')
 
       if (reviewableServices.length === 0) {
-        toast.warning('Keine Services in den Dokumenten gefunden')
+        toast.warning(t('noDocsServicesFound'))
       } else {
-        toast.success(`${reviewableServices.length} Services erkannt`)
+        toast.success(t('servicesDetected', { count: reviewableServices.length }))
       }
     } catch (err) {
       setState('error')
-      setError(err instanceof Error ? err.message : 'Erkennung fehlgeschlagen')
-      toast.error('Service-Erkennung fehlgeschlagen')
+      setError(err instanceof Error ? err.message : t('detectionFailedShort'))
+      toast.error(t('detectionFailed'))
     }
   }
 
@@ -386,7 +388,7 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
   const handleAddServices = async () => {
     const approvedServices = services.filter(s => s.approved)
     if (approvedServices.length === 0) {
-      toast.error('Bitte wählen Sie mindestens einen Service aus')
+      toast.error(t('selectServiceError'))
       return
     }
 
@@ -409,7 +411,7 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
         })
       }
 
-      toast.success(`${approvedServices.length} Services hinzugefügt`)
+      toast.success(t('servicesAdded', { count: approvedServices.length }))
       setState('complete')
       onServicesAdded()
 
@@ -419,8 +421,8 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
       }, 2000)
     } catch (err) {
       setState('error')
-      setError('Fehler beim Hinzufügen der Services')
-      toast.error('Fehler beim Hinzufügen')
+      setError(t('addError'))
+      toast.error(t('addErrorShort'))
     }
   }
 
@@ -484,9 +486,9 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-blue-500" />
             <div>
-              <CardTitle className="text-base">Automatische Service-Erkennung</CardTitle>
+              <CardTitle className="text-base">{t('title')}</CardTitle>
               <CardDescription>
-                Lassen Sie AI Services von Ihrer Website oder bestehenden Daten erkennen
+                {t('subtitle')}
               </CardDescription>
             </div>
           </div>
@@ -506,11 +508,11 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="domain" className="flex items-center gap-2">
                   <Globe className="h-4 w-4" />
-                  Domain scannen
+                  {t('scanDomain')}
                 </TabsTrigger>
                 <TabsTrigger value="data" className="flex items-center gap-2">
                   <Database className="h-4 w-4" />
-                  Bestehende Daten
+                  {t('existingData')}
                 </TabsTrigger>
               </TabsList>
 
@@ -537,7 +539,7 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
                       ) : (
                         <Search className="h-4 w-4" />
                       )}
-                      <span className="ml-2">Entdecken</span>
+                      <span className="ml-2">{t('discover')}</span>
                     </Button>
                   </div>
                 )}
@@ -555,16 +557,16 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="text-sm text-muted-foreground">
-                        {selectedPageCount} von {pages.length} Seiten ausgewählt
+                        {t('pagesSelected', { selected: selectedPageCount, total: pages.length })}
                         {discoverySource && (
                           <span className="ml-2">
-                            (via {discoverySource === 'sitemap' ? 'Sitemap' : 'Crawling'})
+                            ({discoverySource === 'sitemap' ? t('viaSitemap') : t('viaCrawling')})
                           </span>
                         )}
                       </div>
                       <div className="flex gap-2">
-                        <Button variant="ghost" size="sm" onClick={selectAllPages}>Alle</Button>
-                        <Button variant="ghost" size="sm" onClick={selectNoPages}>Keine</Button>
+                        <Button variant="ghost" size="sm" onClick={selectAllPages}>{t('all')}</Button>
+                        <Button variant="ghost" size="sm" onClick={selectNoPages}>{t('none')}</Button>
                       </div>
                     </div>
 
@@ -590,7 +592,7 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
                             </div>
                           </div>
                           <Badge variant="secondary" className={priorityColors[page.priority]}>
-                            {categoryLabels[page.category] || page.category}
+                            {CATEGORY_KEYS[page.category] ? t(CATEGORY_KEYS[page.category]) : page.category}
                           </Badge>
                         </div>
                       ))}
@@ -606,22 +608,22 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
                         {showAllPages ? (
                           <>
                             <ChevronUp className="h-4 w-4 mr-2" />
-                            Weniger anzeigen
+                            {t('showLess')}
                           </>
                         ) : (
                           <>
                             <ChevronDown className="h-4 w-4 mr-2" />
-                            {pages.length - 10} weitere anzeigen
+                            {t('showMore', { count: pages.length - 10 })}
                           </>
                         )}
                       </Button>
                     )}
 
                     <div className="flex gap-2">
-                      <Button variant="outline" onClick={reset}>Abbrechen</Button>
+                      <Button variant="outline" onClick={reset}>{t('cancel')}</Button>
                       <Button onClick={handleDetectFromPages} disabled={selectedPageCount === 0}>
                         <Sparkles className="h-4 w-4 mr-2" />
-                        Services erkennen
+                        {t('detectServices')}
                       </Button>
                     </div>
                   </div>
@@ -632,9 +634,9 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
                   <div className="flex items-center gap-3 py-8 justify-center">
                     <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
                     <div className="text-center">
-                      <div className="font-medium">Services werden erkannt...</div>
+                      <div className="font-medium">{t('detecting')}</div>
                       <div className="text-sm text-muted-foreground">
-                        Dies kann 30-60 Sekunden dauern
+                        {t('detectingTime')}
                       </div>
                     </div>
                   </div>
@@ -652,18 +654,18 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
                 ) : documents.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Database className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                    <p>Keine Dokumente in der Wissensdatenbank</p>
-                    <p className="text-sm">Importieren Sie zuerst Daten im Daten-Tab</p>
+                    <p>{t('noDocs')}</p>
+                    <p className="text-sm">{t('noDocsHint')}</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="text-sm text-muted-foreground">
-                        {selectedDocIds.length} von {documents.length} Dokumenten ausgewählt
+                        {t('docsSelected', { selected: selectedDocIds.length, total: documents.length })}
                       </div>
                       <div className="flex gap-2">
-                        <Button variant="ghost" size="sm" onClick={selectAllDocs}>Alle</Button>
-                        <Button variant="ghost" size="sm" onClick={selectNoDocs}>Keine</Button>
+                        <Button variant="ghost" size="sm" onClick={selectAllDocs}>{t('all')}</Button>
+                        <Button variant="ghost" size="sm" onClick={selectNoDocs}>{t('none')}</Button>
                       </div>
                     </div>
 
@@ -688,7 +690,7 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
                             </div>
                           </div>
                           <Badge variant="secondary" className="text-xs">
-                            {doc.audience === 'public' ? 'Öffentlich' : 'Intern'}
+                            {doc.audience === 'public' ? t('public') : t('internal')}
                           </Badge>
                         </div>
                       ))}
@@ -704,7 +706,7 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
                         ) : (
                           <Sparkles className="h-4 w-4 mr-2" />
                         )}
-                        Services erkennen
+                        {t('detectServices')}
                       </Button>
                     </div>
                   </div>
@@ -715,9 +717,9 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
                   <div className="flex items-center gap-3 py-8 justify-center">
                     <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
                     <div className="text-center">
-                      <div className="font-medium">Services werden erkannt...</div>
+                      <div className="font-medium">{t('detecting')}</div>
                       <div className="text-sm text-muted-foreground">
-                        Analysiere {selectedDocIds.length} Dokument{selectedDocIds.length !== 1 ? 'e' : ''}
+                        {t('analyzingDocs', { count: selectedDocIds.length })}
                       </div>
                     </div>
                   </div>
@@ -733,9 +735,9 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-semibold">Erkannte Services überprüfen</h3>
+                  <h3 className="font-semibold">{t('reviewTitle')}</h3>
                   <p className="text-sm text-muted-foreground">
-                    {services.length} Services von {pagesScraped} Quellen erkannt. Bearbeiten und bestätigen Sie die Services.
+                    {t('reviewDesc', { count: services.length, sources: pagesScraped })}
                   </p>
                 </div>
               </div>
@@ -751,11 +753,11 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
                           onCheckedChange={(checked) => handleToggleAllApproved(!!checked)}
                         />
                       </th>
-                      <th className="px-3 py-3 text-left font-medium text-sm">Service Name</th>
-                      <th className="px-3 py-3 text-left font-medium text-sm w-28">Dauer</th>
-                      <th className="px-3 py-3 text-left font-medium text-sm w-28">Preis</th>
-                      <th className="px-3 py-3 text-left font-medium text-sm w-32">Kategorie</th>
-                      <th className="px-3 py-3 text-left font-medium text-sm w-24">Aktionen</th>
+                      <th className="px-3 py-3 text-left font-medium text-sm">{t('serviceNameCol')}</th>
+                      <th className="px-3 py-3 text-left font-medium text-sm w-28">{t('durationCol')}</th>
+                      <th className="px-3 py-3 text-left font-medium text-sm w-28">{t('priceCol')}</th>
+                      <th className="px-3 py-3 text-left font-medium text-sm w-32">{t('categoryCol')}</th>
+                      <th className="px-3 py-3 text-left font-medium text-sm w-24">{t('actionsCol')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -779,13 +781,13 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
                               <Input
                                 value={service.name}
                                 onChange={(e) => handleEdit(index, 'name', e.target.value)}
-                                placeholder="Service Name"
+                                placeholder={t('serviceNameCol')}
                                 className="font-medium"
                               />
                               <Input
                                 value={service.description || ''}
                                 onChange={(e) => handleEdit(index, 'description', e.target.value)}
-                                placeholder="Beschreibung"
+                                placeholder={t('descriptionPlaceholder')}
                                 className="text-sm"
                               />
                             </div>
@@ -798,7 +800,7 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
                                 </div>
                               )}
                               <div className="text-xs text-gray-400 mt-1">
-                                Konfidenz: {service.confidence}%
+                                {t('confidence', { value: service.confidence })}
                               </div>
                             </div>
                           )}
@@ -855,12 +857,12 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
                             <Input
                               value={service.category || ''}
                               onChange={(e) => handleEdit(index, 'category', e.target.value)}
-                              placeholder="Allgemein"
+                              placeholder={t('general')}
                               className="w-full"
                             />
                           ) : (
                             <Badge variant="secondary" className="text-xs">
-                              {service.category || 'Allgemein'}
+                              {service.category || t('general')}
                             </Badge>
                           )}
                         </td>
@@ -872,7 +874,7 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
                                 variant="ghost"
                                 onClick={() => setEditingIndex(null)}
                                 className="h-7 w-7 p-0"
-                                title="Speichern"
+                                title={t('save')}
                               >
                                 <Check className="w-3.5 h-3.5" />
                               </Button>
@@ -882,7 +884,7 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
                                 variant="ghost"
                                 onClick={() => setEditingIndex(index)}
                                 className="h-7 w-7 p-0"
-                                title="Bearbeiten"
+                                title={t('edit')}
                               >
                                 <Edit className="w-3.5 h-3.5" />
                               </Button>
@@ -892,7 +894,7 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
                               variant="ghost"
                               onClick={() => handleDelete(index)}
                               className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                              title="Löschen"
+                              title={t('delete')}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </Button>
@@ -907,9 +909,9 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
               {/* Summary */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-sm">
-                  <strong>{approvedCount} Service{approvedCount !== 1 ? 's' : ''}</strong> werden hinzugefügt.
+                  <strong>{t('summaryAdding', { count: approvedCount })}</strong>
                   {skippedCount > 0 && (
-                    <span className="text-gray-600"> ({skippedCount} übersprungen)</span>
+                    <span className="text-gray-600"> {t('skipped', { count: skippedCount })}</span>
                   )}
                 </p>
               </div>
@@ -917,14 +919,14 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
               {/* Actions */}
               <div className="flex gap-2">
                 <Button variant="outline" onClick={reset}>
-                  Abbrechen
+                  {t('cancel')}
                 </Button>
                 <Button
                   onClick={handleAddServices}
                   disabled={approvedCount === 0}
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  {approvedCount} Service{approvedCount !== 1 ? 's' : ''} hinzufügen
+                  {t('addServices', { count: approvedCount })}
                 </Button>
               </div>
             </div>
@@ -935,13 +937,13 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
             <div className="flex items-center gap-3 py-8 justify-center">
               <CheckCircle2 className="h-6 w-6 text-amber-500" />
               <div className="text-center">
-                <div className="font-medium">Keine Services gefunden</div>
+                <div className="font-medium">{t('noServicesFoundTitle')}</div>
                 <div className="text-sm text-muted-foreground">
-                  Versuchen Sie es mit anderen Seiten oder fügen Sie Services manuell hinzu.
+                  {t('noServicesFoundDesc')}
                 </div>
               </div>
               <Button variant="outline" size="sm" onClick={reset}>
-                Erneut versuchen
+                {t('retry')}
               </Button>
             </div>
           )}
@@ -951,7 +953,7 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
             <div className="flex items-center gap-3 py-8 justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
               <div className="text-center">
-                <div className="font-medium">Services werden hinzugefügt...</div>
+                <div className="font-medium">{t('adding')}</div>
               </div>
             </div>
           )}
@@ -961,7 +963,7 @@ export function ServiceDetector({ businessId, businessError, onServicesAdded }: 
             <div className="flex items-center gap-3 py-8 justify-center">
               <CheckCircle2 className="h-6 w-6 text-green-600" />
               <div className="text-center">
-                <div className="font-medium text-green-600">Services erfolgreich hinzugefügt!</div>
+                <div className="font-medium text-green-600">{t('complete')}</div>
               </div>
             </div>
           )}

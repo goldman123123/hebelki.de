@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import {
   Dialog,
   DialogContent,
@@ -64,6 +65,7 @@ export function CreateBookingDialog({
   onOpenChange,
   onSuccess,
 }: CreateBookingDialogProps) {
+  const t = useTranslations('dashboard.bookings.create')
   // Step management
   const [currentStep, setCurrentStep] = useState<Step>('customer')
 
@@ -280,7 +282,7 @@ export function CreateBookingDialog({
   // Submit booking
   const handleSubmit = async () => {
     if (!selectedService || !selectedTime) {
-      toast.error('Bitte alle Pflichtfelder ausfuellen')
+      toast.error(t('requiredFields'))
       return
     }
 
@@ -318,25 +320,25 @@ export function CreateBookingDialog({
       const data = await res.json()
 
       if (res.ok) {
-        toast.success('Buchung erstellt')
+        toast.success(t('bookingCreated'))
         onOpenChange(false)
         onSuccess()
       } else {
-        toast.error(data.error || 'Fehler beim Erstellen der Buchung')
+        toast.error(data.error || t('createError'))
       }
     } catch (error) {
       log.error('Failed to create booking:', error)
-      toast.error('Fehler beim Erstellen der Buchung')
+      toast.error(t('createError'))
     } finally {
       setSubmitting(false)
     }
   }
 
   const stepTitles: Record<Step, string> = {
-    customer: 'Kunde waehlen',
-    service: 'Dienstleistung waehlen',
-    datetime: 'Datum & Zeit waehlen',
-    options: 'Optionen & Bestaetigen',
+    customer: t('stepCustomer'),
+    service: t('stepService'),
+    datetime: t('stepDatetime'),
+    options: t('stepOptions'),
   }
 
   const stepNumbers: Record<Step, number> = {
@@ -350,9 +352,9 @@ export function CreateBookingDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Neue Buchung erstellen</DialogTitle>
+          <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>
-            Schritt {stepNumbers[currentStep]} von 4: {stepTitles[currentStep]}
+            {t('step', { current: stepNumbers[currentStep], total: 4, name: stepTitles[currentStep] })}
           </DialogDescription>
         </DialogHeader>
 
@@ -440,13 +442,13 @@ export function CreateBookingDialog({
               disabled={submitting}
             >
               <ChevronLeft className="mr-1 h-4 w-4" />
-              Zurueck
+              {t('back')}
             </Button>
           )}
 
           {currentStep !== 'options' ? (
             <Button onClick={goToNextStep} disabled={!canProceed()}>
-              Weiter
+              {t('next')}
               <ChevronRight className="ml-1 h-4 w-4" />
             </Button>
           ) : (
@@ -454,12 +456,12 @@ export function CreateBookingDialog({
               {submitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Erstellen...
+                  {t('creating')}
                 </>
               ) : (
                 <>
                   <Check className="mr-2 h-4 w-4" />
-                  Buchung erstellen
+                  {t('createBooking')}
                 </>
               )}
             </Button>

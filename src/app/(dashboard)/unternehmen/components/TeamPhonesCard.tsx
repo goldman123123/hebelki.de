@@ -10,6 +10,7 @@ import {
 import {
   Users, Pencil, Plus, Trash2, RefreshCw, Shield, ShieldCheck, Loader2, Info, Mail, UserPlus
 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import type { Business, TeamPhoneNumberEntry } from '../types'
 
 interface StaffMember {
@@ -50,6 +51,8 @@ export function TeamPhonesCard({
   isSaving,
   onRefresh,
 }: TeamPhonesCardProps) {
+  const t = useTranslations('dashboard.business.teamPhones')
+  const tc = useTranslations('dashboard.business')
   const [entries, setEntries] = useState<PhoneFormEntry[]>([])
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
   const [staffLoading, setStaffLoading] = useState(false)
@@ -153,10 +156,10 @@ export function TeamPhonesCard({
     onCancel()
   }
 
-  const roleLabels: Record<string, string> = {
-    owner: 'Inhaber',
-    admin: 'Admin',
-    staff: 'Mitarbeiter',
+  const ROLE_KEYS: Record<string, string> = {
+    owner: 'roleOwner',
+    admin: 'roleAdmin',
+    staff: 'roleStaff',
   }
 
   const roleColors: Record<string, string> = {
@@ -170,20 +173,20 @@ export function TeamPhonesCard({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Shield className="h-5 w-5" />
-          Team-Zugangsnummern
+          {t('title')}
         </CardTitle>
         <CardDescription>
-          Telefonnummern, die per WhatsApp oder Anruf auf den internen Assistenten zugreifen dürfen
+          {t('description')}
         </CardDescription>
         <CardAction>
           {editing ? (
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={handleCancel} disabled={isSaving}>
-                Abbrechen
+                {tc('cancel')}
               </Button>
               <Button size="sm" onClick={handleSave} disabled={isSaving}>
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Speichern
+                {tc('save')}
               </Button>
             </div>
           ) : (
@@ -199,8 +202,7 @@ export function TeamPhonesCard({
           <p className="text-sm text-blue-700 flex items-start gap-2">
             <Info className="h-4 w-4 flex-shrink-0 mt-0.5" />
             <span>
-              Wenn eine hier registrierte Nummer per WhatsApp schreibt oder anruft, wird sie als Teammitglied erkannt
-              und erhält Zugang zum internen Geschäftsassistenten (statt dem Kunden-Chatbot). Jedes Mitglied benötigt einen 4-stelligen PIN.
+              {t('infoBox')}
             </span>
           </p>
         </div>
@@ -208,8 +210,8 @@ export function TeamPhonesCard({
         {entries.length === 0 && !editing && (
           <div className="py-6 text-center text-muted-foreground">
             <Users className="mx-auto h-8 w-8 mb-2 opacity-50" />
-            <p className="text-sm">Keine Team-Nummern konfiguriert</p>
-            <p className="text-xs mt-1">Klicken Sie auf den Stift, um Nummern hinzuzufügen</p>
+            <p className="text-sm">{t('noNumbers')}</p>
+            <p className="text-xs mt-1">{t('addHint')}</p>
           </div>
         )}
 
@@ -221,7 +223,7 @@ export function TeamPhonesCard({
                 <div className="space-y-3">
                   <div className="grid gap-3 md:grid-cols-4">
                     <Field>
-                      <FieldLabel>Name</FieldLabel>
+                      <FieldLabel>{t('name')}</FieldLabel>
                       <Input
                         value={entry.name}
                         onChange={(e) => updateEntry(index, 'name', e.target.value)}
@@ -229,7 +231,7 @@ export function TeamPhonesCard({
                       />
                     </Field>
                     <Field>
-                      <FieldLabel>Telefonnummer</FieldLabel>
+                      <FieldLabel>{t('phoneNumber')}</FieldLabel>
                       <Input
                         value={entry.phone}
                         onChange={(e) => updateEntry(index, 'phone', e.target.value)}
@@ -237,7 +239,7 @@ export function TeamPhonesCard({
                       />
                     </Field>
                     <Field>
-                      <FieldLabel>E-Mail (für PIN)</FieldLabel>
+                      <FieldLabel>{t('emailForPin')}</FieldLabel>
                       <Input
                         type="email"
                         value={entry.email}
@@ -246,15 +248,15 @@ export function TeamPhonesCard({
                       />
                     </Field>
                     <Field>
-                      <FieldLabel>Rolle</FieldLabel>
+                      <FieldLabel>{t('role')}</FieldLabel>
                       <select
                         value={entry.role}
                         onChange={(e) => updateEntry(index, 'role', e.target.value)}
                         className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        <option value="owner">Inhaber</option>
-                        <option value="admin">Admin</option>
-                        <option value="staff">Mitarbeiter</option>
+                        <option value="owner">{t('roleOwner')}</option>
+                        <option value="admin">{t('roleAdmin')}</option>
+                        <option value="staff">{t('roleStaff')}</option>
                       </select>
                     </Field>
                   </div>
@@ -263,17 +265,17 @@ export function TeamPhonesCard({
                       {entry.hasPin && !entry.isNew ? (
                         <span className="flex items-center gap-1.5 text-sm text-green-600">
                           <ShieldCheck className="h-4 w-4" />
-                          PIN gesetzt
+                          {t('pinSet')}
                         </span>
                       ) : entry.isNew ? (
                         <span className="flex items-center gap-1.5 text-sm text-amber-600">
                           <Shield className="h-4 w-4" />
-                          Neuer PIN wird beim Speichern generiert
+                          {t('pinNewOnSave')}
                         </span>
                       ) : (
                         <span className="flex items-center gap-1.5 text-sm text-red-600">
                           <Shield className="h-4 w-4" />
-                          Kein PIN
+                          {t('noPin')}
                         </span>
                       )}
                       {!entry.isNew && entry.hasPin && (
@@ -284,7 +286,7 @@ export function TeamPhonesCard({
                           className={entry.resetPin ? 'border-amber-300 bg-amber-50 text-amber-700' : ''}
                         >
                           <RefreshCw className="mr-1.5 h-3 w-3" />
-                          {entry.resetPin ? 'PIN-Reset markiert' : 'PIN zurücksetzen'}
+                          {entry.resetPin ? t('pinResetMarked') : t('resetPin')}
                         </Button>
                       )}
                     </div>
@@ -306,7 +308,7 @@ export function TeamPhonesCard({
                       <p className="text-xs text-muted-foreground">{entry.phone}</p>
                     </div>
                     <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${roleColors[entry.role]}`}>
-                      {roleLabels[entry.role]}
+                      {ROLE_KEYS[entry.role] ? t(ROLE_KEYS[entry.role]) : entry.role}
                     </span>
                     {entry.email && (
                       <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -319,12 +321,12 @@ export function TeamPhonesCard({
                     {entry.hasPin ? (
                       <span className="flex items-center gap-1.5 text-xs text-green-600">
                         <ShieldCheck className="h-3.5 w-3.5" />
-                        PIN aktiv
+                        {t('pinActive')}
                       </span>
                     ) : (
                       <span className="flex items-center gap-1.5 text-xs text-red-500">
                         <Shield className="h-3.5 w-3.5" />
-                        Kein PIN
+                        {t('noPin')}
                       </span>
                     )}
                   </div>
@@ -341,7 +343,7 @@ export function TeamPhonesCard({
             {staffLoading ? (
               <div className="flex items-center justify-center py-2 text-sm text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Teammitglieder laden...
+                {t('loadingTeam')}
               </div>
             ) : availableStaff.length > 0 ? (
               <div className="flex gap-2">
@@ -356,7 +358,7 @@ export function TeamPhonesCard({
                   }}
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <option value="" disabled>Teammitglied hinzufügen...</option>
+                  <option value="" disabled>{t('addTeamMember')}</option>
                   {availableStaff.map(s => (
                     <option key={s.id} value={s.id}>
                       {s.name}{s.phone ? ` (${s.phone})` : ''}{s.email ? ` — ${s.email}` : ''}
@@ -366,7 +368,7 @@ export function TeamPhonesCard({
               </div>
             ) : staffMembers.length > 0 ? (
               <p className="text-xs text-muted-foreground text-center py-1">
-                Alle Teammitglieder wurden bereits hinzugefügt
+                {t('allAdded')}
               </p>
             ) : null}
 
@@ -378,7 +380,7 @@ export function TeamPhonesCard({
               onClick={addManual}
             >
               <Plus className="mr-2 h-4 w-4" />
-              Manuell hinzufügen
+              {t('addManual')}
             </Button>
           </div>
         )}

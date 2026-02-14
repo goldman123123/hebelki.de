@@ -6,6 +6,8 @@ import { emitEventStandalone } from '@/modules/core/events'
 import { processEvents } from '@/modules/core/events/processor'
 import Link from 'next/link'
 import { CheckCircle, AlertCircle, Clock, Info } from 'lucide-react'
+import { getBusinessLocale } from '@/lib/locale'
+import { getEmailTranslations } from '@/lib/email-i18n'
 
 interface PageProps {
   params: Promise<{ token: string }>
@@ -22,10 +24,8 @@ export default async function ConfirmBookingPage({ params }: PageProps) {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
           <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Buchung nicht gefunden</h1>
-          <p className="text-gray-600">
-            Der Bestätigungslink ist ungültig oder die Buchung existiert nicht mehr.
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Booking not found</h1>
+          <p className="text-gray-600">Invalid link</p>
         </div>
       </div>
     )
@@ -33,7 +33,12 @@ export default async function ConfirmBookingPage({ params }: PageProps) {
 
   const { booking, service, staffMember, customer, business } = result
 
-  const formatDate = (date: Date) => date.toLocaleDateString('de-DE', {
+  // Resolve business locale for translations
+  const locale = business ? await getBusinessLocale(business.id) : 'de'
+  const t = await getEmailTranslations(locale, 'confirm')
+  const dateLocale = locale === 'de' ? 'de-DE' : 'en-US'
+
+  const formatDate = (date: Date) => date.toLocaleDateString(dateLocale, {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -41,7 +46,7 @@ export default async function ConfirmBookingPage({ params }: PageProps) {
     timeZone: business?.timezone || 'Europe/Berlin',
   })
 
-  const formatTime = (date: Date) => date.toLocaleTimeString('de-DE', {
+  const formatTime = (date: Date) => date.toLocaleTimeString(dateLocale, {
     hour: '2-digit',
     minute: '2-digit',
     timeZone: business?.timezone || 'Europe/Berlin',
@@ -53,22 +58,23 @@ export default async function ConfirmBookingPage({ params }: PageProps) {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
           <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Bereits bestätigt</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('alreadyConfirmedTitle')}</h1>
           <p className="text-gray-600 mb-6">
-            Ihre Buchung wurde bereits bestätigt.
+            {t('alreadyConfirmedMessage')}
           </p>
           <BookingDetails
             serviceName={service?.name}
             date={formatDate(booking.startsAt)}
-            time={`${formatTime(booking.startsAt)} - ${formatTime(booking.endsAt)} Uhr`}
+            time={`${formatTime(booking.startsAt)} - ${formatTime(booking.endsAt)}`}
             staffName={staffMember?.name}
             businessName={business?.name}
+            t={t}
           />
           <Link
             href={`/manage/${token}`}
             className="inline-block mt-4 text-sm text-blue-600 hover:text-blue-800 underline"
           >
-            Termin verwalten
+            {t('manageLink')}
           </Link>
         </div>
       </div>
@@ -81,9 +87,9 @@ export default async function ConfirmBookingPage({ params }: PageProps) {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
           <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Buchung storniert</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('cancelledTitle')}</h1>
           <p className="text-gray-600">
-            Diese Buchung wurde bereits storniert und kann nicht mehr bestätigt werden.
+            {t('cancelledMessage')}
           </p>
         </div>
       </div>
@@ -96,23 +102,23 @@ export default async function ConfirmBookingPage({ params }: PageProps) {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
           <Clock className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Wartet auf Genehmigung</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('pendingTitle')}</h1>
           <p className="text-gray-600 mb-6">
-            Ihre Buchung wurde bestätigt und wartet auf die Genehmigung durch das Team.
-            Sie erhalten eine weitere E-Mail, sobald Ihre Buchung genehmigt wurde.
+            {t('pendingMessage')}
           </p>
           <BookingDetails
             serviceName={service?.name}
             date={formatDate(booking.startsAt)}
-            time={`${formatTime(booking.startsAt)} - ${formatTime(booking.endsAt)} Uhr`}
+            time={`${formatTime(booking.startsAt)} - ${formatTime(booking.endsAt)}`}
             staffName={staffMember?.name}
             businessName={business?.name}
+            t={t}
           />
           <Link
             href={`/manage/${token}`}
             className="inline-block mt-4 text-sm text-blue-600 hover:text-blue-800 underline"
           >
-            Termin verwalten
+            {t('manageLink')}
           </Link>
         </div>
       </div>
@@ -125,9 +131,9 @@ export default async function ConfirmBookingPage({ params }: PageProps) {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
           <Info className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Ungültiger Status</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('invalidStatusTitle')}</h1>
           <p className="text-gray-600">
-            Diese Buchung kann im aktuellen Status nicht bestätigt werden.
+            {t('invalidStatusMessage')}
           </p>
         </div>
       </div>
@@ -174,91 +180,92 @@ export default async function ConfirmBookingPage({ params }: PageProps) {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
           <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Buchung bestätigt!</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('confirmedTitle')}</h1>
           <p className="text-gray-600 mb-6">
-            Vielen Dank! Ihr Termin bei <strong>{business?.name}</strong> ist bestätigt.
-            Wir freuen uns auf Ihren Besuch.
+            {t('confirmedMessage', { businessName: business?.name || '' })}
           </p>
           <BookingDetails
             serviceName={service?.name}
             date={formatDate(booking.startsAt)}
-            time={`${formatTime(booking.startsAt)} - ${formatTime(booking.endsAt)} Uhr`}
+            time={`${formatTime(booking.startsAt)} - ${formatTime(booking.endsAt)}`}
             staffName={staffMember?.name}
             businessName={business?.name}
+            t={t}
           />
           <Link
             href={`/manage/${token}`}
             className="inline-block mt-4 text-sm text-blue-600 hover:text-blue-800 underline"
           >
-            Termin verwalten
+            {t('manageLink')}
           </Link>
         </div>
       </div>
     )
   }
 
-  // requiresAdminApproval = true → moved to pending
+  // requiresAdminApproval = true -> moved to pending
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
         <Clock className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Buchung bestätigt</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('pendingApprovalTitle')}</h1>
         <p className="text-gray-600 mb-6">
-          Vielen Dank für Ihre Bestätigung! Ihre Buchung wird nun vom Team bei <strong>{business?.name}</strong> geprüft.
-          Sie erhalten eine weitere E-Mail, sobald Ihre Buchung genehmigt wurde.
+          {t('pendingApprovalMessage', { businessName: business?.name || '' })}
         </p>
         <BookingDetails
           serviceName={service?.name}
           date={formatDate(booking.startsAt)}
-          time={`${formatTime(booking.startsAt)} - ${formatTime(booking.endsAt)} Uhr`}
+          time={`${formatTime(booking.startsAt)} - ${formatTime(booking.endsAt)}`}
           staffName={staffMember?.name}
           businessName={business?.name}
+          t={t}
         />
         <Link
           href={`/manage/${token}`}
           className="inline-block mt-4 text-sm text-blue-600 hover:text-blue-800 underline"
         >
-          Termin verwalten
+          {t('manageLink')}
         </Link>
       </div>
     </div>
   )
 }
 
-function BookingDetails({ serviceName, date, time, staffName, businessName }: {
+function BookingDetails({ serviceName, date, time, staffName, businessName, t }: {
   serviceName?: string | null
   date: string
   time: string
   staffName?: string | null
   businessName?: string | null
+  t: (key: string) => string
 }) {
   return (
     <div className="bg-gray-50 rounded-lg p-4 text-left">
-      <h3 className="font-semibold text-gray-900 mb-3">Buchungsdetails</h3>
+      <h3 className="font-semibold text-gray-900 mb-3">{t('bookingDetails')}</h3>
       <div className="space-y-2 text-sm">
         {businessName && (
           <div className="flex justify-between">
-            <span className="text-gray-500">Unternehmen</span>
+            <span className="text-gray-500">{t('businessLabel')}</span>
             <span className="font-medium">{businessName}</span>
           </div>
         )}
         {serviceName && (
           <div className="flex justify-between">
-            <span className="text-gray-500">Service</span>
+            <span className="text-gray-500">{t('serviceLabel')}</span>
             <span className="font-medium">{serviceName}</span>
           </div>
         )}
         <div className="flex justify-between">
-          <span className="text-gray-500">Datum</span>
+          <span className="text-gray-500">{t('dateLabel')}</span>
           <span className="font-medium">{date}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gray-500">Uhrzeit</span>
+          <span className="text-gray-500">{t('timeLabel')}</span>
           <span className="font-medium">{time}</span>
         </div>
         {staffName && (
           <div className="flex justify-between">
-            <span className="text-gray-500">Mitarbeiter</span>
+            <span className="text-gray-500">{t('staffLabel')}</span>
             <span className="font-medium">{staffName}</span>
           </div>
         )}

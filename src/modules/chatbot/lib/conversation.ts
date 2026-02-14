@@ -16,6 +16,9 @@ import {
 import { tools, executeTool } from './tools'
 import { getAIConfig } from '@/lib/ai/config'
 import { logAIUsage } from '@/lib/ai/usage'
+import { getBusinessLocale } from '@/lib/locale'
+import { getEmailTranslations } from '@/lib/email-i18n'
+import type { Locale } from '@/i18n/config'
 import { createLogger } from '@/lib/logger'
 
 const log = createLogger('chatbot:conversation')
@@ -164,7 +167,9 @@ async function loadConversationContext(conversationId: string): Promise<Conversa
 /**
  * Generate a conversation summary using AI
  */
-async function generateConversationSummary(conversationId: string): Promise<string> {
+async function generateConversationSummary(conversationId: string, locale: Locale = 'de'): Promise<string> {
+  const ts = await getEmailTranslations(locale, 'chatbotPrompts.summary')
+
   // Get messages to summarize
   const messages = await db
     .select({
@@ -188,20 +193,15 @@ async function generateConversationSummary(conversationId: string): Promise<stri
 
   // Format messages for summarization
   const conversationText = messages
-    .map(m => `${m.role === 'user' ? 'Kunde' : 'Assistent'}: ${m.content}`)
+    .map(m => `${m.role === 'user' ? ts('customerLabel') : ts('assistantLabel')}: ${m.content}`)
     .join('\n')
 
   // Generate summary using AI
-  const summaryPrompt = `Fasse die bisherige Konversation in 2-3 Sätzen zusammen. Fokussiere auf:
-- Kundenname (falls bekannt)
-- Hauptanliegen/Intent
-- Wichtige besprochene Fakten (Service, Termin, etc.)
-- Aktueller Buchungsstatus (falls relevant)
+  const summaryPrompt = `${ts('prompt')}
 
-Konversation:
 ${conversationText}
 
-Zusammenfassung (auf Deutsch, max 3 Sätze):`
+${ts('instruction')}`
 
   try {
     const response = await createChatCompletion({
@@ -241,7 +241,7 @@ async function dbUpdateWithRetry(fn: () => Promise<void>, retries = 1): Promise<
  * Update conversation summary if needed
  * Called after each message exchange
  */
-async function updateSummaryIfNeeded(conversationId: string, currentMessageCount: number): Promise<void> {
+async function updateSummaryIfNeeded(conversationId: string, currentMessageCount: number, locale: Locale = 'de'): Promise<void> {
   // Check if we should generate a new summary
   if (currentMessageCount < MEMORY_CONFIG.MESSAGES_BEFORE_SUMMARY) {
     // Just increment the counter
@@ -261,7 +261,7 @@ async function updateSummaryIfNeeded(conversationId: string, currentMessageCount
   // Time to generate a summary
   log.info(`Generating summary for conversation ${conversationId} (${currentMessageCount} messages)`)
 
-  const summary = await generateConversationSummary(conversationId)
+  const summary = await generateConversationSummary(conversationId, locale)
 
   if (summary) {
     await dbUpdateWithRetry(() =>
@@ -324,60 +324,61 @@ export async function updateConversationIntent(
  * Build intent context for system prompt
  * Used when customer reconnects to resume booking flow
  */
-function buildIntentContext(intent: ConversationIntent | null): string {
+async function buildIntentContext(intent: ConversationIntent | null, locale: Locale = 'de'): Promise<string> {
   if (!intent || intent.state === 'idle') {
     return ''
   }
 
+  const ti = await getEmailTranslations(locale, 'chatbotPrompts.intent')
   const parts: string[] = []
 
   switch (intent.state) {
     case 'browsing_services':
-      parts.push('Der Kunde hat sich die Services angesehen.')
+      parts.push(ti('browsingServices'))
       break
 
     case 'checking_availability':
       if (intent.serviceName) {
-        parts.push(`Der Kunde interessiert sich für: ${intent.serviceName}`)
+        parts.push(ti('interestedIn', { service: intent.serviceName }))
       }
       if (intent.selectedDate) {
-        parts.push(`Gewünschtes Datum: ${intent.selectedDate}`)
+        parts.push(ti('desiredDate', { date: intent.selectedDate }))
       }
       break
 
     case 'hold_active':
-      parts.push('WICHTIG: Es gibt eine aktive Reservierung!')
+      parts.push(ti('activeHold'))
       if (intent.holdId) parts.push(`Hold-ID: ${intent.holdId}`)
       if (intent.holdExpiresAt) {
         const expiresAt = new Date(intent.holdExpiresAt)
         const now = new Date()
         if (expiresAt > now) {
           const minutesLeft = Math.round((expiresAt.getTime() - now.getTime()) / 60000)
-          parts.push(`Reservierung läuft in ${minutesLeft} Minuten ab.`)
+          parts.push(ti('holdExpires', { minutes: minutesLeft }))
         } else {
-          parts.push('Reservierung ist möglicherweise abgelaufen.')
+          parts.push(ti('holdMaybeExpired'))
         }
       }
       if (intent.serviceName) parts.push(`Service: ${intent.serviceName}`)
-      if (intent.selectedSlot?.staffName) parts.push(`Mitarbeiter: ${intent.selectedSlot.staffName}`)
+      if (intent.selectedSlot?.staffName) parts.push(`Staff: ${intent.selectedSlot.staffName}`)
       break
 
     case 'collecting_details':
-      parts.push('Der Kunde gibt gerade seine Daten ein.')
+      parts.push(ti('collectingDetails'))
       if (intent.customerData?.name) parts.push(`Name: ${intent.customerData.name}`)
-      if (intent.customerData?.email) parts.push(`E-Mail: ${intent.customerData.email}`)
+      if (intent.customerData?.email) parts.push(`Email: ${intent.customerData.email}`)
       break
 
     case 'awaiting_confirmation':
-      parts.push('Warte auf finale Bestätigung des Kunden.')
+      parts.push(ti('awaitingConfirmation'))
       break
   }
 
   if (parts.length === 0) return ''
 
-  return `\n\nKONTEXT AUS VORHERIGER SITZUNG:
+  return `\n\n${ti('previousSessionTitle')}
 ${parts.join('\n')}
-Setze das Gespräch fort, z.B.: "Ich sehe, Sie waren dabei einen Termin zu buchen..."
+${ti('resumeBooking')}
 `
 }
 
@@ -405,62 +406,61 @@ type UserRole = 'customer' | 'staff' | 'owner'
 /**
  * Build base prompt - shared by all roles
  */
-function buildBasePrompt(
+async function buildBasePrompt(
   context: BusinessContext,
   businessId: string,
-  channel: string
-): string {
-  // Map business type to German description
-  const typeDescriptions: Record<string, string> = {
-    'clinic': 'eine medizinische Praxis',
-    'salon': 'ein Salon',
-    'consultant': 'ein Beratungsunternehmen',
-    'gym': 'ein Fitnessstudio',
-    'other': 'ein Unternehmen'
-  }
+  channel: string,
+  locale: Locale = 'de'
+): Promise<string> {
+  const tb = await getEmailTranslations(locale, 'chatbotPrompts.base')
+  const tt = await getEmailTranslations(locale, 'chatbotPrompts.businessTypes')
 
-  const businessType = typeDescriptions[context.type || 'other'] || typeDescriptions['other']
+  const businessType = tt(context.type || 'other')
+  const contact = context.email || context.phone || 'our team'
+  const languageRule = locale === 'de' ? tb('alwaysGerman') : tb('alwaysEnglish')
 
-  return `Du bist der KI-Assistent für ${context.name}, ${businessType}.
+  return `${tb('intro', { name: context.name, type: businessType })}
 
 ${context.customInstructions || ''}
 
-COMPLIANCE (EU AI Act):
-- ERSTE NACHRICHT: Beginne JEDE Konversation mit einer klaren Offenlegung, dass du ein KI-Assistent bist. Beispiel: "Hallo! Ich bin der KI-Assistent von ${context.name}. Wie kann ich Ihnen helfen?"
-- Niemals vorgeben, ein Mensch zu sein
-- Bei Frage "Bist du ein Bot?": "Ja, ich bin ein automatisierter KI-Assistent für ${context.name}."
-- Bei Fehlern: "Ich bin ein KI-Assistent und kann Fehler machen. Bei wichtigen Anliegen kontaktieren Sie bitte: ${context.email || context.phone || 'unser Team'}"
-${channel === 'whatsapp' ? '- WhatsApp: Erwähne STOP für Opt-Out in erster Nachricht' : ''}
+${tb('compliance')}
+- ${tb('complianceFirst', { name: context.name })}
+- ${tb('complianceNeverHuman')}
+- ${tb('complianceBotQuestion', { name: context.name })}
+- ${tb('complianceError', { contact })}
+${channel === 'whatsapp' ? `- ${tb('complianceWhatsapp')}` : ''}
 
-STRENGE REGELN - TOOLS SIND DIE EINZIGE QUELLE DER WAHRHEIT:
-1. **Services & Preise**: IMMER get_available_services() aufrufen, NIE aus Gedächtnis
-2. **Verfügbarkeit**: IMMER check_availability() aufrufen mit Datum
-3. **Datum-Fragen**: Nutze get_current_date() für korrekte Daten
-4. **Wissensbasis**: Nutze search_knowledge_base() für FAQs, Policies, Öffnungszeiten
+${tb('rulesTitle')}
+1. ${tb('ruleServices')}
+2. ${tb('ruleAvailability')}
+3. ${tb('ruleDate')}
+4. ${tb('ruleKnowledge')}
 
-FEHLERBEHANDLUNG:
-- INVALID_TOOL_ARGS/MISSING_REQUIRED_ARGS: Sammle fehlende Daten, versuche erneut
-- SLOT_UNAVAILABLE: check_availability() aufrufen, neue Slots zeigen
-- HOLD_EXPIRED: "Reservierung abgelaufen, neuen Termin wählen?"
-- Nach 3+ Fehlern: "Technisches Problem. Ich leite Sie an unser Team weiter."
+${tb('errorTitle')}
+- ${tb('errorInvalidArgs')}
+- ${tb('errorSlotUnavailable')}
+- ${tb('errorHoldExpired')}
+- ${tb('errorEscalate')}
 
-WICHTIG: Für alle Tool-Aufrufe diese businessId verwenden: ${businessId}
+WICHTIG: ${tb('businessIdNote', { businessId })}
 
-Antworte IMMER auf Deutsch!`
+${languageRule}`
 }
 
 /**
  * Build customer overlay - booking flow, FAQs
  */
-function buildCustomerOverlay(businessId: string): string {
+async function buildCustomerOverlay(businessId: string, locale: Locale = 'de'): Promise<string> {
+  const tc = await getEmailTranslations(locale, 'chatbotPrompts.customer')
+
   return `
 
-DEINE ROLLE FÜR KUNDEN:
-- Beantworte Fragen freundlich und professionell
-- Hilf bei Terminbuchungen
-- Verwende ausschließlich die formelle "Sie"-Anrede
+${tc('roleTitle')}
+- ${tc('roleDescription')}
+- ${tc('roleBookings')}
+- ${tc('roleFormal')}
 
-BUCHUNGSABLAUF (Reihenfolge PFLICHT):
+${tc('bookingTitle')}
 
 1. Service auswählen
    → get_available_services()
@@ -469,7 +469,7 @@ BUCHUNGSABLAUF (Reihenfolge PFLICHT):
 2. Verfügbarkeit prüfen
    → get_current_date() aufrufen
    → check_availability(date: YYYY-MM-DD) aufrufen
-   → Zeige Slots: "Slot 1: 07:00 Uhr, Slot 2: 08:00 Uhr..."
+   → Zeige Slots: "Slot 1: 07:00, Slot 2: 08:00..."
 
 3. Slot reservieren
    → Finde den Slot aus check_availability Antwort
@@ -482,22 +482,21 @@ BUCHUNGSABLAUF (Reihenfolge PFLICHT):
 
 5. Buchung abschließen
    → confirm_booking()
-   → Erfolgsmeldung mit allen Details
 
 VERFÜGBARE TOOLS:
-- get_current_date: Aktuelles Datum/Zeit
-- get_available_services: Services mit Preisen
-- get_available_staff: Verfügbare Mitarbeiter
-- check_availability: Freie Termine prüfen
-- create_hold: Zeitslot reservieren (5 Min.)
-- confirm_booking: Buchung bestätigen
-- search_knowledge_base: Wissensdatenbank durchsuchen`
+- get_current_date
+- get_available_services
+- get_available_staff
+- check_availability
+- create_hold
+- confirm_booking
+- search_knowledge_base`
 }
 
 /**
  * Build staff overlay - booking management, customer lookup
  */
-function buildStaffOverlay(): string {
+async function buildStaffOverlay(): Promise<string> {
   return `
 
 ADMIN-ROLLE FÜR MITARBEITER:
@@ -528,7 +527,7 @@ COMMUNICATION TOOLS:
 /**
  * Build owner overlay - analytics, conversation management
  */
-function buildOwnerOverlay(): string {
+async function buildOwnerOverlay(): Promise<string> {
   return `
 
 INHABER-ROLLE (zusätzlich zu Mitarbeiter-Tools):
@@ -548,7 +547,9 @@ CONVERSATION MANAGEMENT TOOLS:
  * Build standalone assistant prompt for /tools/assistant
  * NOT layered — replaces getSystemPrompt() entirely
  */
-function buildAssistantPrompt(businessName: string, businessId: string): string {
+async function buildAssistantPrompt(businessName: string, businessId: string, locale: Locale = 'de'): Promise<string> {
+  const ta = await getEmailTranslations(locale, 'chatbotPrompts.assistant')
+  const languageRule = locale === 'de' ? ta('alwaysGerman') : ta('alwaysGerman') // assistant always German for now
   return `Du bist der interne Geschäftsassistent für ${businessName}.
 Du unterstützt den Inhaber bei allen betrieblichen Aufgaben.
 
@@ -630,26 +631,27 @@ WICHTIG:
  * - Staff overlay: + Booking management, customer lookup, communication
  * - Owner overlay: + Analytics, conversation management
  */
-function getSystemPrompt(
+async function getSystemPrompt(
   context: BusinessContext,
   businessId: string,
   channel: string = 'web',
-  role: UserRole = 'customer'
-): string {
+  role: UserRole = 'customer',
+  locale: Locale = 'de'
+): Promise<string> {
   // Build base prompt
-  let prompt = buildBasePrompt(context, businessId, channel)
+  let prompt = await buildBasePrompt(context, businessId, channel, locale)
 
   // Add customer overlay (always included)
-  prompt += buildCustomerOverlay(businessId)
+  prompt += await buildCustomerOverlay(businessId, locale)
 
   // Add staff overlay for staff and owner
   if (role === 'staff' || role === 'owner') {
-    prompt += buildStaffOverlay()
+    prompt += await buildStaffOverlay()
   }
 
   // Add owner overlay for owner only
   if (role === 'owner') {
-    prompt += buildOwnerOverlay()
+    prompt += await buildOwnerOverlay()
   }
 
   return prompt
@@ -782,6 +784,9 @@ export async function handleChatMessage(params: {
     conversationId = conversation.id
   }
 
+  // 4b. Resolve business locale for prompts
+  const businessLocale = await getBusinessLocale(businessId)
+
   // 5. Build message with optional file context
   let augmentedMessage = message
   if (attachedFiles && attachedFiles.length > 0) {
@@ -808,11 +813,12 @@ export async function handleChatMessage(params: {
   const history = context.messages
 
   // Build intent context for reconnecting customers
-  const intentContext = buildIntentContext(context.intent)
+  const intentContext = await buildIntentContext(context.intent, businessLocale)
 
   // Build summary context if available
+  const tsSummary = await getEmailTranslations(businessLocale, 'chatbotPrompts.summary')
   const summaryContext = context.summary
-    ? `\n\nZUSAMMENFASSUNG BISHERIGER GESPRÄCH:\n${context.summary}\n`
+    ? `\n\n${tsSummary('previousSummary')}\n${context.summary}\n`
     : ''
 
   // 7. Filter tools based on user role
@@ -919,8 +925,8 @@ export async function handleChatMessage(params: {
   // 8. Build messages for AI with dynamic system prompt
   // Include summary and intent context for better continuity
   const systemPromptContent = isAssistant
-    ? buildAssistantPrompt(business.name, businessId) + summaryContext
-    : getSystemPrompt(businessContext, businessId, channel, userRole) + summaryContext + intentContext
+    ? (await buildAssistantPrompt(business.name, businessId, businessLocale)) + summaryContext
+    : (await getSystemPrompt(businessContext, businessId, channel, userRole, businessLocale)) + summaryContext + intentContext
 
   const messages: ChatMessage[] = [
     {
@@ -1240,6 +1246,7 @@ export async function handleChatMessage(params: {
 
   // 10. Validate finalResponse and provide graceful fallback
   if (!finalResponse || finalResponse.trim() === '') {
+    const tFallback = await getEmailTranslations(businessLocale, 'chatbotPrompts.fallback')
     // Check if there were tool errors
     const hadToolErrors = messages.some(m => {
       if (m.role === 'tool') {
@@ -1254,9 +1261,9 @@ export async function handleChatMessage(params: {
     })
 
     if (hadToolErrors) {
-      finalResponse = 'Es gab einen technischen Fehler bei der Verarbeitung Ihrer Anfrage. Bitte versuchen Sie es erneut oder kontaktieren Sie uns direkt.'
+      finalResponse = tFallback('toolError')
     } else {
-      finalResponse = 'Entschuldigung, ich konnte keine passende Antwort generieren. Wie kann ich Ihnen weiterhelfen?'
+      finalResponse = tFallback('noResponse')
     }
 
     log.warn('AI failed to generate response, using fallback', {
@@ -1292,13 +1299,13 @@ export async function handleChatMessage(params: {
   const newMessageCount = context.messagesSinceSummary + 2
 
   // Update summary in background (non-blocking)
-  updateSummaryIfNeeded(conversationId, newMessageCount).catch(err => {
+  updateSummaryIfNeeded(conversationId, newMessageCount, businessLocale).catch(err => {
     log.error('Summary update failed:', err)
   })
 
   return {
     conversationId,
-    response: finalResponse || 'Entschuldigung, ich konnte keine Antwort generieren.',
+    response: finalResponse || (businessLocale === 'en' ? 'Sorry, I could not generate a response.' : 'Entschuldigung, ich konnte keine Antwort generieren.'),
     metadata: {
       model: response.model,
       usage: response.usage,

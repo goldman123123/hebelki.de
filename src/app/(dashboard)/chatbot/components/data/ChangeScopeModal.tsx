@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/select'
 import { Bot, Lock, User, Loader2, Check } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { Document } from './DocumentCard'
 import { cn } from '@/lib/utils'
 import { createLogger } from '@/lib/logger'
@@ -59,6 +60,7 @@ export function ChangeScopeModal({
   businessId,
   onSuccess,
 }: ChangeScopeModalProps) {
+  const t = useTranslations('dashboard.chatbot.data.changeScope')
   const [saving, setSaving] = useState(false)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loadingCustomers, setLoadingCustomers] = useState(false)
@@ -99,7 +101,7 @@ export function ChangeScopeModal({
       }
     } catch (error) {
       log.error('Failed to load customers:', error)
-      toast.error('Fehler beim Laden der Kunden')
+      toast.error(t('loadError'))
     } finally {
       setLoadingCustomers(false)
     }
@@ -108,7 +110,7 @@ export function ChangeScopeModal({
   const handleSave = async () => {
     // Validate customer selection
     if (selectedScope === 'customer' && !selectedCustomerId) {
-      toast.error('Bitte wählen Sie einen Kunden aus')
+      toast.error(t('selectCustomerRequired'))
       return
     }
 
@@ -152,15 +154,15 @@ export function ChangeScopeModal({
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Fehler beim Speichern')
+        throw new Error(data.error || t('saveError'))
       }
 
-      toast.success('Dokument verschoben')
+      toast.success(t('moved'))
       onOpenChange(false)
       onSuccess?.()
     } catch (error) {
       log.error('Save scope error:', error)
-      toast.error(error instanceof Error ? error.message : 'Fehler beim Speichern')
+      toast.error(error instanceof Error ? error.message : t('saveError'))
     } finally {
       setSaving(false)
     }
@@ -179,22 +181,22 @@ export function ChangeScopeModal({
       value: 'chatbot' as ScopeOption,
       icon: Bot,
       iconColor: 'text-green-600',
-      label: 'Chatbot',
-      description: 'Für Kunden im Chatbot zugänglich',
+      label: t('chatbot'),
+      description: t('chatbotDesc'),
     },
     {
       value: 'intern' as ScopeOption,
       icon: Lock,
       iconColor: 'text-gray-600',
-      label: 'Intern',
-      description: 'Nur für Mitarbeiter sichtbar',
+      label: t('internal'),
+      description: t('internalDesc'),
     },
     {
       value: 'customer' as ScopeOption,
       icon: User,
       iconColor: 'text-purple-600',
-      label: 'Kunde',
-      description: 'Für einen bestimmten Kunden',
+      label: t('customer'),
+      description: t('customerDesc'),
     },
   ]
 
@@ -202,16 +204,16 @@ export function ChangeScopeModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Dokument verschieben</DialogTitle>
+          <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>
-            Wählen Sie den neuen Bereich für &quot;{doc.title}&quot;
+            {t('description', { title: doc.title })}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
           {/* Scope selection */}
           <div className="space-y-3">
-            <Label>Zielbereich</Label>
+            <Label>{t('targetScope')}</Label>
             <div className="space-y-2">
               {scopeOptions.map((option) => {
                 const Icon = option.icon
@@ -255,15 +257,15 @@ export function ChangeScopeModal({
           {/* Customer selector (only when customer scope selected) */}
           {selectedScope === 'customer' && (
             <div className="space-y-2">
-              <Label htmlFor="customer-select">Kunde auswählen</Label>
+              <Label htmlFor="customer-select">{t('selectCustomer')}</Label>
               {loadingCustomers ? (
                 <div className="flex items-center gap-2 text-sm text-gray-500 py-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Lädt Kunden...
+                  {t('loadingCustomers')}
                 </div>
               ) : customers.length === 0 ? (
                 <p className="text-sm text-gray-500 py-2">
-                  Keine Kunden vorhanden. Erstellen Sie zuerst einen Kunden.
+                  {t('noCustomers')}
                 </p>
               ) : (
                 <Select
@@ -271,7 +273,7 @@ export function ChangeScopeModal({
                   onValueChange={setSelectedCustomerId}
                 >
                   <SelectTrigger id="customer-select">
-                    <SelectValue placeholder="Kunde auswählen..." />
+                    <SelectValue placeholder={t('selectCustomerPlaceholder')} />
                   </SelectTrigger>
                   <SelectContent>
                     {customers.map((customer) => (
@@ -297,7 +299,7 @@ export function ChangeScopeModal({
             onClick={() => onOpenChange(false)}
             disabled={saving}
           >
-            Abbrechen
+            {t('cancel')}
           </Button>
           <Button
             onClick={handleSave}
@@ -306,10 +308,10 @@ export function ChangeScopeModal({
             {saving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Speichern...
+                {t('saving')}
               </>
             ) : (
-              'Speichern'
+              t('save')
             )}
           </Button>
         </DialogFooter>

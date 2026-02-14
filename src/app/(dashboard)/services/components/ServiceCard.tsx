@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -35,6 +36,7 @@ interface ServiceCardProps {
 }
 
 export function ServiceCard({ service, selected, onToggleSelect, onEdit, onToggleActive, onDelete }: ServiceCardProps) {
+  const t = useTranslations('dashboard.services')
   const isMobile = useIsMobile()
 
   return (
@@ -52,7 +54,7 @@ export function ServiceCard({ service, selected, onToggleSelect, onEdit, onToggl
               <h3 className="font-semibold text-gray-900 text-base md:text-lg">{service.name}</h3>
               {!service.isActive && (
                 <Badge variant="outline" className="text-xs">
-                  Inaktiv
+                  {t('inactiveLabel')}
                 </Badge>
               )}
             </div>
@@ -65,16 +67,16 @@ export function ServiceCard({ service, selected, onToggleSelect, onEdit, onToggl
                 {service.durationMinutes} min
               </span>
               {service.bufferMinutes && service.bufferMinutes > 0 && (
-                <span>+ {service.bufferMinutes} min Puffer</span>
+                <span>{t('buffer', { minutes: service.bufferMinutes })}</span>
               )}
               {service.price ? (
                 <span className="font-semibold text-gray-900">{service.price} &euro;</span>
               ) : (
-                <span className="text-gray-400">Kostenlos</span>
+                <span className="text-gray-400">{t('free')}</span>
               )}
               {service.capacity && service.capacity > 1 && (
                 <Badge variant="secondary" className="ml-1">
-                  Gruppe: {service.capacity} Plätze
+                  {t('groupCapacity', { capacity: service.capacity })}
                 </Badge>
               )}
             </div>
@@ -87,30 +89,30 @@ export function ServiceCard({ service, selected, onToggleSelect, onEdit, onToggl
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
                 <MoreVertical className="h-4 w-4" />
-                <span className="sr-only">Aktionen</span>
+                <span className="sr-only">{t('actions')}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={onEdit}>
                 <Edit className="h-4 w-4 mr-2" />
-                Bearbeiten
+                {t('edit')}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onToggleActive}>
                 {service.isActive ? (
                   <>
                     <EyeOff className="h-4 w-4 mr-2" />
-                    Ausblenden
+                    {t('hide')}
                   </>
                 ) : (
                   <>
                     <Eye className="h-4 w-4 mr-2" />
-                    Anzeigen
+                    {t('show')}
                   </>
                 )}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onDelete} className="text-red-600">
                 <Trash2 className="h-4 w-4 mr-2" />
-                Löschen
+                {t('delete')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -125,12 +127,12 @@ export function ServiceCard({ service, selected, onToggleSelect, onEdit, onToggl
               {service.isActive ? (
                 <>
                   <EyeOff className="h-4 w-4" />
-                  Ausblenden
+                  {t('hide')}
                 </>
               ) : (
                 <>
                   <Eye className="h-4 w-4" />
-                  Anzeigen
+                  {t('show')}
                 </>
               )}
             </Button>
@@ -140,7 +142,7 @@ export function ServiceCard({ service, selected, onToggleSelect, onEdit, onToggl
               onClick={onEdit}
             >
               <Edit className="h-4 w-4 mr-1" />
-              Bearbeiten
+              {t('edit')}
             </Button>
             <Button
               size="sm"

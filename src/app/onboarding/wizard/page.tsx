@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense } from 'react'
+import { useTranslations } from 'next-intl'
 import { WizardProvider, useWizard } from './context/WizardContext'
 import { WizardErrorBoundary } from './components/ErrorBoundary'
 import { ProgressIndicator } from './components/ProgressIndicator'
@@ -13,6 +14,7 @@ import { Step6Complete } from './components/steps/Step6Complete'
 
 function WizardContent() {
   const { state, nextStep, prevStep, saveProgress } = useWizard()
+  const t = useTranslations('onboarding.wizard')
 
   const handleNext = async () => {
     await saveProgress()
@@ -47,9 +49,9 @@ function WizardContent() {
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="mx-auto max-w-6xl px-4">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-gray-900">Einrichtungsassistent</h1>
+          <h1 className="text-3xl font-bold text-gray-900">{t('pageTitle')}</h1>
           <p className="text-gray-600 mt-2">
-            Machen Sie Ihr Unternehmen bereit für Buchungen
+            {t('pageSubtitle')}
           </p>
         </div>
 
@@ -63,17 +65,23 @@ function WizardContent() {
   )
 }
 
+function WizardLoadingFallback() {
+  const t = useTranslations('onboarding.wizard')
+
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+        <p className="mt-4 text-gray-600">{t('loading')}</p>
+      </div>
+    </div>
+  )
+}
+
 export default function OnboardingWizard() {
   return (
     <WizardErrorBoundary>
-      <Suspense fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
-            <p className="mt-4 text-gray-600">Assistent wird geladen...</p>
-          </div>
-        </div>
-      }>
+      <Suspense fallback={<WizardLoadingFallback />}>
         <WizardProvider>
           <WizardContent />
         </WizardProvider>

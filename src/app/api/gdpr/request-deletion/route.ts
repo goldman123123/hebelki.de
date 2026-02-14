@@ -13,6 +13,7 @@ import { eq, and } from 'drizzle-orm'
 import { randomBytes } from 'crypto'
 import { sendEmail } from '@/lib/email'
 import { deletionRequestEmail } from '@/lib/email-templates'
+import { getBusinessLocale } from '@/lib/locale'
 import { createLogger } from '@/lib/logger'
 
 const log = createLogger('api:gdpr:request-deletion')
@@ -83,14 +84,15 @@ export async function POST(request: NextRequest) {
     const confirmUrl = `${baseUrl}/gdpr/confirm/${token}`
     const exportUrl = `${baseUrl}/api/gdpr/export?token=${token}`
 
-    // Send confirmation email
-    const emailData = deletionRequestEmail({
+    // Send confirmation email (in business locale)
+    const locale = await getBusinessLocale(businessId)
+    const emailData = await deletionRequestEmail({
       customerName: customer.name || undefined,
       businessName: business.name,
       confirmUrl,
       exportUrl,
       expiresAt,
-    })
+    }, locale)
 
     await sendEmail({
       to: email,

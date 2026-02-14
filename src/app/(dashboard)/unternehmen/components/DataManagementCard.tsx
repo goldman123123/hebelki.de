@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
+import { useTranslations } from 'next-intl'
 import type { Business } from '../types'
 
 interface DataManagementCardProps {
@@ -26,14 +27,29 @@ interface DeletionRequest {
   expiresAt: string
 }
 
-const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
-  pending: { label: 'Ausstehend', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
-  confirmed: { label: 'Bestätigt', color: 'bg-blue-100 text-blue-800', icon: AlertCircle },
-  completed: { label: 'Abgeschlossen', color: 'bg-green-100 text-green-800', icon: CheckCircle },
-  expired: { label: 'Abgelaufen', color: 'bg-gray-100 text-gray-600', icon: XCircle },
+const STATUS_COLORS: Record<string, string> = {
+  pending: 'bg-yellow-100 text-yellow-800',
+  confirmed: 'bg-blue-100 text-blue-800',
+  completed: 'bg-green-100 text-green-800',
+  expired: 'bg-gray-100 text-gray-600',
+}
+
+const STATUS_ICONS: Record<string, typeof Clock> = {
+  pending: Clock,
+  confirmed: AlertCircle,
+  completed: CheckCircle,
+  expired: XCircle,
+}
+
+const STATUS_KEYS: Record<string, string> = {
+  pending: 'statusPending',
+  confirmed: 'statusConfirmed',
+  completed: 'statusCompleted',
+  expired: 'statusExpired',
 }
 
 export function DataManagementCard({ business }: DataManagementCardProps) {
+  const t = useTranslations('dashboard.business.dataManagement')
   const [isExporting, setIsExporting] = useState(false)
   const [exportDone, setExportDone] = useState(false)
   const [confirmName, setConfirmName] = useState('')
@@ -72,7 +88,7 @@ export function DataManagementCard({ business }: DataManagementCardProps) {
       const res = await fetch('/api/admin/export')
       if (!res.ok) {
         const data = await res.json()
-        throw new Error(data.error || 'Export fehlgeschlagen')
+        throw new Error(data.error || t('exportFailed'))
       }
 
       const blob = await res.blob()
@@ -88,7 +104,7 @@ export function DataManagementCard({ business }: DataManagementCardProps) {
       setExportDone(true)
       setTimeout(() => setExportDone(false), 3000)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Export fehlgeschlagen')
+      setError(err instanceof Error ? err.message : t('exportFailed'))
     } finally {
       setIsExporting(false)
     }
@@ -107,12 +123,12 @@ export function DataManagementCard({ business }: DataManagementCardProps) {
 
       if (!res.ok) {
         const data = await res.json()
-        throw new Error(data.error || 'Löschung fehlgeschlagen')
+        throw new Error(data.error || t('deletionFailed'))
       }
 
       window.location.href = '/'
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Löschung fehlgeschlagen')
+      setError(err instanceof Error ? err.message : t('deletionFailed'))
       setIsDeleting(false)
     }
   }
@@ -122,19 +138,18 @@ export function DataManagementCard({ business }: DataManagementCardProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Shield className="h-5 w-5" />
-          Datenverwaltung & DSGVO
+          {t('title')}
         </CardTitle>
         <CardDescription>
-          Datenexport, Kunden-Löschanfragen und Kontolöschung
+          {t('description')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Data Export Section */}
         <div className="rounded-lg border p-4">
-          <h3 className="text-sm font-medium text-gray-900">Daten exportieren</h3>
+          <h3 className="text-sm font-medium text-gray-900">{t('exportTitle')}</h3>
           <p className="mt-1 text-sm text-gray-500">
-            Laden Sie alle Ihre Geschäftsdaten als JSON-Datei herunter — Profil, Dienstleistungen,
-            Mitarbeiter, Kunden, Buchungen, Gespräche und Rechnungen.
+            {t('exportDesc')}
           </p>
           <Button
             onClick={handleExport}
@@ -145,17 +160,17 @@ export function DataManagementCard({ business }: DataManagementCardProps) {
             {isExporting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Exportiere...
+                {t('exporting')}
               </>
             ) : exportDone ? (
               <>
                 <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
-                Heruntergeladen
+                {t('downloaded')}
               </>
             ) : (
               <>
                 <Download className="mr-2 h-4 w-4" />
-                Alle Daten exportieren
+                {t('exportAll')}
               </>
             )}
           </Button>
@@ -163,28 +178,29 @@ export function DataManagementCard({ business }: DataManagementCardProps) {
 
         {/* Customer Deletion Requests (GDPR) */}
         <div className="rounded-lg border p-4">
-          <h3 className="text-sm font-medium text-gray-900">Kunden-Löschanfragen (DSGVO)</h3>
+          <h3 className="text-sm font-medium text-gray-900">{t('deletionRequests')}</h3>
           <p className="mt-1 text-sm text-gray-500">
-            Übersicht aller Datenlöschungsanfragen Ihrer Kunden gemäß Art. 17 DSGVO.
+            {t('deletionRequestsDesc')}
           </p>
 
           {requestsLoading ? (
             <div className="mt-3 flex items-center gap-2 text-gray-500">
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span className="text-sm">Laden...</span>
+              <span className="text-sm">{t('loading')}</span>
             </div>
           ) : requests.length === 0 ? (
             <p className="mt-3 text-sm text-gray-400">
-              Keine Löschanfragen vorhanden.
+              {t('noRequests')}
             </p>
           ) : (
             <div className="mt-3 space-y-2">
               <p className="text-xs text-gray-500">
-                {requests.length} {requests.length === 1 ? 'Anfrage' : 'Anfragen'} insgesamt
+                {t('requestsCount', { count: requests.length })}
               </p>
               {requests.map((req) => {
-                const config = statusConfig[req.status] || statusConfig.pending
-                const StatusIcon = config.icon
+                const statusColor = STATUS_COLORS[req.status] || STATUS_COLORS.pending
+                const StatusIcon = STATUS_ICONS[req.status] || STATUS_ICONS.pending
+                const statusKey = STATUS_KEYS[req.status] || STATUS_KEYS.pending
 
                 return (
                   <div key={req.id} className="flex items-center justify-between gap-4 rounded-md border p-3">
@@ -193,9 +209,9 @@ export function DataManagementCard({ business }: DataManagementCardProps) {
                         <span className="text-sm font-medium text-gray-900 truncate">
                           {req.customerName || req.customerEmail}
                         </span>
-                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${config.color}`}>
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${statusColor}`}>
                           <StatusIcon className="h-3 w-3" />
-                          {config.label}
+                          {t(statusKey)}
                         </span>
                       </div>
                       {req.customerName && (
@@ -208,7 +224,7 @@ export function DataManagementCard({ business }: DataManagementCardProps) {
                       </div>
                       {req.status === 'pending' && (
                         <div className="text-yellow-600">
-                          Läuft ab {formatDistanceToNow(new Date(req.expiresAt), { addSuffix: true, locale: de })}
+                          {t('expiresIn', { time: formatDistanceToNow(new Date(req.expiresAt), { addSuffix: true, locale: de }) })}
                         </div>
                       )}
                     </div>
@@ -223,11 +239,10 @@ export function DataManagementCard({ business }: DataManagementCardProps) {
         <div className="rounded-lg border border-red-200 bg-red-50 p-4">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-red-600" />
-            <h3 className="text-sm font-medium text-red-900">Gefahrenzone</h3>
+            <h3 className="text-sm font-medium text-red-900">{t('dangerZone')}</h3>
           </div>
           <p className="mt-1 text-sm text-red-700">
-            Das Löschen Ihres Kontos entfernt alle Daten unwiderruflich — Buchungen,
-            Kunden, Gespräche, Rechnungen und Einstellungen. Diese Aktion kann nicht rückgängig gemacht werden.
+            {t('dangerDesc')}
           </p>
 
           {!showDeleteConfirm ? (
@@ -237,12 +252,12 @@ export function DataManagementCard({ business }: DataManagementCardProps) {
               className="mt-3"
             >
               <Trash2 className="mr-2 h-4 w-4" />
-              Konto löschen
+              {t('deleteAccount')}
             </Button>
           ) : (
             <div className="mt-3 space-y-3">
               <p className="text-sm font-medium text-red-800">
-                Geben Sie <span className="font-bold">{business.name}</span> ein, um zu bestätigen:
+                {t('confirmDelete', { name: business.name })}
               </p>
               <Input
                 value={confirmName}
@@ -259,10 +274,10 @@ export function DataManagementCard({ business }: DataManagementCardProps) {
                   {isDeleting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Lösche...
+                      {t('deleting')}
                     </>
                   ) : (
-                    'Endgültig löschen'
+                    t('deletePermanently')
                   )}
                 </Button>
                 <Button
@@ -272,7 +287,7 @@ export function DataManagementCard({ business }: DataManagementCardProps) {
                   }}
                   variant="outline"
                 >
-                  Abbrechen
+                  {t('cancel')}
                 </Button>
               </div>
             </div>

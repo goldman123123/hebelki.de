@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Clock, Euro } from 'lucide-react'
 import { cn, formatCurrency } from '@/lib/utils'
 import type { Service } from './BookingWidget'
@@ -11,6 +12,7 @@ interface ServicePickerProps {
 }
 
 export function ServicePicker({ services, currency, onSelect }: ServicePickerProps) {
+  const t = useTranslations('booking')
   // Group services by category
   const groupedServices = services.reduce((acc, service) => {
     const category = service.category || 'Services'
@@ -26,7 +28,7 @@ export function ServicePicker({ services, currency, onSelect }: ServicePickerPro
   return (
     <div>
       <h2 className="mb-4 text-lg font-semibold text-gray-900">
-        Wählen Sie eine Leistung
+        {t('selectService')}
       </h2>
 
       {categories.map((category) => (
@@ -80,7 +82,7 @@ export function ServicePicker({ services, currency, onSelect }: ServicePickerPro
 
       {services.length === 0 && (
         <div className="rounded-lg border border-dashed border-gray-300 p-8 text-center">
-          <p className="text-gray-500">Momentan sind keine Leistungen verfügbar.</p>
+          <p className="text-gray-500">{t('noServices')}</p>
         </div>
       )}
     </div>

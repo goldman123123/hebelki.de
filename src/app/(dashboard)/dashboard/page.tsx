@@ -6,6 +6,7 @@ import { Calendar, Clock, Users, TrendingUp } from 'lucide-react'
 import { getBookingStats, getTodaysBookings } from '@/lib/db/queries'
 import { getBusinessForUser } from '@/lib/auth'
 import { formatTime, formatDate } from '@/lib/utils'
+import { getTranslations } from 'next-intl/server'
 
 export default async function DashboardPage() {
   const { userId } = await auth()
@@ -26,6 +27,8 @@ export default async function DashboardPage() {
   ])
 
   const timezone = business.timezone || 'Europe/Berlin'
+  const t = await getTranslations('dashboard.overview')
+  const ts = await getTranslations('dashboard.statuses')
 
   const statusColors: Record<string, string> = {
     pending: 'bg-yellow-100 text-yellow-800',
@@ -34,20 +37,13 @@ export default async function DashboardPage() {
     completed: 'bg-blue-100 text-blue-800',
   }
 
-  const statusLabels: Record<string, string> = {
-    pending: 'Ausstehend',
-    confirmed: 'Bestätigt',
-    cancelled: 'Storniert',
-    completed: 'Abgeschlossen',
-  }
-
   return (
     <div>
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">{business.name}</h1>
         <p className="text-gray-600">
-          Buchungs-URL:{' '}
+          {t('bookingUrl')}:{' '}
           <a
             href={`/book/${business.slug}`}
             className="text-primary hover:underline"
@@ -63,7 +59,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-gray-500">
-              Heutige Buchungen
+              {t('todaysBookings')}
             </CardTitle>
             <Calendar className="h-4 w-4 text-gray-400" />
           </CardHeader>
@@ -75,7 +71,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-gray-500">
-              Diese Woche
+              {t('thisWeek')}
             </CardTitle>
             <TrendingUp className="h-4 w-4 text-gray-400" />
           </CardHeader>
@@ -87,7 +83,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-gray-500">
-              Ausstehende Genehmigung
+              {t('pendingApproval')}
             </CardTitle>
             <Clock className="h-4 w-4 text-gray-400" />
           </CardHeader>
@@ -99,7 +95,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-gray-500">
-              Buchungen gesamt
+              {t('totalBookings')}
             </CardTitle>
             <Users className="h-4 w-4 text-gray-400" />
           </CardHeader>
@@ -112,7 +108,7 @@ export default async function DashboardPage() {
       {/* Today's Schedule */}
       <Card>
         <CardHeader>
-          <CardTitle>Heutiger Terminplan</CardTitle>
+          <CardTitle>{t('todaysSchedule')}</CardTitle>
           <CardDescription>
             {formatDate(new Date(), timezone)}
           </CardDescription>
@@ -120,7 +116,7 @@ export default async function DashboardPage() {
         <CardContent>
           {todaysBookings.length === 0 ? (
             <p className="py-8 text-center text-gray-500">
-              Keine Termine für heute geplant
+              {t('noAppointments')}
             </p>
           ) : (
             <div className="space-y-4">
@@ -140,16 +136,16 @@ export default async function DashboardPage() {
                     </div>
                     <div className="min-w-0">
                       <div className="font-medium truncate">
-                        {customer?.name || 'Unbekannter Kunde'}
+                        {customer?.name || t('unknownCustomer')}
                       </div>
                       <div className="text-sm text-gray-500 truncate">
-                        {service?.name || 'Unbekannte Dienstleistung'}
-                        {staffMember && ` mit ${staffMember.name}`}
+                        {service?.name || t('unknownService')}
+                        {staffMember && ` ${t('with')} ${staffMember.name}`}
                       </div>
                     </div>
                   </div>
                   <Badge className={`shrink-0 ${statusColors[booking.status || 'pending']}`}>
-                    {statusLabels[booking.status || 'pending'] || booking.status}
+                    {ts(booking.status || 'pending')}
                   </Badge>
                 </div>
               ))}

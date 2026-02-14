@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import {
   CreditCard, ExternalLink, Loader2, Check, ArrowUpRight,
 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import type { Business } from '../types'
 import type { PlanId } from '@/modules/core/entitlements/plans'
 import { getPlan, getAllPlans, getFeatureDescription } from '@/modules/core/entitlements/plans'
@@ -18,6 +19,7 @@ interface BillingCardProps {
 const PLAN_ORDER: PlanId[] = ['free', 'starter', 'pro', 'business']
 
 export function BillingCard({ business }: BillingCardProps) {
+  const t = useTranslations('dashboard.business.billing')
   const [loading, setLoading] = useState<string | null>(null)
 
   const currentPlanId = (business.planId as PlanId) || 'free'
@@ -64,10 +66,10 @@ export function BillingCard({ business }: BillingCardProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <CreditCard className="h-5 w-5" />
-          Abonnement & Abrechnung
+          {t('title')}
         </CardTitle>
         <CardDescription>
-          Verwalten Sie Ihren Tarif und Ihre Zahlungsinformationen
+          {t('description')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -78,24 +80,23 @@ export function BillingCard({ business }: BillingCardProps) {
               <div className="flex items-center gap-2">
                 <h3 className="font-semibold text-lg">{currentPlan.name}</h3>
                 <Badge variant={currentPlanId === 'free' ? 'secondary' : 'default'}>
-                  {currentPlanId === 'free' ? 'Kostenlos' : 'Aktiv'}
+                  {currentPlanId === 'free' ? t('free') : t('active')}
                 </Badge>
               </div>
               <p className="text-sm text-muted-foreground mt-1">{currentPlan.description}</p>
               {currentPlan.price.monthly > 0 && (
                 <p className="text-2xl font-bold mt-2">
                   {currentPlan.price.monthly} EUR
-                  <span className="text-sm font-normal text-muted-foreground"> / Monat</span>
+                  <span className="text-sm font-normal text-muted-foreground"> {t('perMonth')}</span>
                 </p>
               )}
               {business.planExpiresAt && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Aktuelle Periode endet am{' '}
-                  {new Date(business.planExpiresAt).toLocaleDateString('de-DE', {
+                  {t('periodEnds', { date: new Date(business.planExpiresAt).toLocaleDateString('de-DE', {
                     day: '2-digit',
                     month: '2-digit',
                     year: 'numeric',
-                  })}
+                  }) })}
                 </p>
               )}
             </div>
@@ -111,7 +112,7 @@ export function BillingCard({ business }: BillingCardProps) {
                 ) : (
                   <ExternalLink className="mr-2 h-4 w-4" />
                 )}
-                Abonnement verwalten
+                {t('manageSubscription')}
               </Button>
             )}
           </div>
@@ -127,7 +128,7 @@ export function BillingCard({ business }: BillingCardProps) {
           </div>
           {currentPlan.seatLimit !== null && (
             <p className="mt-2 text-xs text-muted-foreground">
-              {currentPlan.seatLimit} {currentPlan.seatLimit === 1 ? 'Platz' : 'Plätze'} inklusive
+              {t('seatsIncluded', { count: currentPlan.seatLimit })}
             </p>
           )}
         </div>
@@ -135,7 +136,7 @@ export function BillingCard({ business }: BillingCardProps) {
         {/* Available plans for upgrade */}
         {currentPlanId !== 'business' && (
           <div>
-            <h4 className="text-sm font-medium text-muted-foreground mb-3">Verfügbare Upgrades</h4>
+            <h4 className="text-sm font-medium text-muted-foreground mb-3">{t('availableUpgrades')}</h4>
             <div className="grid gap-3 md:grid-cols-3">
               {allPlans
                 .filter((plan) => PLAN_ORDER.indexOf(plan.id) > currentPlanIndex)
@@ -148,16 +149,16 @@ export function BillingCard({ business }: BillingCardProps) {
                       <div className="flex items-center justify-between">
                         <h4 className="font-medium">{plan.name}</h4>
                         {plan.id === 'pro' && (
-                          <Badge variant="secondary" className="text-xs">Beliebt</Badge>
+                          <Badge variant="secondary" className="text-xs">{t('popular')}</Badge>
                         )}
                       </div>
                       <p className="text-xl font-bold mt-1">
                         {plan.price.monthly} EUR
-                        <span className="text-xs font-normal text-muted-foreground"> / Monat</span>
+                        <span className="text-xs font-normal text-muted-foreground"> {t('perMonth')}</span>
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">{plan.description}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {plan.seatLimit === null ? 'Unbegrenzte Plätze' : `${plan.seatLimit} Plätze`}
+                        {plan.seatLimit === null ? t('unlimitedSeats') : t('seatsIncluded', { count: plan.seatLimit })}
                       </p>
                     </div>
                     <Button
@@ -172,7 +173,7 @@ export function BillingCard({ business }: BillingCardProps) {
                       ) : (
                         <ArrowUpRight className="mr-2 h-4 w-4" />
                       )}
-                      Upgraden
+                      {t('upgrade')}
                     </Button>
                   </div>
                 ))}
@@ -183,8 +184,7 @@ export function BillingCard({ business }: BillingCardProps) {
         {/* Manage existing subscription */}
         {hasSubscription && (
           <p className="text-xs text-muted-foreground">
-            Zum Ändern der Zahlungsmethode, Kündigen oder Downgraden nutzen Sie bitte
-            &quot;Abonnement verwalten&quot;. Sie werden zum Stripe-Kundenportal weitergeleitet.
+            {t('portalNote')}
           </p>
         )}
       </CardContent>

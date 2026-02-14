@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { FormDialog, ConfirmDialog } from '@/components/forms'
 import { FormTextarea } from '@/components/forms/FormField'
@@ -21,6 +22,7 @@ interface BookingActionsProps {
 
 export function BookingActions({ bookingId, status, onStatusChange }: BookingActionsProps) {
   const router = useRouter()
+  const t = useTranslations('dashboard.bookings.actions')
   const [isApproving, setIsApproving] = useState(false)
   const [isRejecting, setIsRejecting] = useState(false)
   const [showRejectDialog, setShowRejectDialog] = useState(false)
@@ -115,7 +117,7 @@ export function BookingActions({ bookingId, status, onStatusChange }: BookingAct
           ) : (
             <Check className="h-4 w-4" />
           )}
-          <span className="ml-1 hidden sm:inline">Bestätigen</span>
+          <span className="ml-1 hidden sm:inline">{t('confirm')}</span>
         </Button>
         <Button
           size="sm"
@@ -124,7 +126,7 @@ export function BookingActions({ bookingId, status, onStatusChange }: BookingAct
           onClick={() => setShowRejectDialog(true)}
         >
           <X className="h-4 w-4" />
-          <span className="ml-1 hidden sm:inline">Ablehnen</span>
+          <span className="ml-1 hidden sm:inline">{t('reject')}</span>
         </Button>
         <Button
           size="sm"
@@ -137,17 +139,17 @@ export function BookingActions({ bookingId, status, onStatusChange }: BookingAct
         <FormDialog
           open={showRejectDialog}
           onOpenChange={setShowRejectDialog}
-          title="Buchung ablehnen"
-          description="Bitte geben Sie einen Grund für die Ablehnung dieser Buchung an."
+          title={t('rejectBooking')}
+          description={t('rejectBookingDesc')}
           onSubmit={handleReject}
           isSubmitting={isRejecting}
-          submitLabel="Ablehnen"
+          submitLabel={t('reject')}
           variant="destructive"
         >
           <FormTextarea
-            label="Grund"
+            label={t('reason')}
             name="reason"
-            placeholder="Grund für Ablehnung eingeben..."
+            placeholder={t('rejectReasonPlaceholder')}
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
           />
@@ -166,27 +168,27 @@ export function BookingActions({ bookingId, status, onStatusChange }: BookingAct
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => router.push(`/bookings/${bookingId}`)}>
           <Eye className="mr-2 h-4 w-4" />
-          Details anzeigen
+          {t('viewDetails')}
         </DropdownMenuItem>
         {status === 'confirmed' && (
           <>
             <DropdownMenuItem onClick={() => setShowCompleteDialog(true)}>
               <Check className="mr-2 h-4 w-4" />
-              Als abgeschlossen markieren
+              {t('markCompleted')}
             </DropdownMenuItem>
             <DropdownMenuItem
               className="text-orange-600"
               onClick={handleNoShow}
             >
               <X className="mr-2 h-4 w-4" />
-              Als nicht erschienen markieren
+              {t('markNoShow')}
             </DropdownMenuItem>
             <DropdownMenuItem
               className="text-red-600"
               onClick={() => setShowRejectDialog(true)}
             >
               <X className="mr-2 h-4 w-4" />
-              Buchung stornieren
+              {t('cancelBooking')}
             </DropdownMenuItem>
           </>
         )}
@@ -195,27 +197,27 @@ export function BookingActions({ bookingId, status, onStatusChange }: BookingAct
       <ConfirmDialog
         open={showCompleteDialog}
         onOpenChange={setShowCompleteDialog}
-        title="Als abgeschlossen markieren"
-        description="Möchten Sie diese Buchung wirklich als abgeschlossen markieren?"
+        title={t('markCompleted')}
+        description={t('markCompletedDesc')}
         onConfirm={handleComplete}
-        confirmLabel="Abschließen"
+        confirmLabel={t('complete')}
         variant="default"
       />
 
       <FormDialog
         open={showRejectDialog}
         onOpenChange={setShowRejectDialog}
-        title="Buchung stornieren"
-        description="Bitte geben Sie einen Grund für die Stornierung dieser Buchung an."
+        title={t('cancelBooking')}
+        description={t('cancelBookingDesc')}
         onSubmit={handleReject}
         isSubmitting={isRejecting}
-        submitLabel="Buchung stornieren"
+        submitLabel={t('cancelBooking')}
         variant="destructive"
       >
         <FormTextarea
-          label="Grund"
+          label={t('reason')}
           name="reason"
-          placeholder="Grund für Stornierung eingeben..."
+          placeholder={t('cancelReasonPlaceholder')}
           value={rejectReason}
           onChange={(e) => setRejectReason(e.target.value)}
         />

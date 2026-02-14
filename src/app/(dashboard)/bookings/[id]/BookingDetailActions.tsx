@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { FormDialog } from '@/components/forms'
 import { FormTextarea } from '@/components/forms/FormField'
@@ -13,6 +14,7 @@ interface BookingDetailActionsProps {
 }
 
 export function BookingDetailActions({ bookingId, status }: BookingDetailActionsProps) {
+  const t = useTranslations('dashboard.bookings.detail')
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showRejectDialog, setShowRejectDialog] = useState(false)
@@ -47,7 +49,7 @@ export function BookingDetailActions({ bookingId, status }: BookingDetailActions
     return (
       <div className="space-y-3">
         <div className="rounded-md bg-orange-50 border border-orange-200 p-3 text-sm text-orange-800">
-          Wartet auf Kundenbestätigung per E-Mail. Der Kunde hat einen Bestätigungslink per E-Mail erhalten.
+          {t('waitingConfirmation')}
         </div>
         <div className="flex flex-wrap gap-3">
           <Button
@@ -60,7 +62,7 @@ export function BookingDetailActions({ bookingId, status }: BookingDetailActions
             ) : (
               <Check className="mr-2 h-4 w-4" />
             )}
-            Manuell bestätigen
+            {t('manualConfirm')}
           </Button>
           <Button
             variant="destructive"
@@ -68,24 +70,24 @@ export function BookingDetailActions({ bookingId, status }: BookingDetailActions
             disabled={isSubmitting}
           >
             <X className="mr-2 h-4 w-4" />
-            Ablehnen
+            {t('reject')}
           </Button>
         </div>
 
         <FormDialog
           open={showRejectDialog}
           onOpenChange={setShowRejectDialog}
-          title="Buchung ablehnen"
-          description="Bitte geben Sie einen Grund für die Ablehnung an. Der Kunde wird benachrichtigt."
+          title={t('rejectBooking')}
+          description={t('rejectBookingDesc')}
           onSubmit={handleReject}
           isSubmitting={isSubmitting}
-          submitLabel="Ablehnen"
+          submitLabel={t('reject')}
           variant="destructive"
         >
           <FormTextarea
-            label="Grund"
+            label={t('reason')}
             name="reason"
-            placeholder="Grund für die Ablehnung..."
+            placeholder={t('reasonPlaceholder')}
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             rows={3}
@@ -108,7 +110,7 @@ export function BookingDetailActions({ bookingId, status }: BookingDetailActions
           ) : (
             <Check className="mr-2 h-4 w-4" />
           )}
-          Approve Booking
+          {t('approveBooking')}
         </Button>
         <Button
           variant="destructive"
@@ -116,23 +118,23 @@ export function BookingDetailActions({ bookingId, status }: BookingDetailActions
           disabled={isSubmitting}
         >
           <X className="mr-2 h-4 w-4" />
-          Reject Booking
+          {t('rejectAction')}
         </Button>
 
         <FormDialog
           open={showRejectDialog}
           onOpenChange={setShowRejectDialog}
-          title="Reject Booking"
-          description="Please provide a reason for rejecting this booking. The customer will be notified."
+          title={t('rejectBooking')}
+          description={t('rejectBookingDesc')}
           onSubmit={handleReject}
           isSubmitting={isSubmitting}
-          submitLabel="Reject"
+          submitLabel={t('reject')}
           variant="destructive"
         >
           <FormTextarea
-            label="Reason"
+            label={t('reason')}
             name="reason"
-            placeholder="Enter reason for rejection..."
+            placeholder={t('reasonPlaceholder')}
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             rows={3}
@@ -154,14 +156,14 @@ export function BookingDetailActions({ bookingId, status }: BookingDetailActions
           ) : (
             <Check className="mr-2 h-4 w-4" />
           )}
-          Mark Completed
+          {t('markCompleted')}
         </Button>
         <Button
           variant="outline"
           onClick={() => handleStatusChange('no_show')}
           disabled={isSubmitting}
         >
-          Mark No Show
+          {t('markNoShow')}
         </Button>
         <Button
           variant="destructive"
@@ -169,23 +171,23 @@ export function BookingDetailActions({ bookingId, status }: BookingDetailActions
           disabled={isSubmitting}
         >
           <X className="mr-2 h-4 w-4" />
-          Cancel Booking
+          {t('cancelBooking')}
         </Button>
 
         <FormDialog
           open={showRejectDialog}
           onOpenChange={setShowRejectDialog}
-          title="Cancel Booking"
-          description="Please provide a reason for cancelling this booking. The customer will be notified."
+          title={t('cancelBookingTitle')}
+          description={t('cancelBookingDesc')}
           onSubmit={handleReject}
           isSubmitting={isSubmitting}
-          submitLabel="Cancel Booking"
+          submitLabel={t('cancelBooking')}
           variant="destructive"
         >
           <FormTextarea
-            label="Reason"
+            label={t('reason')}
             name="reason"
-            placeholder="Enter reason for cancellation..."
+            placeholder={t('cancelReasonPlaceholder')}
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             rows={3}
@@ -197,7 +199,7 @@ export function BookingDetailActions({ bookingId, status }: BookingDetailActions
 
   return (
     <p className="text-gray-500">
-      No actions available for {status} bookings.
+      {t('noActions', { status })}
     </p>
   )
 }

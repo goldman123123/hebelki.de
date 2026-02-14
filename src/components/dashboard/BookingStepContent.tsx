@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Input } from '@/components/ui/input'
 import { Calendar } from '@/components/ui/calendar'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -108,19 +109,20 @@ function CustomerStep({
   searchCustomers, loadingCustomers, customers, selectedCustomer,
   setSelectedCustomer, newCustomer, setNewCustomer,
 }: BookingStepContentProps) {
+  const t = useTranslations('dashboard.bookings.create')
   return (
     <div className="space-y-4">
       <Tabs value={customerTab} onValueChange={(v) => setCustomerTab(v as 'existing' | 'new')}>
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="existing">Bestehender Kunde</TabsTrigger>
-          <TabsTrigger value="new">Neuer Kunde</TabsTrigger>
+          <TabsTrigger value="existing">{t('existingCustomer')}</TabsTrigger>
+          <TabsTrigger value="new">{t('newCustomer')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="existing" className="space-y-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <Input
-              placeholder="Kunde suchen (Name, E-Mail, Telefon)..."
+              placeholder={t('searchCustomer')}
               value={customerSearch}
               onChange={(e) => {
                 const val = e.target.value
@@ -138,8 +140,8 @@ function CustomerStep({
           ) : customers.length === 0 ? (
             <p className="py-4 text-center text-sm text-gray-500">
               {customerSearch.length === 1
-                ? 'Mindestens 2 Zeichen eingeben'
-                : 'Keine Kunden gefunden'}
+                ? t('minChars')
+                : t('noCustomers')}
             </p>
           ) : (
             <div className="max-h-[200px] space-y-1 overflow-y-auto">
@@ -156,7 +158,7 @@ function CustomerStep({
                 >
                   <div>
                     <div className="font-medium">
-                      {customer.name || 'Unbenannt'}
+                      {customer.name || t('unnamed')}
                     </div>
                     <div className="text-sm text-gray-500">
                       {customer.email || customer.phone || '-'}
@@ -173,16 +175,16 @@ function CustomerStep({
 
         <TabsContent value="new" className="space-y-4">
           <div>
-            <Label>Name <span className="text-red-500">*</span></Label>
+            <Label>{t('name')} <span className="text-red-500">*</span></Label>
             <Input
-              placeholder="Max Mustermann"
+              placeholder={t('namePlaceholder')}
               value={newCustomer.name}
               onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
               className="mt-1"
             />
           </div>
           <div>
-            <Label>E-Mail</Label>
+            <Label>{t('email')}</Label>
             <Input
               type="email"
               placeholder="max@example.com"
@@ -192,7 +194,7 @@ function CustomerStep({
             />
           </div>
           <div>
-            <Label>Telefon</Label>
+            <Label>{t('phone')}</Label>
             <Input
               type="tel"
               placeholder="+49 123 456789"
@@ -211,10 +213,11 @@ function ServiceStep({
   services, loadingServices, selectedService, setSelectedService,
   staffList, loadingStaff, selectedStaff, setSelectedStaff,
 }: BookingStepContentProps) {
+  const t = useTranslations('dashboard.bookings.create')
   return (
     <div className="space-y-4">
       <div>
-        <Label>Dienstleistung <span className="text-red-500">*</span></Label>
+        <Label>{t('serviceLabel')} <span className="text-red-500">*</span></Label>
         {loadingServices ? (
           <div className="flex justify-center py-4">
             <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
@@ -228,7 +231,7 @@ function ServiceStep({
             }}
           >
             <SelectTrigger className="mt-1">
-              <SelectValue placeholder="Dienstleistung wählen" />
+              <SelectValue placeholder={t('selectService')} />
             </SelectTrigger>
             <SelectContent>
               {services.map((service) => (
@@ -236,7 +239,7 @@ function ServiceStep({
                   <div className="flex items-center justify-between gap-4">
                     <span>{service.name}</span>
                     <span className="text-gray-500">
-                      {service.durationMinutes} Min
+                      {service.durationMinutes} {t('min')}
                       {service.price && ` - ${formatCurrency(service.price, 'EUR')}`}
                     </span>
                   </div>
@@ -248,7 +251,7 @@ function ServiceStep({
       </div>
 
       <div>
-        <Label>Mitarbeiter (optional)</Label>
+        <Label>{t('staffOptional')}</Label>
         {loadingStaff ? (
           <div className="flex justify-center py-4">
             <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
@@ -261,10 +264,10 @@ function ServiceStep({
             }}
           >
             <SelectTrigger className="mt-1">
-              <SelectValue placeholder="Automatisch zuweisen" />
+              <SelectValue placeholder={t('autoAssign')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="auto">Automatisch zuweisen</SelectItem>
+              <SelectItem value="auto">{t('autoAssign')}</SelectItem>
               {staffList.map((staff) => (
                 <SelectItem key={staff.id} value={staff.id}>
                   {staff.name}
@@ -283,10 +286,11 @@ function DateTimeStep({
   selectedDate, setSelectedDate, loadingSlots, timeSlots,
   selectedTime, setSelectedTime, timezone,
 }: BookingStepContentProps) {
+  const t = useTranslations('dashboard.bookings.create')
   return (
     <div className="space-y-4">
       <div>
-        <Label>Datum <span className="text-red-500">*</span></Label>
+        <Label>{t('dateLabel')} <span className="text-red-500">*</span></Label>
         <div className="mt-2 flex justify-center">
           <Calendar
             mode="single"
@@ -301,14 +305,14 @@ function DateTimeStep({
 
       {selectedDate && (
         <div>
-          <Label>Uhrzeit <span className="text-red-500">*</span></Label>
+          <Label>{t('timeLabel')} <span className="text-red-500">*</span></Label>
           {loadingSlots ? (
             <div className="flex justify-center py-4">
               <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
             </div>
           ) : timeSlots.length === 0 ? (
             <p className="py-4 text-center text-sm text-gray-500">
-              Keine Zeitslots verfuegbar
+              {t('noSlots')}
             </p>
           ) : (
             <div className="mt-2 grid max-h-[200px] grid-cols-4 gap-2 overflow-y-auto">
@@ -347,40 +351,41 @@ function OptionsStep({
   internalNotes, setInternalNotes, sendConfirmationEmail,
   setSendConfirmationEmail, skipAvailabilityCheck, setSkipAvailabilityCheck,
 }: BookingStepContentProps) {
+  const t = useTranslations('dashboard.bookings.create')
   return (
     <div className="space-y-4">
       <div className="rounded-lg border bg-gray-50 p-4">
-        <h4 className="font-medium">Zusammenfassung</h4>
+        <h4 className="font-medium">{t('summary')}</h4>
         <dl className="mt-2 space-y-1 text-sm">
           <div className="flex justify-between">
-            <dt className="text-gray-500">Kunde:</dt>
+            <dt className="text-gray-500">{t('customerLabel')}</dt>
             <dd>
               {customerTab === 'existing'
-                ? selectedCustomer?.name || 'Unbenannt'
+                ? selectedCustomer?.name || t('unnamed')
                 : newCustomer.name}
             </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-gray-500">Dienstleistung:</dt>
+            <dt className="text-gray-500">{t('serviceSum')}</dt>
             <dd>{selectedService?.name}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-gray-500">Mitarbeiter:</dt>
+            <dt className="text-gray-500">{t('staffSum')}</dt>
             <dd>
               {selectedStaff
                 ? staffList.find((s) => s.id === selectedStaff)?.name
-                : 'Automatisch'}
+                : t('auto')}
             </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-gray-500">Datum & Zeit:</dt>
+            <dt className="text-gray-500">{t('dateTimeSum')}</dt>
             <dd>
               {selectedDate && format(selectedDate, 'dd.MM.yyyy', { locale: de })}{' '}
               {selectedTime && formatTime(selectedTime, timezone)}
             </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-gray-500">Preis:</dt>
+            <dt className="text-gray-500">{t('priceSum')}</dt>
             <dd>
               {customPrice.trim()
                 ? formatCurrency(customPrice, 'EUR')
@@ -393,12 +398,12 @@ function OptionsStep({
       </div>
 
       <div>
-        <Label>Preis ueberschreiben (optional)</Label>
+        <Label>{t('overridePrice')}</Label>
         <Input
           type="number"
           step="0.01"
           min="0"
-          placeholder={selectedService?.price || 'Kein Preis'}
+          placeholder={selectedService?.price || t('noPrice')}
           value={customPrice}
           onChange={(e) => setCustomPrice(e.target.value)}
           className="mt-1"
@@ -406,9 +411,9 @@ function OptionsStep({
       </div>
 
       <div>
-        <Label>Kundennotizen (optional)</Label>
+        <Label>{t('customerNotes')}</Label>
         <Textarea
-          placeholder="Notizen fuer den Kunden..."
+          placeholder={t('customerNotesPlaceholder')}
           value={customerNotes}
           onChange={(e) => setCustomerNotes(e.target.value)}
           className="mt-1"
@@ -417,9 +422,9 @@ function OptionsStep({
       </div>
 
       <div>
-        <Label>Interne Notizen (optional)</Label>
+        <Label>{t('internalNotes')}</Label>
         <Textarea
-          placeholder="Nur fuer Mitarbeiter sichtbar..."
+          placeholder={t('internalNotesPlaceholder')}
           value={internalNotes}
           onChange={(e) => setInternalNotes(e.target.value)}
           className="mt-1"
@@ -435,7 +440,7 @@ function OptionsStep({
             onCheckedChange={(checked) => setSendConfirmationEmail(checked as boolean)}
           />
           <Label htmlFor="sendEmail" className="cursor-pointer">
-            Bestaetigungsmail senden
+            {t('sendConfirmation')}
           </Label>
         </div>
 
@@ -446,13 +451,13 @@ function OptionsStep({
             onCheckedChange={(checked) => setSkipAvailabilityCheck(checked as boolean)}
           />
           <Label htmlFor="skipAvailability" className="cursor-pointer">
-            Verfuegbarkeitspruefung ueberspringen
+            {t('skipAvailability')}
           </Label>
         </div>
         {skipAvailabilityCheck && (
           <p className="flex items-start gap-1 text-xs text-amber-600">
             <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
-            Achtung: Kann zu Doppelbuchungen fuehren
+            {t('skipWarning')}
           </p>
         )}
       </div>

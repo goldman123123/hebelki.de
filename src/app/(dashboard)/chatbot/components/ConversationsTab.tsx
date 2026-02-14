@@ -19,6 +19,7 @@ import {
 import { Loader2, MessageSquare, User, Bot, UserCheck, Calendar, Globe, MessageCircle } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
+import { useTranslations } from 'next-intl'
 import { createLogger } from '@/lib/logger'
 
 const log = createLogger('dashboard:chatbot:ConversationsTab')
@@ -45,6 +46,7 @@ interface ConversationsTabProps {
 }
 
 export function ConversationsTab({ businessId }: ConversationsTabProps) {
+  const t = useTranslations('dashboard.chatbot.conversations')
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -124,15 +126,15 @@ export function ConversationsTab({ businessId }: ConversationsTabProps) {
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'active':
-        return 'Aktiv'
+        return t('statusActive')
       case 'live_queue':
-        return 'Wartend'
+        return t('statusQueued')
       case 'live_active':
-        return 'Live-Chat'
+        return t('statusLive')
       case 'escalated':
-        return 'Eskaliert'
+        return t('statusEscalated')
       case 'closed':
-        return 'Geschlossen'
+        return t('statusClosed')
       default:
         return status
     }
@@ -143,7 +145,7 @@ export function ConversationsTab({ businessId }: ConversationsTabProps) {
       <Card className="p-8">
         <div className="flex items-center justify-center gap-2 text-gray-500">
           <Loader2 className="h-5 w-5 animate-spin" />
-          <span>Lädt Gespräche...</span>
+          <span>{t('loading')}</span>
         </div>
       </Card>
     )
@@ -154,10 +156,10 @@ export function ConversationsTab({ businessId }: ConversationsTabProps) {
       {/* Header */}
       <div>
         <h2 className="text-lg font-semibold text-gray-900">
-          Gespräche
+          {t('title')}
         </h2>
         <p className="text-sm text-gray-500">
-          Alle Chatbot-Gespräche mit Kunden
+          {t('subtitle')}
         </p>
       </div>
 
@@ -166,10 +168,10 @@ export function ConversationsTab({ businessId }: ConversationsTabProps) {
         <Card className="p-12 text-center">
           <MessageSquare className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-4 text-lg font-medium text-gray-900">
-            Noch keine Gespräche
+            {t('noConversations')}
           </h3>
           <p className="mt-2 text-sm text-gray-500">
-            Wenn Kunden mit Ihrem Chatbot chatten, werden die Gespräche hier angezeigt.
+            {t('noConversationsDesc')}
           </p>
         </Card>
       ) : (
@@ -189,20 +191,20 @@ export function ConversationsTab({ businessId }: ConversationsTabProps) {
                     {conversation.hasStaffMessages && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 text-purple-800 px-2.5 py-0.5 text-xs font-medium">
                         <UserCheck className="h-3 w-3" />
-                        Mitarbeiter
+                        {t('staff')}
                       </span>
                     )}
                   </div>
                   <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
                     <span className="flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
-                      Gestartet {formatDistanceToNow(new Date(conversation.createdAt), {
+                      {t('started')} {formatDistanceToNow(new Date(conversation.createdAt), {
                         addSuffix: true,
                         locale: de,
                       })}
                     </span>
                     <span>
-                      Letzte Aktivität {formatDistanceToNow(new Date(conversation.updatedAt), {
+                      {t('lastActivity')} {formatDistanceToNow(new Date(conversation.updatedAt), {
                         addSuffix: true,
                         locale: de,
                       })}
@@ -214,7 +216,7 @@ export function ConversationsTab({ businessId }: ConversationsTabProps) {
                   size="sm"
                   onClick={() => handleViewConversation(conversation)}
                 >
-                  Ansehen
+                  {t('view')}
                 </Button>
               </div>
             </Card>
@@ -226,7 +228,7 @@ export function ConversationsTab({ businessId }: ConversationsTabProps) {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[700px]">
           <DialogHeader>
-            <DialogTitle>Gesprächsverlauf</DialogTitle>
+            <DialogTitle>{t('history')}</DialogTitle>
             <DialogDescription>
               {selectedConversation && (
                 <div className="flex items-center gap-2 text-sm">
@@ -247,11 +249,11 @@ export function ConversationsTab({ businessId }: ConversationsTabProps) {
             {loadingMessages ? (
               <div className="flex items-center justify-center gap-2 py-8 text-gray-500">
                 <Loader2 className="h-5 w-5 animate-spin" />
-                <span>Lädt Nachrichten...</span>
+                <span>{t('loadingMessages')}</span>
               </div>
             ) : messages.length === 0 ? (
               <div className="py-8 text-center text-sm text-gray-500">
-                Keine Nachrichten in diesem Gespräch
+                {t('noMessages')}
               </div>
             ) : (
               <div className="space-y-4">
@@ -311,7 +313,7 @@ export function ConversationsTab({ businessId }: ConversationsTabProps) {
                         }`}
                       >
                         {message.role === 'assistant' && (
-                          <p className="text-[10px] font-medium text-blue-500 mb-0.5">KI-Assistent</p>
+                          <p className="text-[10px] font-medium text-blue-500 mb-0.5">{t('aiAssistant')}</p>
                         )}
                         <p className="whitespace-pre-wrap text-sm">
                           {message.content}

@@ -2,32 +2,15 @@
 
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { useTranslations } from 'next-intl'
 
-const statusConfig = {
-  unconfirmed: {
-    label: 'Unbestätigt',
-    className: 'bg-orange-100 text-orange-800 hover:bg-orange-100',
-  },
-  pending: {
-    label: 'Ausstehend',
-    className: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100',
-  },
-  confirmed: {
-    label: 'Bestätigt',
-    className: 'bg-green-100 text-green-800 hover:bg-green-100',
-  },
-  cancelled: {
-    label: 'Storniert',
-    className: 'bg-red-100 text-red-800 hover:bg-red-100',
-  },
-  completed: {
-    label: 'Abgeschlossen',
-    className: 'bg-blue-100 text-blue-800 hover:bg-blue-100',
-  },
-  no_show: {
-    label: 'Nicht erschienen',
-    className: 'bg-gray-100 text-gray-800 hover:bg-gray-100',
-  },
+const statusStyles: Record<string, string> = {
+  unconfirmed: 'bg-orange-100 text-orange-800 hover:bg-orange-100',
+  pending: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100',
+  confirmed: 'bg-green-100 text-green-800 hover:bg-green-100',
+  cancelled: 'bg-red-100 text-red-800 hover:bg-red-100',
+  completed: 'bg-blue-100 text-blue-800 hover:bg-blue-100',
+  no_show: 'bg-gray-100 text-gray-800 hover:bg-gray-100',
 }
 
 interface StatusBadgeProps {
@@ -36,14 +19,16 @@ interface StatusBadgeProps {
 }
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
-  const config = statusConfig[status as keyof typeof statusConfig] || {
-    label: status,
-    className: 'bg-gray-100 text-gray-800',
-  }
+  const t = useTranslations('dashboard.statuses')
+
+  const style = statusStyles[status] || 'bg-gray-100 text-gray-800'
+  const label = (() => {
+    try { return t(status) } catch { return status }
+  })()
 
   return (
-    <Badge className={cn(config.className, className)}>
-      {config.label}
+    <Badge className={cn(style, className)}>
+      {label}
     </Badge>
   )
 }

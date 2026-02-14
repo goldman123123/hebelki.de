@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import {
   Instagram,
   Facebook,
@@ -65,13 +66,13 @@ const PLATFORMS: { id: Platform; label: string; icon: LucideIcon; color: string 
   { id: 'linkedin', label: 'LinkedIn', icon: Linkedin, color: 'from-blue-700 to-blue-600' },
 ]
 
-const POST_TYPES: { id: PostType; label: string; description: string; icon: LucideIcon; usesServices: boolean }[] = [
-  { id: 'service_spotlight', label: 'Service Spotlight', description: '1-3 Dienstleistungen hervorheben', icon: Star, usesServices: true },
-  { id: 'tip_educational', label: 'Tipp & Wissen', description: 'Experten-Tipp oder Ratschlag', icon: Lightbulb, usesServices: false },
-  { id: 'seasonal_promo', label: 'Saisonale Aktion', description: 'Saisonale oder Feiertagspromo', icon: CalendarHeart, usesServices: true },
-  { id: 'team_intro', label: 'Team vorstellen', description: 'Teammitglieder präsentieren', icon: Users, usesServices: false },
-  { id: 'faq_answer', label: 'FAQ beantworten', description: 'Häufige Frage beantworten', icon: HelpCircle, usesServices: false },
-  { id: 'general_awareness', label: 'Markenbekanntheit', description: 'Warum uns wählen?', icon: Megaphone, usesServices: true },
+const POST_TYPE_CONFIG: { id: PostType; labelKey: string; descKey: string; icon: LucideIcon; usesServices: boolean }[] = [
+  { id: 'service_spotlight', labelKey: 'serviceSpotlight', descKey: 'serviceSpotlightDesc', icon: Star, usesServices: true },
+  { id: 'tip_educational', labelKey: 'tipEducational', descKey: 'tipEducationalDesc', icon: Lightbulb, usesServices: false },
+  { id: 'seasonal_promo', labelKey: 'seasonalPromo', descKey: 'seasonalPromoDesc', icon: CalendarHeart, usesServices: true },
+  { id: 'team_intro', labelKey: 'teamIntro', descKey: 'teamIntroDesc', icon: Users, usesServices: false },
+  { id: 'faq_answer', labelKey: 'faqAnswer', descKey: 'faqAnswerDesc', icon: HelpCircle, usesServices: false },
+  { id: 'general_awareness', labelKey: 'generalAwareness', descKey: 'generalAwarenessDesc', icon: Megaphone, usesServices: true },
 ]
 
 const PLATFORM_LIMITS: Record<Platform, number> = {
@@ -83,6 +84,7 @@ const PLATFORM_LIMITS: Record<Platform, number> = {
 // ── Page Component ─────────────────────────────────────────────────
 
 export default function MakePostsPage() {
+  const t = useTranslations('dashboard.tools.posts')
   const [view, setView] = useState<ViewState>('configure')
   const [error, setError] = useState<string | null>(null)
 
@@ -109,7 +111,7 @@ export default function MakePostsPage() {
       .catch(() => {})
   }, [])
 
-  const currentPostTypeConfig = POST_TYPES.find(p => p.id === postType)
+  const currentPostTypeConfig = POST_TYPE_CONFIG.find(p => p.id === postType)
   const showServiceSelector = currentPostTypeConfig?.usesServices ?? false
 
   const handleGenerate = async () => {
@@ -134,7 +136,7 @@ export default function MakePostsPage() {
       setPost(data.post)
       setView('result')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Fehler bei der Generierung')
+      setError(err instanceof Error ? err.message : t('errorGenerating'))
       setView('configure')
     }
   }
@@ -174,9 +176,9 @@ export default function MakePostsPage() {
         <Header />
         <div className="flex flex-col items-center justify-center py-24">
           <Loader2 className="mb-4 h-10 w-10 animate-spin text-primary" />
-          <h3 className="text-lg font-medium">Post wird generiert...</h3>
+          <h3 className="text-lg font-medium">{t('generating')}</h3>
           <p className="mt-2 text-sm text-muted-foreground">
-            KI erstellt Ihren {PLATFORMS.find(p => p.id === platform)?.label}-Post
+            {t('generatingFor', { platform: PLATFORMS.find(p => p.id === platform)?.label ?? '' })}
           </p>
         </div>
       </div>
@@ -208,7 +210,7 @@ export default function MakePostsPage() {
                 {PLATFORMS.find(p => p.id === platform)?.label}-Post
               </CardTitle>
               <CardDescription>
-                {POST_TYPES.find(p => p.id === postType)?.label}
+                {(() => { const cfg = POST_TYPE_CONFIG.find(p => p.id === postType); return cfg ? t(`types.${cfg.labelKey}`) : '' })()}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -248,8 +250,8 @@ export default function MakePostsPage() {
           {post.featuredServices.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Enthaltene Dienstleistungen</CardTitle>
-                <CardDescription>Echte Daten aus Ihrem System</CardDescription>
+                <CardTitle className="text-base">{t('includedServices')}</CardTitle>
+                <CardDescription>{t('realData')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
@@ -257,7 +259,7 @@ export default function MakePostsPage() {
                     <div key={s.name} className="flex items-center justify-between rounded-lg border p-3 text-sm">
                       <span className="font-medium">{s.name}</span>
                       <span className="text-muted-foreground">
-                        {s.price || 'Preis auf Anfrage'} &middot; {s.duration}
+                        {s.price || t('priceOnRequest')} &middot; {s.duration}
                       </span>
                     </div>
                   ))}
@@ -268,10 +270,10 @@ export default function MakePostsPage() {
 
           {/* Character Count */}
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>{post.characterCount} Zeichen</span>
+            <span>{post.characterCount} {t('characters')}</span>
             <span>&middot;</span>
             <span className={isOverLimit ? 'text-red-500 font-medium' : ''}>
-              {isOverLimit ? 'Über dem' : 'Unter dem'} {platform}-Limit ({limit.toLocaleString('de-DE')})
+              {isOverLimit ? t('overLimit') : t('underLimit')} {platform}-{t('limit')} ({limit.toLocaleString()})
             </span>
           </div>
 
@@ -279,19 +281,19 @@ export default function MakePostsPage() {
           <div className="flex flex-wrap gap-3">
             <Button onClick={() => handleCopy('text')} className="gap-2">
               {copied === 'text' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              {copied === 'text' ? 'Kopiert!' : 'Text kopieren'}
+              {copied === 'text' ? t('copied') : t('copyText')}
             </Button>
             <Button onClick={() => handleCopy('hashtags')} variant="outline" className="gap-2">
               {copied === 'hashtags' ? <Check className="h-4 w-4" /> : <Hash className="h-4 w-4" />}
-              {copied === 'hashtags' ? 'Kopiert!' : 'Nur Hashtags kopieren'}
+              {copied === 'hashtags' ? t('copied') : t('copyHashtags')}
             </Button>
             <Button onClick={handleRegenerate} variant="outline" className="gap-2">
               <RefreshCw className="h-4 w-4" />
-              Neu generieren
+              {t('regenerate')}
             </Button>
             <Button onClick={handleBack} variant="ghost" className="gap-2">
               <ArrowLeft className="h-4 w-4" />
-              Zurück
+              {t('back')}
             </Button>
           </div>
         </div>
@@ -311,7 +313,7 @@ export default function MakePostsPage() {
         {/* Platform Selector */}
         <section>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Plattform
+            {t('platform')}
           </h2>
           <div className="grid grid-cols-3 gap-3">
             {PLATFORMS.map(p => {
@@ -340,10 +342,10 @@ export default function MakePostsPage() {
         {/* Post Type Selector */}
         <section>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Post-Typ
+            {t('postType')}
           </h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {POST_TYPES.map(p => {
+            {POST_TYPE_CONFIG.map(p => {
               const Icon = p.icon
               const selected = postType === p.id
               return (
@@ -357,8 +359,8 @@ export default function MakePostsPage() {
                   }`}
                 >
                   <Icon className={`h-5 w-5 ${selected ? 'text-primary' : 'text-muted-foreground'}`} />
-                  <span className="text-sm font-medium">{p.label}</span>
-                  <span className="text-xs text-muted-foreground">{p.description}</span>
+                  <span className="text-sm font-medium">{t(`types.${p.labelKey}`)}</span>
+                  <span className="text-xs text-muted-foreground">{t(`types.${p.descKey}`)}</span>
                 </button>
               )
             })}
@@ -369,7 +371,7 @@ export default function MakePostsPage() {
         {showServiceSelector && services.length > 0 && (
           <section>
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Dienstleistungen auswählen
+              {t('selectServices')}
             </h2>
             <Card>
               <CardContent className="pt-4">
@@ -386,7 +388,7 @@ export default function MakePostsPage() {
                       <div className="flex-1">
                         <span className="text-sm font-medium">{s.name}</span>
                         <span className="ml-2 text-xs text-muted-foreground">
-                          {s.price ? `${s.price} EUR` : 'Preis auf Anfrage'} &middot; {s.durationMinutes} Min.
+                          {s.price ? `${s.price} EUR` : t('priceOnRequest')} &middot; {s.durationMinutes} Min.
                         </span>
                       </div>
                     </label>
@@ -394,7 +396,7 @@ export default function MakePostsPage() {
                 </div>
                 {selectedServiceIds.length > 0 && (
                   <p className="mt-3 text-xs text-muted-foreground">
-                    {selectedServiceIds.length} ausgewählt
+                    {t('selected', { count: selectedServiceIds.length })}
                   </p>
                 )}
               </CardContent>
@@ -405,12 +407,12 @@ export default function MakePostsPage() {
         {/* Custom Instructions */}
         <section>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Besondere Hinweise (optional)
+            {t('customInstructions')}
           </h2>
           <Textarea
             value={customInstructions}
             onChange={e => setCustomInstructions(e.target.value)}
-            placeholder="z.B. 'Betone unser Jubiläumsangebot' oder 'Verwende einen lockeren Ton'"
+            placeholder={t('customInstructionsPlaceholder')}
             rows={3}
           />
         </section>
@@ -418,7 +420,7 @@ export default function MakePostsPage() {
         {/* Generate Button */}
         <Button onClick={handleGenerate} size="lg" className="w-full gap-2 sm:w-auto">
           <Sparkles className="h-4 w-4" />
-          Post generieren
+          {t('generatePost')}
         </Button>
       </div>
     </div>
@@ -428,14 +430,15 @@ export default function MakePostsPage() {
 // ── Shared Components ──────────────────────────────────────────────
 
 function Header() {
+  const t = useTranslations('dashboard.tools.posts')
   return (
     <div className="mb-8">
       <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
         <FileText className="h-6 w-6" />
-        Make Posts
+        {t('title')}
       </h1>
       <p className="text-gray-600">
-        KI-generierte Social-Media-Beiträge für Ihren Betrieb
+        {t('subtitle')}
       </p>
     </div>
   )

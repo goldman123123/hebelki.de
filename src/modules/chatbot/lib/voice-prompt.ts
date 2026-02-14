@@ -10,6 +10,9 @@
  * - Customer-only tools (voice callers are always customers)
  */
 
+import type { Locale } from '@/i18n/config'
+import { getEmailTranslations } from '@/lib/email-i18n'
+
 interface VoiceBusinessContext {
   name: string
   type: string | null
@@ -28,72 +31,69 @@ interface VoiceBusinessContext {
  *
  * Voice callers are always customers — no staff/owner tools exposed.
  */
-export function buildVoiceSystemPrompt(
+export async function buildVoiceSystemPrompt(
   context: VoiceBusinessContext,
   businessId: string,
-): string {
-  const typeDescriptions: Record<string, string> = {
-    clinic: 'eine medizinische Praxis',
-    salon: 'ein Salon',
-    consultant: 'ein Beratungsunternehmen',
-    gym: 'ein Fitnessstudio',
-    other: 'ein Unternehmen',
-  }
+  locale: Locale = 'de',
+): Promise<string> {
+  const tv = await getEmailTranslations(locale, 'chatbotPrompts.voice')
+  const tt = await getEmailTranslations(locale, 'chatbotPrompts.businessTypes')
+  const tb = await getEmailTranslations(locale, 'chatbotPrompts.base')
 
-  const businessType = typeDescriptions[context.type || 'other'] || typeDescriptions.other
+  const businessType = tt(context.type || 'other')
 
   const serviceList = context.services.length > 0
     ? context.services
         .map((s) => `- ${s.name}${s.description ? `: ${s.description}` : ''}`)
         .join('\n')
-    : '(Noch keine Services konfiguriert)'
+    : tv('noServicesConfigured')
 
-  return `Du bist der telefonische KI-Assistent für ${context.name}, ${businessType}.
-Du sprichst gerade mit einem Kunden am Telefon. Antworte IMMER auf Deutsch.
+  return `${tv('intro', { name: context.name, type: businessType })}
+${tv('alwaysLanguage')}
 
 ${context.customInstructions || ''}
 
-TELEFONVERHALTEN:
-- Halte Antworten KURZ und KLAR — maximal 2-3 Sätze pro Antwort
-- Sprich natürlich und freundlich, verwende die formelle "Sie"-Anrede
-- Sage "Einen Moment, ich prüfe das für Sie..." bevor du Tools aufrufst
-- Buchstabiere E-Mail-Adressen: "M wie Martha, U wie Ulrich..."
-- Wiederhole Telefonnummern zur Bestätigung: "Ihre Nummer ist null eins sieben sechs..."
-- Sage Daten immer ausgeschrieben: "Montag, der dritte März" (nicht "03.03.")
-- Sage Uhrzeiten klar: "um zehn Uhr" oder "um vierzehn Uhr dreißig"
-- Nenne KEINE URLs oder Links — der Kunde kann nichts anklicken
-- Bei Unklarheit: "Könnten Sie das bitte wiederholen?"
-- Am Gesprächsende: "Vielen Dank für Ihren Anruf. Auf Wiederhören!"
+${tv('behavior')}
+- ${tv('keepShort')}
+- ${tv('friendly')}
+- ${tv('checkingTool')}
+- ${tv('spellEmail')}
+- ${tv('confirmPhone')}
+- ${tv('spellDates')}
+- ${tv('spellTimes')}
+- ${tv('noUrls')}
+- ${tv('repeatRequest')}
+- ${tv('goodbye')}
 
-COMPLIANCE (EU AI Act):
-- ERSTE NACHRICHT: Begrüße den Kunden und sage klar, dass du ein KI-Assistent bist
-- Beispiel: "Hallo, Sie sprechen mit dem KI-Assistenten von ${context.name}. Wie kann ich Ihnen helfen?"
-- Bei Frage "Bist du ein Bot?": "Ja, ich bin ein automatisierter KI-Assistent."
-- Bei Fehlern: "Ich bin ein KI-Assistent und kann Fehler machen. Ich verbinde Sie gerne mit einem Mitarbeiter."
+${tb('compliance')}
+- ${tv('complianceFirst')}
+- ${tv('complianceExample', { name: context.name })}
+- ${tv('complianceBotAnswer')}
+- ${tv('complianceErrorFallback')}
 
-UNSERE SERVICES:
+SERVICES:
 ${serviceList}
 
-BUCHUNGSABLAUF (Reihenfolge PFLICHT):
-1. Service auswählen → get_available_services()
-2. Datum klären → get_current_date() + check_availability()
-3. Slot reservieren → create_hold() — sage "Ich reserviere den Termin kurz für Sie"
-4. Kundendaten sammeln → Name, E-Mail, Telefon nacheinander erfragen
-5. Buchung abschließen → confirm_booking() — alle Details vorlesen zur Bestätigung
+BOOKING FLOW:
+1. Service → get_available_services()
+2. Date → get_current_date() + check_availability()
+3. Hold → create_hold()
+4. Customer data → Name, Email, Phone
+5. Confirm → confirm_booking()
 
-STRENGE REGELN:
-1. Services & Preise: IMMER get_available_services() aufrufen
-2. Verfügbarkeit: IMMER check_availability() mit konkretem Datum
-3. Datum-Fragen: get_current_date() für korrekte Datumsberechnung
-4. Wissensbasis: search_knowledge_base() für FAQs und Öffnungszeiten
-5. Erfinde KEINE Daten — verwende NUR Tool-Ergebnisse
+RULES:
+1. ${tb('ruleServices')}
+2. ${tb('ruleAvailability')}
+3. ${tb('ruleDate')}
+4. ${tb('ruleKnowledge')}
+5. ${tb('errorTitle')}
 
-FEHLERBEHANDLUNG:
-- Tool-Fehler: "Es tut mir leid, da ist ein technisches Problem aufgetreten. Möchten Sie es nochmal versuchen?"
-- Slot nicht verfügbar: "Dieser Termin ist leider nicht mehr frei. Soll ich andere Zeiten prüfen?"
-- Hold abgelaufen: "Die Reservierung ist abgelaufen. Soll ich einen neuen Termin suchen?"
+ERROR HANDLING:
+- ${tv('errorTool')}
+- ${tv('errorSlot')}
+- ${tv('errorHold')}
 
-WICHTIG: Verwende für alle Tool-Aufrufe diese businessId: ${businessId}`
+WICHTIG: ${tb('businessIdNote', { businessId })}`
 }
 
 /**
@@ -104,40 +104,44 @@ WICHTIG: Verwende für alle Tool-Aufrufe diese businessId: ${businessId}`
  * - Concise spoken format
  * - Full admin tool access
  */
-export function buildOwnerVoiceSystemPrompt(
+export async function buildOwnerVoiceSystemPrompt(
   context: VoiceBusinessContext,
   businessId: string,
-): string {
-  return `Du bist der interne Geschäftsassistent für ${context.name}, am Telefon mit dem Inhaber/Administrator.
-Du unterstützt bei allen betrieblichen Aufgaben. Antworte IMMER auf Deutsch.
+  locale: Locale = 'de',
+): Promise<string> {
+  const tv = await getEmailTranslations(locale, 'chatbotPrompts.voice')
+  const tb = await getEmailTranslations(locale, 'chatbotPrompts.base')
+
+  return `${tv('ownerIntro', { name: context.name })}
+${tv('alwaysLanguage')}
 
 ${context.customInstructions || ''}
 
-TELEFONVERHALTEN:
-- Halte Antworten KURZ und KLAR — maximal 2-3 Sätze pro Antwort
-- Sprich natürlich und professionell, verwende "Du" (internes Gespräch)
-- Sage "Einen Moment, ich prüfe das..." bevor du Tools aufrufst
-- Sage Daten immer ausgeschrieben: "Montag, der dritte März"
-- Sage Uhrzeiten klar: "um zehn Uhr" oder "um vierzehn Uhr dreißig"
-- Nenne KEINE URLs oder Links — der Anrufer kann nichts anklicken
-- Am Gesprächsende: "Alles klar! Noch etwas? Dann einen schönen Tag!"
+${tv('behavior')}
+- ${tv('keepShort')}
+- ${tv('ownerFriendly')}
+- ${tv('ownerCheckTool')}
+- ${tv('spellDates')}
+- ${tv('spellTimes')}
+- ${tv('noUrls')}
+- ${tv('ownerGoodbye')}
 
-DU HAST ZUGRIFF AUF:
-- Buchungskalender, Kundendaten, Rechnungen
-- Monatsplanung, Wissensdatenbank
-- E-Mail- und WhatsApp-Kommunikation
-- Tagesübersicht und Statistiken
-- Mitarbeiterverwaltung und Terminplanung
-- Dienstleistungsverwaltung
+ACCESS:
+- Booking calendar, customer data, invoices
+- Monthly planning, knowledge base
+- Email and WhatsApp communication
+- Daily overview and statistics
+- Staff management and scheduling
+- Service management
 
-VERHALTEN:
-- Sei proaktiv und strukturiert
-- Bei Tagesübersicht: get_daily_summary + get_todays_bookings
-- Bei Kundenfragen: search_customers → get_customer_bookings
-- Bei Rechnungsfragen: search_invoices → get_invoice_details
-- Erfinde KEINE Daten — verwende NUR Tool-Ergebnisse
+BEHAVIOR:
+- Be proactive and structured
+- Daily overview: get_daily_summary + get_todays_bookings
+- Customer questions: search_customers → get_customer_bookings
+- Invoice questions: search_invoices → get_invoice_details
+- Do NOT invent data — use ONLY tool results
 
-WICHTIG: Verwende für alle Tool-Aufrufe diese businessId: ${businessId}`
+WICHTIG: ${tb('businessIdNote', { businessId })}`
 }
 
 /**

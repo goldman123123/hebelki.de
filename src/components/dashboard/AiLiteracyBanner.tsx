@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { AlertTriangle, X, ExternalLink, Bot } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createLogger } from '@/lib/logger'
@@ -16,6 +17,7 @@ interface AiLiteracyBannerProps {
 const CURRENT_AI_LITERACY_VERSION = '1.0'
 
 export function AiLiteracyBanner({ businessId }: AiLiteracyBannerProps) {
+  const t = useTranslations('dashboard.aiLiteracyBanner')
   const [isAcknowledged, setIsAcknowledged] = useState<boolean | null>(null)
   const [dismissed, setDismissed] = useState(false)
 
@@ -49,7 +51,7 @@ export function AiLiteracyBanner({ businessId }: AiLiteracyBannerProps) {
       <button
         onClick={() => setDismissed(true)}
         className="absolute right-2 top-2 rounded-md p-1 text-amber-600 hover:bg-amber-100"
-        aria-label="Schließen"
+        aria-label={t('close')}
       >
         <X className="h-4 w-4" />
       </button>
@@ -62,18 +64,17 @@ export function AiLiteracyBanner({ businessId }: AiLiteracyBannerProps) {
         <div className="flex-1 pr-6">
           <h3 className="flex items-center gap-2 font-semibold text-amber-800">
             <AlertTriangle className="h-4 w-4" />
-            KI-Funktionen deaktiviert
+            {t('title')}
           </h3>
 
           <p className="mt-1 text-sm text-amber-700">
-            Der Chatbot ist nicht verfügbar, da die KI-Nutzungsbestätigung gemäß EU AI Act (Art. 4) noch aussteht.
-            Bitte bestätigen Sie die KI-Schulung in den Einstellungen.
+            {t('description')}
           </p>
 
           <div className="mt-3 flex flex-wrap gap-3">
             <Link href="/settings">
               <Button size="sm" variant="default" className="bg-amber-600 hover:bg-amber-700">
-                Zu Einstellungen
+                {t('goToSettings')}
               </Button>
             </Link>
 
@@ -82,7 +83,7 @@ export function AiLiteracyBanner({ businessId }: AiLiteracyBannerProps) {
               target="_blank"
               className="inline-flex items-center gap-1 text-sm text-amber-600 hover:text-amber-800 hover:underline"
             >
-              KI-Nutzungshinweise lesen
+              {t('readAiNotice')}
               <ExternalLink className="h-3 w-3" />
             </Link>
           </div>

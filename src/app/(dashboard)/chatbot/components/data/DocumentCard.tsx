@@ -44,6 +44,7 @@ import {
 import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { DocumentCardActions } from './DocumentCardActions'
 import { ChangeScopeModal } from './ChangeScopeModal'
 import { createLogger } from '@/lib/logger'
@@ -93,18 +94,44 @@ interface DocumentCardProps {
   onUpdate?: () => void
 }
 
-// Status badge configuration
-const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  queued: { label: 'Wartend', color: 'bg-gray-100 text-gray-700', icon: Clock },
-  uploaded: { label: 'Hochgeladen', color: 'bg-blue-100 text-blue-700', icon: CheckCircle2 },
-  processing: { label: 'Verarbeitung...', color: 'bg-yellow-100 text-yellow-700', icon: RefreshCw },
-  parsing: { label: 'Analysiert...', color: 'bg-yellow-100 text-yellow-700', icon: RefreshCw },
-  chunking: { label: 'Aufteilen...', color: 'bg-yellow-100 text-yellow-700', icon: RefreshCw },
-  embedding: { label: 'Indexieren...', color: 'bg-yellow-100 text-yellow-700', icon: RefreshCw },
-  done: { label: 'Indexiert', color: 'bg-green-100 text-green-700', icon: CheckCircle2 },
-  failed: { label: 'Fehler', color: 'bg-red-100 text-red-700', icon: AlertCircle },
-  retry_ready: { label: 'Wiederholen', color: 'bg-orange-100 text-orange-700', icon: RefreshCw },
-  cancelled: { label: 'Abgebrochen', color: 'bg-gray-100 text-gray-700', icon: X },
+// Status badge configuration (split for i18n)
+const STATUS_COLORS: Record<string, string> = {
+  queued: 'bg-gray-100 text-gray-700',
+  uploaded: 'bg-blue-100 text-blue-700',
+  processing: 'bg-yellow-100 text-yellow-700',
+  parsing: 'bg-yellow-100 text-yellow-700',
+  chunking: 'bg-yellow-100 text-yellow-700',
+  embedding: 'bg-yellow-100 text-yellow-700',
+  done: 'bg-green-100 text-green-700',
+  failed: 'bg-red-100 text-red-700',
+  retry_ready: 'bg-orange-100 text-orange-700',
+  cancelled: 'bg-gray-100 text-gray-700',
+}
+
+const STATUS_ICONS: Record<string, React.ElementType> = {
+  queued: Clock,
+  uploaded: CheckCircle2,
+  processing: RefreshCw,
+  parsing: RefreshCw,
+  chunking: RefreshCw,
+  embedding: RefreshCw,
+  done: CheckCircle2,
+  failed: AlertCircle,
+  retry_ready: RefreshCw,
+  cancelled: X,
+}
+
+const STATUS_KEYS: Record<string, string> = {
+  queued: 'statusQueued',
+  uploaded: 'statusUploaded',
+  processing: 'statusProcessing',
+  parsing: 'statusParsing',
+  chunking: 'statusChunking',
+  embedding: 'statusEmbedding',
+  done: 'statusDone',
+  failed: 'statusFailed',
+  retry_ready: 'statusRetryReady',
+  cancelled: 'statusCancelled',
 }
 
 // Check if filename is a URL (scraped website)
@@ -185,13 +212,15 @@ export function DocumentCard({
   onDelete,
   onUpdate,
 }: DocumentCardProps) {
+  const t = useTranslations('dashboard.chatbot.data.document')
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [changeScopeModalOpen, setChangeScopeModalOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   const status = doc.processingStatus?.status || 'queued'
-  const config = statusConfig[status] || statusConfig.queued
-  const StatusIcon = config.icon
+  const statusColor = STATUS_COLORS[status] || STATUS_COLORS.queued
+  const StatusIcon = STATUS_ICONS[status] || STATUS_ICONS.queued
+  const statusKey = STATUS_KEYS[status] || STATUS_KEYS.queued
 
   const handleDelete = async () => {
     setDeleting(true)
@@ -205,15 +234,15 @@ export function DocumentCard({
       const data = await response.json()
 
       if (response.ok) {
-        toast.success('Dokument wird gelöscht')
+        toast.success(t('deleteSuccess'))
         setDeleteDialogOpen(false)
         onDelete?.()
       } else {
-        throw new Error(data.error || 'Fehler beim Löschen')
+        throw new Error(data.error || t('deleteError'))
       }
     } catch (error) {
       log.error('Delete error:', error)
-      toast.error(error instanceof Error ? error.message : 'Fehler beim Löschen')
+      toast.error(error instanceof Error ? error.message : t('deleteError'))
     } finally {
       setDeleting(false)
     }
@@ -262,7 +291,7 @@ export function DocumentCard({
                     ) : (
                       <Lock className="h-3 w-3" />
                     )}
-                    {doc.audience === 'public' ? 'Öffentlich' : 'Intern'}
+                    {doc.audience === 'public' ? t('audiencePublic') : t('audienceInternal')}
                   </span>
                 )}
 
@@ -278,12 +307,12 @@ export function DocumentCard({
                     {doc.scopeType === 'customer' ? (
                       <>
                         <User className="h-3 w-3" />
-                        {doc.customerName ? doc.customerName : 'Kunde'}
+                        {doc.customerName ? doc.customerName : t('scopeCustomer')}
                       </>
                     ) : (
                       <>
                         <Users className="h-3 w-3" />
-                        Global
+                        {t('scopeGlobal')}
                       </>
                     )}
                   </span>
@@ -291,9 +320,9 @@ export function DocumentCard({
 
                 {/* Processing status badge */}
                 {showProcessingBadge && doc.dataClass === 'knowledge' && (
-                  <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${config.color}`}>
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColor}`}>
                     <StatusIcon className={`h-3 w-3 ${status.includes('ing') || status === 'retry_ready' ? 'animate-spin' : ''}`} />
-                    {config.label}
+                    {t(statusKey)}
                   </span>
                 )}
 
@@ -301,7 +330,7 @@ export function DocumentCard({
                 {doc.dataClass === 'stored_only' && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 text-gray-700 px-2.5 py-0.5 text-xs font-medium">
                     <Clock className="h-3 w-3" />
-                    Gespeichert
+                    {t('storedOnly')}
                   </span>
                 )}
 
@@ -309,7 +338,7 @@ export function DocumentCard({
                 {showPiiBadge && doc.containsPii && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 text-xs font-medium">
                     <AlertTriangle className="h-3 w-3" />
-                    Sensibel
+                    {t('sensitive')}
                   </span>
                 )}
               </div>
@@ -345,7 +374,7 @@ export function DocumentCard({
                 )}
                 {doc.latestVersion && doc.latestVersion.version > 1 && (
                   <span>
-                    Version {doc.latestVersion.version}
+                    {t('version', { version: doc.latestVersion.version })}
                   </span>
                 )}
               </div>
@@ -370,9 +399,9 @@ export function DocumentCard({
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Dokument löschen</DialogTitle>
+            <DialogTitle>{t('deleteTitle')}</DialogTitle>
             <DialogDescription>
-              Möchten Sie &quot;{doc.title}&quot; wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
+              {t('deleteConfirm', { title: doc.title })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -381,7 +410,7 @@ export function DocumentCard({
               onClick={() => setDeleteDialogOpen(false)}
               disabled={deleting}
             >
-              Abbrechen
+              {t('deleteCancel')}
             </Button>
             <Button
               variant="destructive"
@@ -391,12 +420,12 @@ export function DocumentCard({
               {deleting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Löschen...
+                  {t('deleting')}
                 </>
               ) : (
                 <>
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Löschen
+                  {t('delete')}
                 </>
               )}
             </Button>

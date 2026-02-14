@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import { useParams, useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -74,15 +75,16 @@ interface CustomerData {
   stats: Stats
 }
 
-const tabs = [
-  { id: 'overview', label: 'Übersicht', icon: UserRound },
-  { id: 'documents', label: 'Dokumente', icon: FileText },
-]
-
 export default function CustomerDetailPage() {
+  const t = useTranslations('dashboard.customers.detail')
   const params = useParams()
   const router = useRouter()
   const customerId = params.id as string
+
+  const tabs = [
+    { id: 'overview', label: t('overview'), icon: UserRound },
+    { id: 'documents', label: t('documents'), icon: FileText },
+  ]
 
   const [data, setData] = useState<CustomerData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -96,14 +98,14 @@ export default function CustomerDetailPage() {
       if (response.ok) {
         setData(result)
       } else {
-        toast.error(result.error || 'Fehler beim Laden des Kunden')
+        toast.error(result.error || t('errorLoading'))
         if (response.status === 404) {
           router.push('/customers')
         }
       }
     } catch (error) {
       log.error('Failed to fetch customer:', error)
-      toast.error('Fehler beim Laden des Kunden')
+      toast.error(t('errorLoading'))
     } finally {
       setLoading(false)
     }
@@ -118,7 +120,7 @@ export default function CustomerDetailPage() {
       <div className="flex min-h-[400px] items-center justify-center">
         <div className="flex items-center gap-2 text-gray-500">
           <Loader2 className="h-5 w-5 animate-spin" />
-          <span>Lädt...</span>
+          <span>{t('loading')}</span>
         </div>
       </div>
     )
@@ -129,11 +131,11 @@ export default function CustomerDetailPage() {
       <Card className="p-8 text-center">
         <UserRound className="mx-auto h-12 w-12 text-gray-400" />
         <h3 className="mt-4 text-lg font-medium text-gray-900">
-          Kunde nicht gefunden
+          {t('notFound')}
         </h3>
         <Button className="mt-4" onClick={() => router.push('/customers')}>
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Zurück zur Übersicht
+          {t('backToOverview')}
         </Button>
       </Card>
     )
@@ -156,7 +158,7 @@ export default function CustomerDetailPage() {
           </Button>
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
-              {customer.name || 'Unbenannter Kunde'}
+              {customer.name || t('unnamed')}
             </h1>
             <div className="mt-2 flex items-center gap-4 text-gray-600">
               {customer.email && (
@@ -185,15 +187,15 @@ export default function CustomerDetailPage() {
         <div className="flex items-center gap-4 text-sm">
           <div className="flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-blue-700">
             <Calendar className="h-4 w-4" />
-            <span>{stats.totalBookings} Buchungen</span>
+            <span>{stats.totalBookings} {t('bookings')}</span>
           </div>
           <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-green-700">
             <MessageSquare className="h-4 w-4" />
-            <span>{stats.totalConversations} Konversationen</span>
+            <span>{stats.totalConversations} {t('conversations')}</span>
           </div>
           <div className="flex items-center gap-2 rounded-lg bg-purple-50 px-3 py-2 text-purple-700">
             <FileText className="h-4 w-4" />
-            <span>{stats.totalDocuments} Dokumente</span>
+            <span>{stats.totalDocuments} {t('documents')}</span>
           </div>
         </div>
       </div>
@@ -233,7 +235,7 @@ export default function CustomerDetailPage() {
       {activeTab === 'documents' && (
         <CustomerDocumentsTab
           customerId={customerId}
-          customerName={customer.name || 'Unbenannt'}
+          customerName={customer.name || t('unnamed')}
           businessId={customer.businessId}
         />
       )}

@@ -16,6 +16,7 @@ import {
   Building2, Pencil, ExternalLink, Copy, Check, Loader2,
 } from 'lucide-react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import type { Business } from '../types'
 
 interface BusinessProfileCardProps {
@@ -33,6 +34,8 @@ export function BusinessProfileCard({
   onCancel,
   onRefresh,
 }: BusinessProfileCardProps) {
+  const t = useTranslations('dashboard.business.profile')
+  const tc = useTranslations('dashboard.business')
   const [copied, setCopied] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -192,7 +195,7 @@ export function BusinessProfileCard({
   }
 
   const taxRateLabel = taxForm.isKleinunternehmer
-    ? 'Kleinunternehmer (§ 19)'
+    ? t('kleinunternehmerLabel')
     : `${taxForm.taxRate}% MwSt.`
 
   return (
@@ -200,18 +203,18 @@ export function BusinessProfileCard({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Building2 className="h-5 w-5" />
-          Profil & Stammdaten
+          {t('title')}
         </CardTitle>
-        <CardDescription>Wie Kunden Sie sehen — und was Behörden brauchen</CardDescription>
+        <CardDescription>{t('description')}</CardDescription>
         <CardAction>
           {editing ? (
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={handleCancel} disabled={isSaving}>
-                Abbrechen
+                {tc('cancel')}
               </Button>
               <Button size="sm" onClick={handleSave} disabled={isSaving}>
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Speichern
+                {tc('save')}
               </Button>
             </div>
           ) : (
@@ -226,29 +229,29 @@ export function BusinessProfileCard({
           {/* Betrieb */}
           <div className="rounded-lg border p-4">
             <FieldSet className="gap-3">
-              <FieldLegend className="mb-1">Betrieb</FieldLegend>
+              <FieldLegend className="mb-1">{t('business')}</FieldLegend>
               <FieldGroup className="gap-4">
                 <Field>
-                  <FieldLabel>Name</FieldLabel>
+                  <FieldLabel>{t('name')}</FieldLabel>
                   <Input
                     value={profileForm.name}
                     onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
                     readOnly={!editing}
-                    placeholder="Betriebsname"
+                    placeholder={t('namePlaceholder')}
                   />
                 </Field>
                 <Field>
-                  <FieldLabel>Gegründet</FieldLabel>
+                  <FieldLabel>{t('founded')}</FieldLabel>
                   <Input
                     type="number"
                     value={profileForm.foundedYear}
                     onChange={(e) => setProfileForm({ ...profileForm, foundedYear: e.target.value })}
                     readOnly={!editing}
-                    placeholder="z.B. 2020"
+                    placeholder={t('foundedPlaceholder')}
                   />
                 </Field>
                 <Field>
-                  <FieldLabel>Telefon</FieldLabel>
+                  <FieldLabel>{t('phone')}</FieldLabel>
                   <Input
                     value={contactForm.phone}
                     onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
@@ -257,13 +260,13 @@ export function BusinessProfileCard({
                   />
                 </Field>
                 <Field>
-                  <FieldLabel>E-Mail</FieldLabel>
+                  <FieldLabel>{t('email')}</FieldLabel>
                   <Input
                     type="email"
                     value={contactForm.email}
                     onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
                     readOnly={!editing}
-                    placeholder="kontakt@beispiel.de"
+                    placeholder={t('emailPlaceholder')}
                   />
                 </Field>
               </FieldGroup>
@@ -273,34 +276,34 @@ export function BusinessProfileCard({
           {/* Standort & Register */}
           <div className="rounded-lg border p-4">
             <FieldSet className="gap-3">
-              <FieldLegend className="mb-1">Standort & Register</FieldLegend>
+              <FieldLegend className="mb-1">{t('locationRegister')}</FieldLegend>
               <FieldGroup className="gap-4">
                 <Field>
-                  <FieldLabel>Adresse</FieldLabel>
+                  <FieldLabel>{t('address')}</FieldLabel>
                   <Textarea
                     value={profileForm.address}
                     onChange={(e) => setProfileForm({ ...profileForm, address: e.target.value })}
                     readOnly={!editing}
-                    placeholder={"Musterstraße 1\n12345 Berlin\nDeutschland"}
+                    placeholder={t('addressPlaceholder')}
                     rows={3}
                   />
                 </Field>
                 <Field>
-                  <FieldLabel>Handelsregister-Nr.</FieldLabel>
+                  <FieldLabel>{t('registerNumber')}</FieldLabel>
                   <Input
                     value={legalForm.registrationNumber}
                     onChange={(e) => setLegalForm({ ...legalForm, registrationNumber: e.target.value })}
                     readOnly={!editing}
-                    placeholder="z.B. HRB 12345"
+                    placeholder={t('registerPlaceholder')}
                   />
                 </Field>
                 <Field>
-                  <FieldLabel>USt-IdNr.</FieldLabel>
+                  <FieldLabel>{t('taxId')}</FieldLabel>
                   <Input
                     value={taxForm.taxId}
                     onChange={(e) => setTaxForm({ ...taxForm, taxId: e.target.value })}
                     readOnly={!editing}
-                    placeholder="z.B. DE123456789"
+                    placeholder={t('taxIdPlaceholder')}
                   />
                 </Field>
               </FieldGroup>
@@ -310,26 +313,26 @@ export function BusinessProfileCard({
           {/* Rechtliches & Steuern */}
           <div className="rounded-lg border p-4">
             <FieldSet className="gap-3">
-              <FieldLegend className="mb-1">Rechtliches & Steuern</FieldLegend>
+              <FieldLegend className="mb-1">{t('legalTax')}</FieldLegend>
               <FieldGroup className="gap-4">
                 <Field>
-                  <FieldLabel>Firmenname</FieldLabel>
+                  <FieldLabel>{t('companyName')}</FieldLabel>
                   <Input
                     value={legalForm.legalName}
                     onChange={(e) => setLegalForm({ ...legalForm, legalName: e.target.value })}
                     readOnly={!editing}
-                    placeholder="Muster GmbH"
+                    placeholder={t('companyNamePlaceholder')}
                   />
                 </Field>
                 <Field>
-                  <FieldLabel>Rechtsform</FieldLabel>
+                  <FieldLabel>{t('legalForm')}</FieldLabel>
                   {editing ? (
                     <Select
                       value={legalForm.legalForm || undefined}
                       onValueChange={(value) => setLegalForm({ ...legalForm, legalForm: value })}
                     >
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Bitte wählen..." />
+                        <SelectValue placeholder={t('legalFormPlaceholder')} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Einzelunternehmer">Einzelunternehmer</SelectItem>
@@ -344,20 +347,20 @@ export function BusinessProfileCard({
                       </SelectContent>
                     </Select>
                   ) : (
-                    <Input readOnly value={legalForm.legalForm || ''} placeholder="Bitte wählen..." />
+                    <Input readOnly value={legalForm.legalForm || ''} placeholder={t('legalFormPlaceholder')} />
                   )}
                 </Field>
                 <Field>
-                  <FieldLabel>Registergericht</FieldLabel>
+                  <FieldLabel>{t('registrationCourt')}</FieldLabel>
                   <Input
                     value={legalForm.registrationCourt}
                     onChange={(e) => setLegalForm({ ...legalForm, registrationCourt: e.target.value })}
                     readOnly={!editing}
-                    placeholder="z.B. Amtsgericht Berlin"
+                    placeholder={t('registrationCourtPlaceholder')}
                   />
                 </Field>
                 <Field>
-                  <FieldLabel>Steuersatz</FieldLabel>
+                  <FieldLabel>{t('taxRate')}</FieldLabel>
                   {editing ? (
                     <Select
                       value={String(taxForm.taxRate)}
@@ -368,9 +371,9 @@ export function BusinessProfileCard({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="19">19% — Regelsteuersatz</SelectItem>
-                        <SelectItem value="7">7% — Ermäßigt</SelectItem>
-                        <SelectItem value="0">0% — Steuerfrei</SelectItem>
+                        <SelectItem value="19">{t('taxRate19')}</SelectItem>
+                        <SelectItem value="7">{t('taxRate7')}</SelectItem>
+                        <SelectItem value="0">{t('taxRate0')}</SelectItem>
                       </SelectContent>
                     </Select>
                   ) : (
@@ -379,8 +382,8 @@ export function BusinessProfileCard({
                 </Field>
                 <Field orientation="horizontal">
                   <FieldContent>
-                    <FieldLabel>Kleinunternehmer</FieldLabel>
-                    <FieldDescription>§ 19 UStG</FieldDescription>
+                    <FieldLabel>{t('kleinunternehmer')}</FieldLabel>
+                    <FieldDescription>{t('kleinunternehmerDesc')}</FieldDescription>
                   </FieldContent>
                   <Switch
                     checked={taxForm.isKleinunternehmer}
@@ -390,8 +393,8 @@ export function BusinessProfileCard({
                 </Field>
                 <Field orientation="horizontal">
                   <FieldContent>
-                    <FieldLabel>Logo auf Rechnung</FieldLabel>
-                    <FieldDescription>Im Briefkopf</FieldDescription>
+                    <FieldLabel>{t('logoOnInvoice')}</FieldLabel>
+                    <FieldDescription>{t('logoOnInvoiceDesc')}</FieldDescription>
                   </FieldContent>
                   <Switch
                     checked={taxForm.showLogoOnInvoice}
@@ -406,10 +409,10 @@ export function BusinessProfileCard({
           {/* Buchung & Online-Auftritt */}
           <div className="md:col-span-3 rounded-lg border p-4">
             <FieldSet className="gap-3">
-              <FieldLegend className="mb-1">Buchung & Online-Auftritt</FieldLegend>
+              <FieldLegend className="mb-1">{t('bookingOnline')}</FieldLegend>
               <FieldGroup className="gap-4">
                 <Field>
-                  <FieldLabel>Buchungs-URL</FieldLabel>
+                  <FieldLabel>{t('bookingUrl')}</FieldLabel>
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground whitespace-nowrap">hebelki.de/book/</span>
                     <Input
@@ -434,19 +437,19 @@ export function BusinessProfileCard({
                 </Field>
 
                 <Field>
-                  <FieldLabel>Website</FieldLabel>
+                  <FieldLabel>{t('website')}</FieldLabel>
                   <Input
                     type="url"
                     value={profileForm.website}
                     onChange={(e) => setProfileForm({ ...profileForm, website: e.target.value })}
                     readOnly={!editing}
-                    placeholder="https://www.beispiel.de"
+                    placeholder={t('websitePlaceholder')}
                   />
                 </Field>
 
                 <div className="grid grid-cols-2 gap-4">
                   <Field>
-                    <FieldLabel>Zeitzone</FieldLabel>
+                    <FieldLabel>{t('timezone')}</FieldLabel>
                     {editing ? (
                       <Select
                         value={profileForm.timezone}
@@ -468,7 +471,7 @@ export function BusinessProfileCard({
                     )}
                   </Field>
                   <Field>
-                    <FieldLabel>Währung</FieldLabel>
+                    <FieldLabel>{t('currency')}</FieldLabel>
                     {editing ? (
                       <Select
                         value={profileForm.currency}

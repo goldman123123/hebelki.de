@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslations } from 'next-intl'
 import { createLogger } from '@/lib/logger'
 
 const log = createLogger('dashboard:support-chat:ConversationList')
@@ -33,27 +34,34 @@ interface ConversationListProps {
   onSelect: (id: string) => void
 }
 
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'Jetzt'
-  if (mins < 60) return `${mins}m`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h`
-  const days = Math.floor(hours / 24)
-  return `${days}d`
+const STATUS_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  live_queue: 'secondary',
+  live_active: 'default',
+  escalated: 'destructive',
 }
 
-const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-  live_queue: { label: 'Wartend', variant: 'secondary' },
-  live_active: { label: 'Aktiv', variant: 'default' },
-  escalated: { label: 'Eskaliert', variant: 'destructive' },
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  live_queue: 'statusQueued',
+  live_active: 'statusActive',
+  escalated: 'statusEscalated',
 }
 
 export function ConversationList({ selectedId, onSelect }: ConversationListProps) {
+  const t = useTranslations('dashboard.supportChat')
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loading, setLoading] = useState(true)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const timeAgo = (dateStr: string): string => {
+    const diff = Date.now() - new Date(dateStr).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return t('now')
+    if (mins < 60) return `${mins}m`
+    const hours = Math.floor(mins / 60)
+    if (hours < 24) return `${hours}h`
+    const days = Math.floor(hours / 24)
+    return `${days}d`
+  }
 
   const fetchConversations = async () => {
     try {
@@ -89,7 +97,7 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
     return (
       <Card className="flex h-full items-center justify-center p-6">
         <div className="text-center text-gray-500">
-          <p className="text-sm">Keine offenen Gespräche</p>
+          <p className="text-sm">{t('noConversations')}</p>
         </div>
       </Card>
     )
@@ -99,13 +107,14 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
     <Card className="flex h-full flex-col overflow-hidden">
       <div className="border-b p-3">
         <h2 className="text-sm font-semibold text-gray-700">
-          Gespräche ({conversations.length})
+          {t('conversationsHeader', { count: conversations.length })}
         </h2>
       </div>
       <div className="flex-1 overflow-y-auto">
         {conversations.map((conv) => {
-          const config = statusConfig[conv.status] || { label: conv.status, variant: 'outline' as const }
-          const displayName = conv.customerName || conv.customerEmail || 'Unbekannter Kunde'
+          const variant = STATUS_VARIANTS[conv.status] || 'outline'
+          const statusLabel = STATUS_LABEL_KEYS[conv.status] ? t(STATUS_LABEL_KEYS[conv.status]) : conv.status
+          const displayName = conv.customerName || conv.customerEmail || t('unknownCustomer')
 
           return (
             <button
@@ -127,7 +136,7 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
                     </p>
                     {conv.lastMessage && (
                       <p className="truncate text-xs text-gray-500">
-                        {conv.lastMessage.role === 'staff' ? 'Sie: ' : ''}
+                        {conv.lastMessage.role === 'staff' ? t('you') : ''}
                         {conv.lastMessage.content}
                       </p>
                     )}
@@ -138,8 +147,8 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
                     {conv.updatedAt ? timeAgo(conv.updatedAt) : ''}
                   </span>
                   <div className="flex items-center gap-1">
-                    <Badge variant={config.variant} className="text-[10px] px-1.5 py-0">
-                      {config.label}
+                    <Badge variant={variant} className="text-[10px] px-1.5 py-0">
+                      {statusLabel}
                     </Badge>
                     {conv.unreadCount > 0 && (
                       <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-[10px] font-bold text-white">

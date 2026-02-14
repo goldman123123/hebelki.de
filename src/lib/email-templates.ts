@@ -1,3 +1,6 @@
+import type { Locale } from '@/i18n/config'
+import { getEmailTranslations } from '@/lib/email-i18n'
+
 interface BookingEmailData {
   customerName: string
   customerEmail: string
@@ -15,8 +18,12 @@ interface BookingEmailData {
   manageUrl?: string
 }
 
-function formatDate(date: Date, timezone = 'Europe/Berlin'): string {
-  return date.toLocaleDateString('de-DE', {
+function getDateLocale(locale: Locale): string {
+  return locale === 'de' ? 'de-DE' : 'en-US'
+}
+
+function formatDate(date: Date, timezone = 'Europe/Berlin', locale: Locale = 'de'): string {
+  return date.toLocaleDateString(getDateLocale(locale), {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -25,19 +32,25 @@ function formatDate(date: Date, timezone = 'Europe/Berlin'): string {
   })
 }
 
-function formatTime(date: Date, timezone = 'Europe/Berlin'): string {
-  return date.toLocaleTimeString('de-DE', {
+function formatTime(date: Date, timezone = 'Europe/Berlin', locale: Locale = 'de'): string {
+  return date.toLocaleTimeString(getDateLocale(locale), {
     hour: '2-digit',
     minute: '2-digit',
     timeZone: timezone,
   })
 }
 
-function formatPrice(price: number, currency = 'EUR'): string {
-  return new Intl.NumberFormat('de-DE', {
+function formatPrice(price: number, currency = 'EUR', locale: Locale = 'de'): string {
+  return new Intl.NumberFormat(getDateLocale(locale), {
     style: 'currency',
     currency,
   }).format(price)
+}
+
+/** Time string with optional "Uhr" suffix (German only) */
+function timeWithUhr(time: string, t: (key: string) => string): string {
+  const uhr = t('uhr')
+  return uhr ? `${time} ${uhr}` : time
 }
 
 const baseStyles = `
@@ -54,46 +67,49 @@ const baseStyles = `
   .highlight { background: #fef3c7; padding: 15px; border-radius: 6px; border-left: 4px solid #f59e0b; margin: 20px 0; }
 `
 
-function buildDetailsTable(data: BookingEmailData): string {
+function buildDetailsTable(data: BookingEmailData, tl: (key: string) => string, tc: (key: string) => string, locale: Locale = 'de'): string {
   return `
       <table style="width: 100%; border-collapse: collapse;">
         <tr>
-          <td style="padding: 8px 0; color: #6b7280; width: 140px;">Service:</td>
+          <td style="padding: 8px 0; color: #6b7280; width: 140px;">${tl('service')}</td>
           <td style="padding: 8px 0; font-weight: 600;">${data.serviceName}</td>
         </tr>
         <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Datum:</td>
-          <td style="padding: 8px 0; font-weight: 600;">${formatDate(data.startsAt)}</td>
+          <td style="padding: 8px 0; color: #6b7280;">${tl('date')}</td>
+          <td style="padding: 8px 0; font-weight: 600;">${formatDate(data.startsAt, undefined, locale)}</td>
         </tr>
         <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Uhrzeit:</td>
-          <td style="padding: 8px 0; font-weight: 600;">${formatTime(data.startsAt)} - ${formatTime(data.endsAt)} Uhr</td>
+          <td style="padding: 8px 0; color: #6b7280;">${tl('time')}</td>
+          <td style="padding: 8px 0; font-weight: 600;">${timeWithUhr(`${formatTime(data.startsAt, undefined, locale)} - ${formatTime(data.endsAt, undefined, locale)}`, tc)}</td>
         </tr>
         ${data.staffName ? `
         <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Mitarbeiter:</td>
+          <td style="padding: 8px 0; color: #6b7280;">${tl('staff')}</td>
           <td style="padding: 8px 0; font-weight: 600;">${data.staffName}</td>
         </tr>
         ` : ''}
         ${data.price ? `
         <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Preis:</td>
-          <td style="padding: 8px 0; font-weight: 600;">${formatPrice(data.price, data.currency)}</td>
+          <td style="padding: 8px 0; color: #6b7280;">${tl('price')}</td>
+          <td style="padding: 8px 0; font-weight: 600;">${formatPrice(data.price, data.currency, locale)}</td>
         </tr>
         ` : ''}
         ${data.notes ? `
         <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Anmerkungen:</td>
+          <td style="padding: 8px 0; color: #6b7280;">${tl('notes')}</td>
           <td style="padding: 8px 0;">${data.notes}</td>
         </tr>
         ` : ''}
       </table>`
 }
 
-export function bookingConfirmationEmail(data: BookingEmailData): { subject: string; html: string; text: string } {
+export async function bookingConfirmationEmail(data: BookingEmailData, locale: Locale = 'de'): Promise<{ subject: string; html: string; text: string }> {
+  const tc = await getEmailTranslations(locale, 'emails.common')
+  const tl = await getEmailTranslations(locale, 'emails.labels')
+  const t = await getEmailTranslations(locale, 'emails.confirmation')
+
   const status = data.bookingStatus || 'pending'
 
-  // Determine header, hint, and button based on booking status
   let headerTitle: string
   let hintHtml: string
   let hintText: string
@@ -101,41 +117,39 @@ export function bookingConfirmationEmail(data: BookingEmailData): { subject: str
   let confirmButtonText = ''
 
   if (status === 'unconfirmed' && data.confirmationUrl) {
-    // Customer needs to click email link to confirm
-    headerTitle = 'Buchung eingegangen'
+    headerTitle = t('receivedTitle')
     confirmButtonHtml = `
     <div style="text-align: center; margin: 20px 0;">
       <a href="${data.confirmationUrl}" class="button" style="display: inline-block; background: #3B82F6; color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
-        Buchung bestätigen
+        ${t('confirmButton')}
       </a>
     </div>`
-    confirmButtonText = `\nBitte bestätigen Sie Ihre Buchung über folgenden Link:\n${data.confirmationUrl}\n`
+    confirmButtonText = `\n${t('textConfirmLink')}\n${data.confirmationUrl}\n`
     hintHtml = `
     <div class="highlight">
-      <strong>Wichtig:</strong> Bitte bestätigen Sie Ihre Buchung, indem Sie auf den Button oben klicken. Ohne Bestätigung wird Ihr Termin nicht reserviert.
+      <strong>${t('confirmHintImportant')}</strong> ${t('confirmHint')}
     </div>`
-    hintText = 'Bitte bestätigen Sie Ihre Buchung über den Link oben. Ohne Bestätigung wird Ihr Termin nicht reserviert.'
+    hintText = t('textConfirmHint')
   } else if (status === 'pending') {
-    // Admin approval required
-    headerTitle = 'Buchung eingegangen'
+    headerTitle = t('receivedTitle')
     hintHtml = `
     <div class="highlight">
-      <strong>Hinweis:</strong> Ihre Buchung wird vom Team geprüft. Sie erhalten eine weitere E-Mail, sobald Ihre Buchung bestätigt wurde.
+      <strong>${t('pendingHintLabel')}</strong> ${t('pendingHint')}
     </div>`
-    hintText = 'Ihre Buchung wird vom Team geprüft. Sie erhalten eine weitere E-Mail, sobald Ihre Buchung bestätigt wurde.'
+    hintText = t('pendingHint')
   } else {
-    // Auto-confirmed
-    headerTitle = 'Buchung bestätigt'
+    headerTitle = t('confirmedTitle')
     hintHtml = `
     <div class="highlight" style="background: #d1fae5; border-left-color: #10b981;">
-      <strong>Bestätigt!</strong> Ihr Termin ist reserviert. Wir freuen uns auf Ihren Besuch.
+      <strong>${t('autoConfirmedLabel')}</strong> ${t('autoConfirmedHint')}
     </div>`
-    hintText = 'Ihr Termin ist bestätigt! Wir freuen uns auf Ihren Besuch.'
+    hintText = t('autoConfirmedHint')
   }
 
+  const dateStr = formatDate(data.startsAt, undefined, locale)
   const subject = status === 'confirmed'
-    ? `Buchungsbestätigung - ${data.serviceName} am ${formatDate(data.startsAt)}`
-    : `Buchung eingegangen - ${data.serviceName} am ${formatDate(data.startsAt)}`
+    ? t('subjectConfirmed', { service: data.serviceName, date: dateStr })
+    : t('subjectReceived', { service: data.serviceName, date: dateStr })
 
   const html = `
 <!DOCTYPE html>
@@ -149,70 +163,78 @@ export function bookingConfirmationEmail(data: BookingEmailData): { subject: str
     <h1>${headerTitle}</h1>
   </div>
   <div class="content">
-    <p>Hallo ${data.customerName},</p>
-    <p>vielen Dank für Ihre Buchung bei <strong>${data.businessName}</strong>.</p>
+    <p>${tc('greeting', { name: data.customerName })}</p>
+    <p>${t('thankYou', { businessName: data.businessName })}</p>
 
     <div class="details">
-      <h3 style="margin-top: 0;">Buchungsdetails</h3>
-      ${buildDetailsTable(data)}
+      <h3 style="margin-top: 0;">${t('detailsTitle')}</h3>
+      ${buildDetailsTable(data, tl, tc, locale)}
     </div>
 
     ${confirmButtonHtml}
     ${hintHtml}
 
-    <p>Bei Fragen können Sie diese E-Mail beantworten oder uns direkt kontaktieren.</p>
+    <p>${tc('contactUs')}</p>
 
     ${data.manageUrl ? `
     <div style="text-align: center; margin: 20px 0; padding-top: 15px; border-top: 1px solid #e5e7eb;">
       <a href="${data.manageUrl}" style="display: inline-block; background: #6b7280; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px;">
-        Termin verwalten
+        ${tc('manageBooking')}
       </a>
-      <p style="font-size: 12px; color: #9ca3af; margin-top: 8px;">Stornieren oder umbuchen</p>
+      <p style="font-size: 12px; color: #9ca3af; margin-top: 8px;">${tc('manageBookingSubtext')}</p>
     </div>
     ` : ''}
 
-    <p>Mit freundlichen Grüßen,<br><strong>${data.businessName}</strong></p>
+    <p>${tc('regards')}<br><strong>${data.businessName}</strong></p>
   </div>
   <div class="footer">
-    <p>Buchungsnummer: ${data.confirmationToken}</p>
-    <p>Powered by Hebelki</p>
+    <p>${tc('bookingNumber', { token: data.confirmationToken })}</p>
+    <p>${tc('poweredBy')}</p>
   </div>
 </body>
 </html>
 `
 
+  const timeRange = timeWithUhr(`${formatTime(data.startsAt, undefined, locale)} - ${formatTime(data.endsAt, undefined, locale)}`, tc)
   const text = `
 ${headerTitle}
 
-Hallo ${data.customerName},
+${tc('greeting', { name: data.customerName })}
 
-vielen Dank für Ihre Buchung bei ${data.businessName}.
+${t('thankYou', { businessName: data.businessName })}
 
-BUCHUNGSDETAILS
+${t('textDetailsTitle')}
 ---------------
-Service: ${data.serviceName}
-Datum: ${formatDate(data.startsAt)}
-Uhrzeit: ${formatTime(data.startsAt)} - ${formatTime(data.endsAt)} Uhr
-${data.staffName ? `Mitarbeiter: ${data.staffName}\n` : ''}${data.price ? `Preis: ${formatPrice(data.price, data.currency)}\n` : ''}${data.notes ? `Anmerkungen: ${data.notes}\n` : ''}
-Buchungsnummer: ${data.confirmationToken}
+${tl('service')} ${data.serviceName}
+${tl('date')} ${dateStr}
+${tl('time')} ${timeRange}
+${data.staffName ? `${tl('staff')} ${data.staffName}\n` : ''}${data.price ? `${tl('price')} ${formatPrice(data.price, data.currency, locale)}\n` : ''}${data.notes ? `${tl('notes')} ${data.notes}\n` : ''}
+${tc('bookingNumber', { token: data.confirmationToken })}
 ${confirmButtonText}
 ${hintText}
-${data.manageUrl ? `\nTermin verwalten (stornieren oder umbuchen): ${data.manageUrl}\n` : ''}
-Mit freundlichen Grüßen,
+${data.manageUrl ? `\n${tc('manageBooking')} (${tc('manageBookingSubtext')}): ${data.manageUrl}\n` : ''}
+${tc('regards')}
 ${data.businessName}
 `
 
   return { subject, html, text }
 }
 
-export function bookingNotificationEmail(data: BookingEmailData & { customerPhone?: string }): { subject: string; html: string; text: string } {
-  const subject = `Neue Buchung - ${data.serviceName} am ${formatDate(data.startsAt)}`
+export async function bookingNotificationEmail(data: BookingEmailData & { customerPhone?: string }, locale: Locale = 'de'): Promise<{ subject: string; html: string; text: string }> {
+  const tc = await getEmailTranslations(locale, 'emails.common')
+  const tl = await getEmailTranslations(locale, 'emails.labels')
+  const t = await getEmailTranslations(locale, 'emails.notification')
+
+  const dateStr = formatDate(data.startsAt, undefined, locale)
+  const subject = t('subject', { service: data.serviceName, date: dateStr })
 
   const statusLabel = data.bookingStatus === 'unconfirmed'
-    ? 'Wartet auf Kundenbestätigung per E-Mail'
+    ? t('statusWaitingCustomer')
     : data.bookingStatus === 'pending'
-      ? 'Wartet auf Genehmigung'
-      : 'Automatisch bestätigt'
+      ? t('statusWaitingApproval')
+      : t('statusAutoConfirmed')
+
+  const timeRange = timeWithUhr(`${formatTime(data.startsAt, undefined, locale)} - ${formatTime(data.endsAt, undefined, locale)}`, tc)
 
   const html = `
 <!DOCTYPE html>
@@ -223,25 +245,25 @@ export function bookingNotificationEmail(data: BookingEmailData & { customerPhon
 </head>
 <body>
   <div class="header" style="background: #10b981;">
-    <h1>Neue Buchungsanfrage</h1>
+    <h1>${t('title')}</h1>
   </div>
   <div class="content">
-    <p>Eine neue Buchungsanfrage ist eingegangen:</p>
+    <p>${t('intro')}</p>
 
     <div class="details">
-      <h3 style="margin-top: 0;">Kundeninformationen</h3>
+      <h3 style="margin-top: 0;">${t('customerInfo')}</h3>
       <table style="width: 100%; border-collapse: collapse;">
         <tr>
-          <td style="padding: 8px 0; color: #6b7280; width: 140px;">Name:</td>
+          <td style="padding: 8px 0; color: #6b7280; width: 140px;">${tl('name')}</td>
           <td style="padding: 8px 0; font-weight: 600;">${data.customerName}</td>
         </tr>
         <tr>
-          <td style="padding: 8px 0; color: #6b7280;">E-Mail:</td>
+          <td style="padding: 8px 0; color: #6b7280;">${tl('email')}</td>
           <td style="padding: 8px 0;"><a href="mailto:${data.customerEmail}">${data.customerEmail}</a></td>
         </tr>
         ${data.customerPhone ? `
         <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Telefon:</td>
+          <td style="padding: 8px 0; color: #6b7280;">${tl('phone')}</td>
           <td style="padding: 8px 0;"><a href="tel:${data.customerPhone}">${data.customerPhone}</a></td>
         </tr>
         ` : ''}
@@ -249,51 +271,57 @@ export function bookingNotificationEmail(data: BookingEmailData & { customerPhon
     </div>
 
     <div class="details">
-      <h3 style="margin-top: 0;">Termindetails</h3>
-      ${buildDetailsTable(data)}
+      <h3 style="margin-top: 0;">${t('appointmentDetails')}</h3>
+      ${buildDetailsTable(data, tl, tc, locale)}
     </div>
 
     <div class="highlight">
-      <strong>Status:</strong> ${statusLabel}
+      <strong>${t('statusLabel')}</strong> ${statusLabel}
     </div>
 
     <p style="text-align: center;">
-      ${data.bookingStatus === 'pending' ? 'Bitte überprüfen Sie die Anfrage und bestätigen oder lehnen Sie den Termin ab.' : ''}
+      ${data.bookingStatus === 'pending' ? t('reviewRequest') : ''}
     </p>
   </div>
   <div class="footer">
-    <p>Buchungsnummer: ${data.confirmationToken}</p>
+    <p>${tc('bookingNumber', { token: data.confirmationToken })}</p>
   </div>
 </body>
 </html>
 `
 
   const text = `
-Neue Buchungsanfrage
+${t('title')}
 
-Eine neue Buchungsanfrage ist eingegangen:
+${t('intro')}
 
-KUNDENINFORMATIONEN
+${t('textCustomerInfo')}
 -------------------
-Name: ${data.customerName}
-E-Mail: ${data.customerEmail}
-${data.customerPhone ? `Telefon: ${data.customerPhone}\n` : ''}
-TERMINDETAILS
+${tl('name')} ${data.customerName}
+${tl('email')} ${data.customerEmail}
+${data.customerPhone ? `${tl('phone')} ${data.customerPhone}\n` : ''}
+${t('textAppointmentDetails')}
 -------------
-Service: ${data.serviceName}
-Datum: ${formatDate(data.startsAt)}
-Uhrzeit: ${formatTime(data.startsAt)} - ${formatTime(data.endsAt)} Uhr
-${data.staffName ? `Mitarbeiter: ${data.staffName}\n` : ''}${data.price ? `Preis: ${formatPrice(data.price, data.currency)}\n` : ''}${data.notes ? `Anmerkungen: ${data.notes}\n` : ''}
-Buchungsnummer: ${data.confirmationToken}
+${tl('service')} ${data.serviceName}
+${tl('date')} ${dateStr}
+${tl('time')} ${timeRange}
+${data.staffName ? `${tl('staff')} ${data.staffName}\n` : ''}${data.price ? `${tl('price')} ${formatPrice(data.price, data.currency, locale)}\n` : ''}${data.notes ? `${tl('notes')} ${data.notes}\n` : ''}
+${tc('bookingNumber', { token: data.confirmationToken })}
 
-Status: ${statusLabel}
+${t('statusLabel')} ${statusLabel}
 `
 
   return { subject, html, text }
 }
 
-export function bookingCancellationEmail(data: BookingEmailData & { reason?: string }): { subject: string; html: string; text: string } {
-  const subject = `Buchung storniert - ${data.serviceName} am ${formatDate(data.startsAt)}`
+export async function bookingCancellationEmail(data: BookingEmailData & { reason?: string }, locale: Locale = 'de'): Promise<{ subject: string; html: string; text: string }> {
+  const tc = await getEmailTranslations(locale, 'emails.common')
+  const tl = await getEmailTranslations(locale, 'emails.labels')
+  const t = await getEmailTranslations(locale, 'emails.cancellation')
+
+  const dateStr = formatDate(data.startsAt, undefined, locale)
+  const subject = t('subject', { service: data.serviceName, date: dateStr })
+  const timeRange = timeWithUhr(`${formatTime(data.startsAt, undefined, locale)} - ${formatTime(data.endsAt, undefined, locale)}`, tc)
 
   const html = `
 <!DOCTYPE html>
@@ -304,66 +332,66 @@ export function bookingCancellationEmail(data: BookingEmailData & { reason?: str
 </head>
 <body>
   <div class="header" style="background: #ef4444;">
-    <h1>Buchung storniert</h1>
+    <h1>${t('title')}</h1>
   </div>
   <div class="content">
-    <p>Hallo ${data.customerName},</p>
-    <p>Ihre Buchung bei <strong>${data.businessName}</strong> wurde storniert.</p>
+    <p>${tc('greeting', { name: data.customerName })}</p>
+    <p>${t('body', { businessName: data.businessName })}</p>
 
     <div class="details">
-      <h3 style="margin-top: 0;">Stornierte Buchung</h3>
+      <h3 style="margin-top: 0;">${t('detailsTitle')}</h3>
       <table style="width: 100%; border-collapse: collapse;">
         <tr>
-          <td style="padding: 8px 0; color: #6b7280; width: 140px;">Service:</td>
+          <td style="padding: 8px 0; color: #6b7280; width: 140px;">${tl('service')}</td>
           <td style="padding: 8px 0;">${data.serviceName}</td>
         </tr>
         <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Datum:</td>
-          <td style="padding: 8px 0;">${formatDate(data.startsAt)}</td>
+          <td style="padding: 8px 0; color: #6b7280;">${tl('date')}</td>
+          <td style="padding: 8px 0;">${dateStr}</td>
         </tr>
         <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Uhrzeit:</td>
-          <td style="padding: 8px 0;">${formatTime(data.startsAt)} - ${formatTime(data.endsAt)} Uhr</td>
+          <td style="padding: 8px 0; color: #6b7280;">${tl('time')}</td>
+          <td style="padding: 8px 0;">${timeRange}</td>
         </tr>
         ${data.reason ? `
         <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Grund:</td>
+          <td style="padding: 8px 0; color: #6b7280;">${tl('reason')}</td>
           <td style="padding: 8px 0;">${data.reason}</td>
         </tr>
         ` : ''}
       </table>
     </div>
 
-    <p>Wenn Sie einen neuen Termin buchen möchten, besuchen Sie bitte unsere Buchungsseite.</p>
+    <p>${t('rebookHint')}</p>
 
-    <p>Mit freundlichen Grüßen,<br><strong>${data.businessName}</strong></p>
+    <p>${tc('regards')}<br><strong>${data.businessName}</strong></p>
   </div>
   <div class="footer">
-    <p>Buchungsnummer: ${data.confirmationToken}</p>
-    <p>Powered by Hebelki</p>
+    <p>${tc('bookingNumber', { token: data.confirmationToken })}</p>
+    <p>${tc('poweredBy')}</p>
   </div>
 </body>
 </html>
 `
 
   const text = `
-Buchung storniert
+${t('title')}
 
-Hallo ${data.customerName},
+${tc('greeting', { name: data.customerName })}
 
-Ihre Buchung bei ${data.businessName} wurde storniert.
+${t('body', { businessName: data.businessName })}
 
-STORNIERTE BUCHUNG
+${t('textTitle')}
 ------------------
-Service: ${data.serviceName}
-Datum: ${formatDate(data.startsAt)}
-Uhrzeit: ${formatTime(data.startsAt)} - ${formatTime(data.endsAt)} Uhr
-${data.reason ? `Grund: ${data.reason}\n` : ''}
-Buchungsnummer: ${data.confirmationToken}
+${tl('service')} ${data.serviceName}
+${tl('date')} ${dateStr}
+${tl('time')} ${timeRange}
+${data.reason ? `${tl('reason')} ${data.reason}\n` : ''}
+${tc('bookingNumber', { token: data.confirmationToken })}
 
-Wenn Sie einen neuen Termin buchen möchten, besuchen Sie bitte unsere Buchungsseite.
+${t('rebookHint')}
 
-Mit freundlichen Grüßen,
+${tc('regards')}
 ${data.businessName}
 `
 
@@ -384,8 +412,16 @@ interface BookingRescheduledEmailData {
   manageUrl?: string
 }
 
-export function bookingRescheduledEmail(data: BookingRescheduledEmailData): { subject: string; html: string; text: string } {
-  const subject = `Termin umgebucht - ${data.serviceName} am ${formatDate(data.newStartsAt)}`
+export async function bookingRescheduledEmail(data: BookingRescheduledEmailData, locale: Locale = 'de'): Promise<{ subject: string; html: string; text: string }> {
+  const tc = await getEmailTranslations(locale, 'emails.common')
+  const tl = await getEmailTranslations(locale, 'emails.labels')
+  const t = await getEmailTranslations(locale, 'emails.rescheduled')
+
+  const newDateStr = formatDate(data.newStartsAt, undefined, locale)
+  const subject = t('subject', { service: data.serviceName, date: newDateStr })
+
+  const oldTimeRange = timeWithUhr(`${formatTime(data.oldStartsAt, undefined, locale)} - ${formatTime(data.oldEndsAt, undefined, locale)}`, tc)
+  const newTimeRange = timeWithUhr(`${formatTime(data.newStartsAt, undefined, locale)} - ${formatTime(data.newEndsAt, undefined, locale)}`, tc)
 
   const html = `
 <!DOCTYPE html>
@@ -396,44 +432,44 @@ export function bookingRescheduledEmail(data: BookingRescheduledEmailData): { su
 </head>
 <body>
   <div class="header" style="background: #3B82F6;">
-    <h1>Termin umgebucht</h1>
+    <h1>${t('title')}</h1>
   </div>
   <div class="content">
-    <p>Hallo ${data.customerName},</p>
-    <p>Ihr Termin bei <strong>${data.businessName}</strong> wurde erfolgreich umgebucht.</p>
+    <p>${tc('greeting', { name: data.customerName })}</p>
+    <p>${t('body', { businessName: data.businessName })}</p>
 
     <div class="details">
-      <h3 style="margin-top: 0;">Alter Termin</h3>
+      <h3 style="margin-top: 0;">${t('oldAppointment')}</h3>
       <table style="width: 100%; border-collapse: collapse;">
         <tr>
-          <td style="padding: 8px 0; color: #6b7280; width: 140px;">Datum:</td>
-          <td style="padding: 8px 0; text-decoration: line-through; color: #9ca3af;">${formatDate(data.oldStartsAt)}</td>
+          <td style="padding: 8px 0; color: #6b7280; width: 140px;">${tl('date')}</td>
+          <td style="padding: 8px 0; text-decoration: line-through; color: #9ca3af;">${formatDate(data.oldStartsAt, undefined, locale)}</td>
         </tr>
         <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Uhrzeit:</td>
-          <td style="padding: 8px 0; text-decoration: line-through; color: #9ca3af;">${formatTime(data.oldStartsAt)} - ${formatTime(data.oldEndsAt)} Uhr</td>
+          <td style="padding: 8px 0; color: #6b7280;">${tl('time')}</td>
+          <td style="padding: 8px 0; text-decoration: line-through; color: #9ca3af;">${oldTimeRange}</td>
         </tr>
       </table>
     </div>
 
     <div class="details" style="border: 2px solid #3B82F6;">
-      <h3 style="margin-top: 0; color: #3B82F6;">Neuer Termin</h3>
+      <h3 style="margin-top: 0; color: #3B82F6;">${t('newAppointment')}</h3>
       <table style="width: 100%; border-collapse: collapse;">
         <tr>
-          <td style="padding: 8px 0; color: #6b7280; width: 140px;">Service:</td>
+          <td style="padding: 8px 0; color: #6b7280; width: 140px;">${tl('service')}</td>
           <td style="padding: 8px 0; font-weight: 600;">${data.serviceName}</td>
         </tr>
         <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Datum:</td>
-          <td style="padding: 8px 0; font-weight: 600;">${formatDate(data.newStartsAt)}</td>
+          <td style="padding: 8px 0; color: #6b7280;">${tl('date')}</td>
+          <td style="padding: 8px 0; font-weight: 600;">${newDateStr}</td>
         </tr>
         <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Uhrzeit:</td>
-          <td style="padding: 8px 0; font-weight: 600;">${formatTime(data.newStartsAt)} - ${formatTime(data.newEndsAt)} Uhr</td>
+          <td style="padding: 8px 0; color: #6b7280;">${tl('time')}</td>
+          <td style="padding: 8px 0; font-weight: 600;">${newTimeRange}</td>
         </tr>
         ${data.staffName ? `
         <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Mitarbeiter:</td>
+          <td style="padding: 8px 0; color: #6b7280;">${tl('staff')}</td>
           <td style="padding: 8px 0; font-weight: 600;">${data.staffName}</td>
         </tr>
         ` : ''}
@@ -441,59 +477,65 @@ export function bookingRescheduledEmail(data: BookingRescheduledEmailData): { su
     </div>
 
     <div class="highlight" style="background: #dbeafe; border-left-color: #3B82F6;">
-      <strong>Umgebucht!</strong> Ihr neuer Termin ist reserviert. Wir freuen uns auf Ihren Besuch.
+      <strong>${t('hintLabel')}</strong> ${t('hint')}
     </div>
 
     ${data.manageUrl ? `
     <div style="text-align: center; margin: 20px 0; padding-top: 15px; border-top: 1px solid #e5e7eb;">
       <a href="${data.manageUrl}" style="display: inline-block; background: #6b7280; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px;">
-        Termin verwalten
+        ${tc('manageBooking')}
       </a>
-      <p style="font-size: 12px; color: #9ca3af; margin-top: 8px;">Stornieren oder erneut umbuchen</p>
+      <p style="font-size: 12px; color: #9ca3af; margin-top: 8px;">${t('manageSubtext')}</p>
     </div>
     ` : ''}
 
-    <p>Mit freundlichen Grüßen,<br><strong>${data.businessName}</strong></p>
+    <p>${tc('regards')}<br><strong>${data.businessName}</strong></p>
   </div>
   <div class="footer">
-    <p>Buchungsnummer: ${data.confirmationToken}</p>
-    <p>Powered by Hebelki</p>
+    <p>${tc('bookingNumber', { token: data.confirmationToken })}</p>
+    <p>${tc('poweredBy')}</p>
   </div>
 </body>
 </html>
 `
 
   const text = `
-Termin umgebucht
+${t('title')}
 
-Hallo ${data.customerName},
+${tc('greeting', { name: data.customerName })}
 
-Ihr Termin bei ${data.businessName} wurde erfolgreich umgebucht.
+${t('body', { businessName: data.businessName })}
 
-ALTER TERMIN (storniert)
+${t('textOldTitle')}
 ------------------------
-Datum: ${formatDate(data.oldStartsAt)}
-Uhrzeit: ${formatTime(data.oldStartsAt)} - ${formatTime(data.oldEndsAt)} Uhr
+${tl('date')} ${formatDate(data.oldStartsAt, undefined, locale)}
+${tl('time')} ${oldTimeRange}
 
-NEUER TERMIN
+${t('textNewTitle')}
 ------------
-Service: ${data.serviceName}
-Datum: ${formatDate(data.newStartsAt)}
-Uhrzeit: ${formatTime(data.newStartsAt)} - ${formatTime(data.newEndsAt)} Uhr
-${data.staffName ? `Mitarbeiter: ${data.staffName}\n` : ''}
-Buchungsnummer: ${data.confirmationToken}
+${tl('service')} ${data.serviceName}
+${tl('date')} ${newDateStr}
+${tl('time')} ${newTimeRange}
+${data.staffName ? `${tl('staff')} ${data.staffName}\n` : ''}
+${tc('bookingNumber', { token: data.confirmationToken })}
 
-Ihr neuer Termin ist reserviert. Wir freuen uns auf Ihren Besuch!
-${data.manageUrl ? `\nTermin verwalten (stornieren oder umbuchen): ${data.manageUrl}\n` : ''}
-Mit freundlichen Grüßen,
+${t('hint')}
+${data.manageUrl ? `\n${tc('manageBooking')} (${t('manageSubtext')}): ${data.manageUrl}\n` : ''}
+${tc('regards')}
 ${data.businessName}
 `
 
   return { subject, html, text }
 }
 
-export function bookingConfirmedEmail(data: BookingEmailData): { subject: string; html: string; text: string } {
-  const subject = `Termin bestätigt - ${data.serviceName} am ${formatDate(data.startsAt)}`
+export async function bookingConfirmedEmail(data: BookingEmailData, locale: Locale = 'de'): Promise<{ subject: string; html: string; text: string }> {
+  const tc = await getEmailTranslations(locale, 'emails.common')
+  const tl = await getEmailTranslations(locale, 'emails.labels')
+  const t = await getEmailTranslations(locale, 'emails.confirmed')
+
+  const dateStr = formatDate(data.startsAt, undefined, locale)
+  const subject = t('subject', { service: data.serviceName, date: dateStr })
+  const timeRange = timeWithUhr(`${formatTime(data.startsAt, undefined, locale)} - ${formatTime(data.endsAt, undefined, locale)}`, tc)
 
   const html = `
 <!DOCTYPE html>
@@ -504,93 +546,100 @@ export function bookingConfirmedEmail(data: BookingEmailData): { subject: string
 </head>
 <body>
   <div class="header" style="background: #10b981;">
-    <h1>Termin bestätigt</h1>
+    <h1>${t('title')}</h1>
   </div>
   <div class="content">
-    <p>Hallo ${data.customerName},</p>
-    <p>Ihr Termin bei <strong>${data.businessName}</strong> wurde bestätigt!</p>
+    <p>${tc('greeting', { name: data.customerName })}</p>
+    <p>${t('body', { businessName: data.businessName })}</p>
 
     <div class="details">
-      <h3 style="margin-top: 0;">Ihre Buchung</h3>
+      <h3 style="margin-top: 0;">${t('detailsTitle')}</h3>
       <table style="width: 100%; border-collapse: collapse;">
         <tr>
-          <td style="padding: 8px 0; color: #6b7280; width: 140px;">Service:</td>
+          <td style="padding: 8px 0; color: #6b7280; width: 140px;">${tl('service')}</td>
           <td style="padding: 8px 0; font-weight: 600;">${data.serviceName}</td>
         </tr>
         <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Datum:</td>
-          <td style="padding: 8px 0; font-weight: 600;">${formatDate(data.startsAt)}</td>
+          <td style="padding: 8px 0; color: #6b7280;">${tl('date')}</td>
+          <td style="padding: 8px 0; font-weight: 600;">${dateStr}</td>
         </tr>
         <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Uhrzeit:</td>
-          <td style="padding: 8px 0; font-weight: 600;">${formatTime(data.startsAt)} - ${formatTime(data.endsAt)} Uhr</td>
+          <td style="padding: 8px 0; color: #6b7280;">${tl('time')}</td>
+          <td style="padding: 8px 0; font-weight: 600;">${timeRange}</td>
         </tr>
         ${data.staffName ? `
         <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Mitarbeiter:</td>
+          <td style="padding: 8px 0; color: #6b7280;">${tl('staff')}</td>
           <td style="padding: 8px 0; font-weight: 600;">${data.staffName}</td>
         </tr>
         ` : ''}
         ${data.price ? `
         <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Preis:</td>
-          <td style="padding: 8px 0; font-weight: 600;">${formatPrice(data.price, data.currency)}</td>
+          <td style="padding: 8px 0; color: #6b7280;">${tl('price')}</td>
+          <td style="padding: 8px 0; font-weight: 600;">${formatPrice(data.price, data.currency, locale)}</td>
         </tr>
         ` : ''}
       </table>
     </div>
 
     <div class="highlight" style="background: #d1fae5; border-left-color: #10b981;">
-      <strong>Bestätigt!</strong> Wir freuen uns auf Ihren Besuch.
+      <strong>${t('hintLabel')}</strong> ${t('hint')}
     </div>
 
-    <p>Bei Fragen können Sie diese E-Mail beantworten oder uns direkt kontaktieren.</p>
+    <p>${tc('contactUs')}</p>
 
     ${data.manageUrl ? `
     <div style="text-align: center; margin: 20px 0; padding-top: 15px; border-top: 1px solid #e5e7eb;">
       <a href="${data.manageUrl}" style="display: inline-block; background: #6b7280; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px;">
-        Termin verwalten
+        ${tc('manageBooking')}
       </a>
-      <p style="font-size: 12px; color: #9ca3af; margin-top: 8px;">Stornieren oder umbuchen</p>
+      <p style="font-size: 12px; color: #9ca3af; margin-top: 8px;">${tc('manageBookingSubtext')}</p>
     </div>
     ` : ''}
 
-    <p>Mit freundlichen Grüßen,<br><strong>${data.businessName}</strong></p>
+    <p>${tc('regards')}<br><strong>${data.businessName}</strong></p>
   </div>
   <div class="footer">
-    <p>Buchungsnummer: ${data.confirmationToken}</p>
-    <p>Powered by Hebelki</p>
+    <p>${tc('bookingNumber', { token: data.confirmationToken })}</p>
+    <p>${tc('poweredBy')}</p>
   </div>
 </body>
 </html>
 `
 
   const text = `
-Termin bestätigt
+${t('title')}
 
-Hallo ${data.customerName},
+${tc('greeting', { name: data.customerName })}
 
-Ihr Termin bei ${data.businessName} wurde bestätigt!
+${t('body', { businessName: data.businessName })}
 
-IHRE BUCHUNG
+${t('textTitle')}
 ------------
-Service: ${data.serviceName}
-Datum: ${formatDate(data.startsAt)}
-Uhrzeit: ${formatTime(data.startsAt)} - ${formatTime(data.endsAt)} Uhr
-${data.staffName ? `Mitarbeiter: ${data.staffName}\n` : ''}${data.price ? `Preis: ${formatPrice(data.price, data.currency)}\n` : ''}
-Buchungsnummer: ${data.confirmationToken}
+${tl('service')} ${data.serviceName}
+${tl('date')} ${dateStr}
+${tl('time')} ${timeRange}
+${data.staffName ? `${tl('staff')} ${data.staffName}\n` : ''}${data.price ? `${tl('price')} ${formatPrice(data.price, data.currency, locale)}\n` : ''}
+${tc('bookingNumber', { token: data.confirmationToken })}
 
-Wir freuen uns auf Ihren Besuch!
-${data.manageUrl ? `\nTermin verwalten (stornieren oder umbuchen): ${data.manageUrl}\n` : ''}
-Mit freundlichen Grüßen,
+${t('hint')}
+${data.manageUrl ? `\n${tc('manageBooking')} (${tc('manageBookingSubtext')}): ${data.manageUrl}\n` : ''}
+${tc('regards')}
 ${data.businessName}
 `
 
   return { subject, html, text }
 }
 
-export function bookingReminderEmail(data: BookingEmailData): { subject: string; html: string; text: string } {
-  const subject = `Terminerinnerung - ${data.serviceName} morgen um ${formatTime(data.startsAt)} Uhr`
+export async function bookingReminderEmail(data: BookingEmailData, locale: Locale = 'de'): Promise<{ subject: string; html: string; text: string }> {
+  const tc = await getEmailTranslations(locale, 'emails.common')
+  const tl = await getEmailTranslations(locale, 'emails.labels')
+  const t = await getEmailTranslations(locale, 'emails.reminder')
+
+  const dateStr = formatDate(data.startsAt, undefined, locale)
+  const timeStr = formatTime(data.startsAt, undefined, locale)
+  const subject = t('subject', { service: data.serviceName, time: timeStr })
+  const timeRange = timeWithUhr(`${timeStr} - ${formatTime(data.endsAt, undefined, locale)}`, tc)
 
   const html = `
 <!DOCTYPE html>
@@ -601,30 +650,30 @@ export function bookingReminderEmail(data: BookingEmailData): { subject: string;
 </head>
 <body>
   <div class="header" style="background: #f59e0b;">
-    <h1>Terminerinnerung</h1>
+    <h1>${t('title')}</h1>
   </div>
   <div class="content">
-    <p>Hallo ${data.customerName},</p>
-    <p>dies ist eine freundliche Erinnerung an Ihren bevorstehenden Termin bei <strong>${data.businessName}</strong>.</p>
+    <p>${tc('greeting', { name: data.customerName })}</p>
+    <p>${t('body', { businessName: data.businessName })}</p>
 
     <div class="details">
-      <h3 style="margin-top: 0;">Ihr Termin</h3>
+      <h3 style="margin-top: 0;">${t('detailsTitle')}</h3>
       <table style="width: 100%; border-collapse: collapse;">
         <tr>
-          <td style="padding: 8px 0; color: #6b7280; width: 140px;">Service:</td>
+          <td style="padding: 8px 0; color: #6b7280; width: 140px;">${tl('service')}</td>
           <td style="padding: 8px 0; font-weight: 600;">${data.serviceName}</td>
         </tr>
         <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Datum:</td>
-          <td style="padding: 8px 0; font-weight: 600;">${formatDate(data.startsAt)}</td>
+          <td style="padding: 8px 0; color: #6b7280;">${tl('date')}</td>
+          <td style="padding: 8px 0; font-weight: 600;">${dateStr}</td>
         </tr>
         <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Uhrzeit:</td>
-          <td style="padding: 8px 0; font-weight: 600;">${formatTime(data.startsAt)} - ${formatTime(data.endsAt)} Uhr</td>
+          <td style="padding: 8px 0; color: #6b7280;">${tl('time')}</td>
+          <td style="padding: 8px 0; font-weight: 600;">${timeRange}</td>
         </tr>
         ${data.staffName ? `
         <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Mitarbeiter:</td>
+          <td style="padding: 8px 0; color: #6b7280;">${tl('staff')}</td>
           <td style="padding: 8px 0; font-weight: 600;">${data.staffName}</td>
         </tr>
         ` : ''}
@@ -632,50 +681,50 @@ export function bookingReminderEmail(data: BookingEmailData): { subject: string;
     </div>
 
     <div class="highlight">
-      <strong>Wichtig:</strong> Falls Sie den Termin nicht wahrnehmen können, bitten wir um rechtzeitige Absage.
+      <strong>${t('cancelHintLabel')}</strong> ${t('cancelHint')}
     </div>
 
     ${data.manageUrl ? `
     <div style="text-align: center; margin: 20px 0;">
       <a href="${data.manageUrl}" style="display: inline-block; background: #6b7280; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px;">
-        Termin verwalten
+        ${tc('manageBooking')}
       </a>
-      <p style="font-size: 12px; color: #9ca3af; margin-top: 8px;">Stornieren oder umbuchen</p>
+      <p style="font-size: 12px; color: #9ca3af; margin-top: 8px;">${tc('manageBookingSubtext')}</p>
     </div>
     ` : ''}
 
-    <p>Wir freuen uns auf Sie!</p>
+    <p>${t('lookingForward')}</p>
 
-    <p>Mit freundlichen Grüßen,<br><strong>${data.businessName}</strong></p>
+    <p>${tc('regards')}<br><strong>${data.businessName}</strong></p>
   </div>
   <div class="footer">
-    <p>Buchungsnummer: ${data.confirmationToken}</p>
-    <p>Powered by Hebelki</p>
+    <p>${tc('bookingNumber', { token: data.confirmationToken })}</p>
+    <p>${tc('poweredBy')}</p>
   </div>
 </body>
 </html>
 `
 
   const text = `
-Terminerinnerung
+${t('title')}
 
-Hallo ${data.customerName},
+${tc('greeting', { name: data.customerName })}
 
-dies ist eine freundliche Erinnerung an Ihren bevorstehenden Termin bei ${data.businessName}.
+${t('body', { businessName: data.businessName })}
 
-IHR TERMIN
+${t('textTitle')}
 ----------
-Service: ${data.serviceName}
-Datum: ${formatDate(data.startsAt)}
-Uhrzeit: ${formatTime(data.startsAt)} - ${formatTime(data.endsAt)} Uhr
-${data.staffName ? `Mitarbeiter: ${data.staffName}\n` : ''}
-Buchungsnummer: ${data.confirmationToken}
+${tl('service')} ${data.serviceName}
+${tl('date')} ${dateStr}
+${tl('time')} ${timeRange}
+${data.staffName ? `${tl('staff')} ${data.staffName}\n` : ''}
+${tc('bookingNumber', { token: data.confirmationToken })}
 
-Falls Sie den Termin nicht wahrnehmen können, bitten wir um rechtzeitige Absage.
-${data.manageUrl ? `\nTermin verwalten (stornieren oder umbuchen): ${data.manageUrl}\n` : ''}
-Wir freuen uns auf Sie!
+${t('cancelHint')}
+${data.manageUrl ? `\n${tc('manageBooking')} (${tc('manageBookingSubtext')}): ${data.manageUrl}\n` : ''}
+${t('lookingForward')}
 
-Mit freundlichen Grüßen,
+${tc('regards')}
 ${data.businessName}
 `
 
@@ -693,8 +742,12 @@ interface LiveChatRequestEmailData {
   dashboardUrl: string
 }
 
-export function liveChatRequestEmail(data: LiveChatRequestEmailData): { subject: string; html: string; text: string } {
-  const subject = `Neue Live-Chat-Anfrage - ${data.businessName}`
+export async function liveChatRequestEmail(data: LiveChatRequestEmailData, locale: Locale = 'de'): Promise<{ subject: string; html: string; text: string }> {
+  const tc = await getEmailTranslations(locale, 'emails.common')
+  const tl = await getEmailTranslations(locale, 'emails.labels')
+  const t = await getEmailTranslations(locale, 'emails.liveChat')
+
+  const subject = t('subject', { businessName: data.businessName })
 
   const html = `
 <!DOCTYPE html>
@@ -702,40 +755,40 @@ export function liveChatRequestEmail(data: LiveChatRequestEmailData): { subject:
 <head><meta charset="utf-8"><style>${baseStyles}</style></head>
 <body>
   <div class="header" style="background: #f59e0b;">
-    <h1>Neue Live-Chat-Anfrage</h1>
+    <h1>${t('title')}</h1>
   </div>
   <div class="content">
-    <p>Ein Kunde wartet auf eine Antwort im Live-Chat.</p>
+    <p>${t('body')}</p>
     <div class="details">
       <table style="width: 100%; border-collapse: collapse;">
         ${data.customerName ? `
         <tr>
-          <td style="padding: 8px 0; color: #6b7280; width: 140px;">Kunde:</td>
+          <td style="padding: 8px 0; color: #6b7280; width: 140px;">${tl('customer')}</td>
           <td style="padding: 8px 0; font-weight: 600;">${data.customerName}</td>
         </tr>` : ''}
         <tr>
-          <td style="padding: 8px 0; color: #6b7280; width: 140px;">Nachricht:</td>
+          <td style="padding: 8px 0; color: #6b7280; width: 140px;">${tl('message')}</td>
           <td style="padding: 8px 0;">${data.firstMessage}</td>
         </tr>
       </table>
     </div>
     <div style="text-align: center; margin: 20px 0;">
       <a href="${data.dashboardUrl}" class="button" style="display: inline-block; background: #f59e0b; color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600;">
-        Zum Live-Chat
+        ${t('goToChat')}
       </a>
     </div>
-    <p>Mit freundlichen Grüßen,<br><strong>Hebelki</strong></p>
+    <p>${tc('regards')}<br><strong>Hebelki</strong></p>
   </div>
-  <div class="footer"><p>Diese E-Mail wurde automatisch versendet.</p></div>
+  <div class="footer"><p>${tc('autoSent')}</p></div>
 </body>
 </html>`
 
-  const text = `Neue Live-Chat-Anfrage - ${data.businessName}
+  const text = `${t('subject', { businessName: data.businessName })}
 
-Ein Kunde wartet auf eine Antwort im Live-Chat.
-${data.customerName ? `Kunde: ${data.customerName}\n` : ''}Nachricht: ${data.firstMessage}
+${t('body')}
+${data.customerName ? `${tl('customer')} ${data.customerName}\n` : ''}${tl('message')} ${data.firstMessage}
 
-Zum Live-Chat: ${data.dashboardUrl}
+${t('goToChat')}: ${data.dashboardUrl}
 `
 
   return { subject, html, text }
@@ -750,8 +803,12 @@ interface ChatEscalatedEmailData {
   dashboardUrl: string
 }
 
-export function chatEscalatedEmail(data: ChatEscalatedEmailData): { subject: string; html: string; text: string } {
-  const subject = `Unbeantwortete Chat-Anfrage - ${data.businessName}`
+export async function chatEscalatedEmail(data: ChatEscalatedEmailData, locale: Locale = 'de'): Promise<{ subject: string; html: string; text: string }> {
+  const tc = await getEmailTranslations(locale, 'emails.common')
+  const tl = await getEmailTranslations(locale, 'emails.labels')
+  const t = await getEmailTranslations(locale, 'emails.escalated')
+
+  const subject = t('subject', { businessName: data.businessName })
 
   const html = `
 <!DOCTYPE html>
@@ -759,57 +816,57 @@ export function chatEscalatedEmail(data: ChatEscalatedEmailData): { subject: str
 <head><meta charset="utf-8"><style>${baseStyles}</style></head>
 <body>
   <div class="header" style="background: #ef4444;">
-    <h1>Unbeantwortete Chat-Anfrage</h1>
+    <h1>${t('title')}</h1>
   </div>
   <div class="content">
-    <p>Ein Kunde hat im Live-Chat keine Antwort erhalten und wurde per E-Mail benachrichtigt.</p>
+    <p>${t('body')}</p>
     <div class="details">
-      <h3 style="margin-top: 0;">Kundeninformationen</h3>
+      <h3 style="margin-top: 0;">${tl('customer')}</h3>
       <table style="width: 100%; border-collapse: collapse;">
         ${data.customerName ? `
         <tr>
-          <td style="padding: 8px 0; color: #6b7280; width: 140px;">Name:</td>
+          <td style="padding: 8px 0; color: #6b7280; width: 140px;">${tl('name')}</td>
           <td style="padding: 8px 0; font-weight: 600;">${data.customerName}</td>
         </tr>` : ''}
         ${data.customerEmail ? `
         <tr>
-          <td style="padding: 8px 0; color: #6b7280;">E-Mail:</td>
+          <td style="padding: 8px 0; color: #6b7280;">${tl('email')}</td>
           <td style="padding: 8px 0;"><a href="mailto:${data.customerEmail}">${data.customerEmail}</a></td>
         </tr>` : ''}
         ${data.customerPhone ? `
         <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Telefon:</td>
+          <td style="padding: 8px 0; color: #6b7280;">${tl('phone')}</td>
           <td style="padding: 8px 0;"><a href="tel:${data.customerPhone}">${data.customerPhone}</a></td>
         </tr>` : ''}
       </table>
     </div>
     <div class="details">
-      <h3 style="margin-top: 0;">Gesprächszusammenfassung</h3>
+      <h3 style="margin-top: 0;">${t('conversationSummary')}</h3>
       <p style="white-space: pre-wrap;">${data.conversationSummary}</p>
     </div>
     <div style="text-align: center; margin: 20px 0;">
       <a href="${data.dashboardUrl}" class="button" style="display: inline-block; background: #ef4444; color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600;">
-        Gespräch ansehen
+        ${t('viewConversation')}
       </a>
     </div>
-    <p>Bitte kontaktieren Sie den Kunden zeitnah.</p>
-    <p>Mit freundlichen Grüßen,<br><strong>Hebelki</strong></p>
+    <p>${t('contactCustomer')}</p>
+    <p>${tc('regards')}<br><strong>Hebelki</strong></p>
   </div>
-  <div class="footer"><p>Diese E-Mail wurde automatisch versendet.</p></div>
+  <div class="footer"><p>${tc('autoSent')}</p></div>
 </body>
 </html>`
 
-  const text = `Unbeantwortete Chat-Anfrage - ${data.businessName}
+  const text = `${t('subject', { businessName: data.businessName })}
 
-Ein Kunde hat im Live-Chat keine Antwort erhalten.
+${t('body')}
 
-${data.customerName ? `Name: ${data.customerName}\n` : ''}${data.customerEmail ? `E-Mail: ${data.customerEmail}\n` : ''}${data.customerPhone ? `Telefon: ${data.customerPhone}\n` : ''}
-Gesprächszusammenfassung:
+${data.customerName ? `${tl('name')} ${data.customerName}\n` : ''}${data.customerEmail ? `${tl('email')} ${data.customerEmail}\n` : ''}${data.customerPhone ? `${tl('phone')} ${data.customerPhone}\n` : ''}
+${t('conversationSummary')}:
 ${data.conversationSummary}
 
-Gespräch ansehen: ${data.dashboardUrl}
+${t('viewConversation')}: ${data.dashboardUrl}
 
-Bitte kontaktieren Sie den Kunden zeitnah.
+${t('contactCustomer')}
 `
 
   return { subject, html, text }
@@ -828,8 +885,16 @@ interface InvoiceSentEmailData {
   dueDate?: string
 }
 
-export function invoiceSentEmail(data: InvoiceSentEmailData) {
-  const subject = `Rechnung ${data.invoiceNumber} von ${data.businessName}`
+export async function invoiceSentEmail(data: InvoiceSentEmailData, locale: Locale = 'de'): Promise<{ subject: string; html: string; text: string }> {
+  const tc = await getEmailTranslations(locale, 'emails.common')
+  const tl = await getEmailTranslations(locale, 'emails.labels')
+  const t = await getEmailTranslations(locale, 'emails.invoice')
+
+  const subject = t('subject', { number: data.invoiceNumber, businessName: data.businessName })
+
+  const greeting = data.customerName
+    ? tc('greetingWithName', { name: data.customerName })
+    : tc('greetingGeneric')
 
   const html = `
 <!DOCTYPE html>
@@ -838,53 +903,53 @@ export function invoiceSentEmail(data: InvoiceSentEmailData) {
 <body>
   <div class="header">
     <h1>${data.businessName}</h1>
-    <p>Rechnung ${data.invoiceNumber}</p>
+    <p>${t('title', { number: data.invoiceNumber })}</p>
   </div>
   <div class="content">
-    <p>Guten Tag${data.customerName ? ` ${data.customerName}` : ''},</p>
-    <p>anbei erhalten Sie die Rechnung <strong>${data.invoiceNumber}</strong> über <strong>${data.total}</strong>.</p>
+    <p>${greeting}</p>
+    <p>${t('body', { number: data.invoiceNumber, total: data.total })}</p>
     <div class="details">
       <table style="width: 100%; border-collapse: collapse;">
         <tr>
-          <td style="padding: 8px 0; border-bottom: 1px solid #f3f4f6; font-weight: 600; color: #6b7280;">Rechnungsnummer</td>
+          <td style="padding: 8px 0; border-bottom: 1px solid #f3f4f6; font-weight: 600; color: #6b7280;">${tl('invoiceNumber')}</td>
           <td style="padding: 8px 0; border-bottom: 1px solid #f3f4f6;">${data.invoiceNumber}</td>
         </tr>
         <tr>
-          <td style="padding: 8px 0; border-bottom: 1px solid #f3f4f6; font-weight: 600; color: #6b7280;">Betrag</td>
+          <td style="padding: 8px 0; border-bottom: 1px solid #f3f4f6; font-weight: 600; color: #6b7280;">${tl('amount')}</td>
           <td style="padding: 8px 0; border-bottom: 1px solid #f3f4f6;">${data.total}</td>
         </tr>
         ${data.dueDate ? `
         <tr>
-          <td style="padding: 8px 0; font-weight: 600; color: #6b7280;">Fällig bis</td>
+          <td style="padding: 8px 0; font-weight: 600; color: #6b7280;">${tl('dueDate')}</td>
           <td style="padding: 8px 0;">${data.dueDate}</td>
         </tr>` : ''}
       </table>
     </div>
     <p>
-      <a href="${data.pdfDownloadUrl}" class="button">Rechnung als PDF herunterladen</a>
+      <a href="${data.pdfDownloadUrl}" class="button">${t('downloadPdf')}</a>
     </p>
-    <p style="font-size: 12px; color: #6b7280;">Der Download-Link ist 7 Tage gültig.</p>
-    <p>Bitte überweisen Sie den Betrag unter Angabe der Rechnungsnummer.</p>
-    <p>Mit freundlichen Grüßen,<br><strong>${data.businessName}</strong></p>
+    <p style="font-size: 12px; color: #6b7280;">${t('linkExpiry')}</p>
+    <p>${t('paymentNote')}</p>
+    <p>${tc('regards')}<br><strong>${data.businessName}</strong></p>
   </div>
   <div class="footer">
-    <p>Diese E-Mail wurde automatisch von Hebelki versendet.</p>
+    <p>${tc('autoSent')}</p>
   </div>
 </body>
 </html>`
 
-  const text = `Rechnung ${data.invoiceNumber} von ${data.businessName}
+  const text = `${subject}
 
-Guten Tag${data.customerName ? ` ${data.customerName}` : ''},
+${greeting}
 
-anbei erhalten Sie die Rechnung ${data.invoiceNumber} über ${data.total}.
+${t('body', { number: data.invoiceNumber, total: data.total })}
 
-PDF herunterladen: ${data.pdfDownloadUrl}
-(Link ist 7 Tage gültig)
+PDF: ${data.pdfDownloadUrl}
+(${t('linkExpiry')})
 
-Bitte überweisen Sie den Betrag unter Angabe der Rechnungsnummer.
+${t('paymentNote')}
 
-Mit freundlichen Grüßen,
+${tc('regards')}
 ${data.businessName}
 `
 
@@ -903,17 +968,22 @@ interface DeletionRequestEmailData {
   expiresAt: Date
 }
 
-export function deletionRequestEmail(data: DeletionRequestEmailData): { subject: string; html: string; text: string } {
-  const subject = `Bestätigung Ihrer Löschanfrage - ${data.businessName}`
+export async function deletionRequestEmail(data: DeletionRequestEmailData, locale: Locale = 'de'): Promise<{ subject: string; html: string; text: string }> {
+  const tc = await getEmailTranslations(locale, 'emails.common')
+  const t = await getEmailTranslations(locale, 'emails.deletion')
 
-  const expiryDate = data.expiresAt.toLocaleDateString('de-DE', {
+  const subject = t('subject', { businessName: data.businessName })
+
+  const expiryDate = data.expiresAt.toLocaleDateString(getDateLocale(locale), {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   })
 
-  const greeting = data.customerName ? `Hallo ${data.customerName}` : 'Hallo'
+  const greeting = data.customerName
+    ? tc('greeting', { name: data.customerName })
+    : tc('greetingGeneric')
 
   const html = `
 <!DOCTYPE html>
@@ -924,77 +994,77 @@ export function deletionRequestEmail(data: DeletionRequestEmailData): { subject:
 </head>
 <body>
   <div class="header" style="background: #ef4444;">
-    <h1>Löschanfrage</h1>
+    <h1>${t('title')}</h1>
   </div>
   <div class="content">
-    <p>${greeting},</p>
-    <p>wir haben eine Anfrage zur Löschung Ihrer Daten bei <strong>${data.businessName}</strong> erhalten.</p>
+    <p>${greeting}</p>
+    <p>${t('body', { businessName: data.businessName })}</p>
 
     <div class="highlight" style="background: #fef3c7; border-left-color: #f59e0b;">
-      <strong>Wichtig:</strong> Wenn Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignorieren. Ihre Daten bleiben unverändert.
+      <strong>${t('ignoreHintLabel')}</strong> ${t('ignoreHint')}
     </div>
 
     <div class="details">
-      <h3 style="margin-top: 0;">Was wird gelöscht?</h3>
+      <h3 style="margin-top: 0;">${t('whatDeleted')}</h3>
       <ul style="color: #374151; padding-left: 20px;">
-        <li>Ihre persönlichen Daten (Name, E-Mail, Telefon, Adresse)</li>
-        <li>Alle Buchungen und Terminhistorie</li>
-        <li>Alle Chat-Gespräche</li>
-        <li>Alle Rechnungen</li>
+        <li>${t('deletePersonalData')}</li>
+        <li>${t('deleteBookings')}</li>
+        <li>${t('deleteChats')}</li>
+        <li>${t('deleteInvoices')}</li>
       </ul>
-      <p style="color: #6b7280; font-size: 14px;">Diese Aktion kann nicht rückgängig gemacht werden.</p>
+      <p style="color: #6b7280; font-size: 14px;">${t('irreversible')}</p>
     </div>
 
-    <p><strong>Bevor Sie löschen:</strong> Sie können Ihre Daten herunterladen:</p>
+    <p><strong>${t('beforeDelete')}</strong> ${t('downloadHint')}</p>
     <div style="text-align: center; margin: 15px 0;">
       <a href="${data.exportUrl}" class="button" style="display: inline-block; background: #3B82F6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
-        Meine Daten herunterladen
+        ${t('downloadData')}
       </a>
     </div>
 
-    <p><strong>Löschung bestätigen:</strong></p>
+    <p><strong>${t('confirmDeletion')}</strong></p>
     <div style="text-align: center; margin: 15px 0;">
       <a href="${data.confirmUrl}" class="button" style="display: inline-block; background: #ef4444; color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
-        Daten endgültig löschen
+        ${t('deleteButton')}
       </a>
     </div>
 
     <p style="color: #6b7280; font-size: 14px; text-align: center;">
-      Dieser Link ist gültig bis ${expiryDate}.
+      ${t('linkExpiry', { date: expiryDate })}
     </p>
 
-    <p>Mit freundlichen Grüßen,<br><strong>${data.businessName}</strong></p>
+    <p>${tc('regards')}<br><strong>${data.businessName}</strong></p>
   </div>
   <div class="footer">
-    <p>Diese E-Mail wurde automatisch versendet.</p>
-    <p>Powered by Hebelki</p>
+    <p>${tc('autoSent')}</p>
+    <p>${tc('poweredBy')}</p>
   </div>
 </body>
 </html>`
 
-  const text = `Löschanfrage - ${data.businessName}
+  const text = `${t('title')} - ${data.businessName}
 
-${greeting},
+${greeting}
 
-wir haben eine Anfrage zur Löschung Ihrer Daten bei ${data.businessName} erhalten.
+${t('body', { businessName: data.businessName })}
 
-WICHTIG: Wenn Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignorieren.
+${t('ignoreHintLabel')} ${t('ignoreHint')}
 
-Was wird gelöscht:
-- Ihre persönlichen Daten (Name, E-Mail, Telefon, Adresse)
-- Alle Buchungen und Terminhistorie
-- Alle Chat-Gespräche
-- Alle Rechnungen
+${t('whatDeleted')}
+- ${t('deletePersonalData')}
+- ${t('deleteBookings')}
+- ${t('deleteChats')}
+- ${t('deleteInvoices')}
 
-Diese Aktion kann nicht rückgängig gemacht werden.
+${t('irreversible')}
 
-Daten herunterladen: ${data.exportUrl}
+${t('downloadData')}: ${data.exportUrl}
 
-Löschung bestätigen: ${data.confirmUrl}
+${t('confirmDeletion')} ${data.confirmUrl}
 
-Dieser Link ist gültig bis ${expiryDate}.
+${t('linkExpiry', { date: expiryDate })}
 
-Mit freundlichen Grüßen,
+${tc('regards')}
 ${data.businessName}
 `
 

@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 
@@ -19,44 +20,45 @@ interface ServiceFormFieldsProps {
 }
 
 export function ServiceFormFields({ data, onChange }: ServiceFormFieldsProps) {
+  const t = useTranslations('dashboard.services')
   return (
     <div className="grid grid-cols-2 gap-4">
       <div className="col-span-2">
         <label className="text-sm font-medium text-gray-700 mb-1 block">
-          Dienstleistungsname *
+          {t('serviceName')}
         </label>
         <Input
           value={data.name}
           onChange={(e) => onChange({ ...data, name: e.target.value })}
-          placeholder="z.B. Haarschnitt, Massage, Beratung"
+          placeholder={t('serviceNamePlaceholder')}
           className="font-medium"
         />
       </div>
       <div className="col-span-2">
         <label className="text-sm font-medium text-gray-700 mb-1 block">
-          Beschreibung
+          {t('description')}
         </label>
         <Textarea
           value={data.description || ''}
           onChange={(e) => onChange({ ...data, description: e.target.value })}
-          placeholder="Beschreiben Sie Ihre Dienstleistung..."
+          placeholder={t('descriptionPlaceholder')}
           rows={2}
           className="resize-none"
         />
       </div>
       <div>
         <label className="text-sm font-medium text-gray-700 mb-1 block">
-          Kategorie
+          {t('category')}
         </label>
         <Input
           value={data.category || ''}
           onChange={(e) => onChange({ ...data, category: e.target.value })}
-          placeholder="z.B. Haare, Wellness"
+          placeholder={t('categoryPlaceholder')}
         />
       </div>
       <div>
         <label className="text-sm font-medium text-gray-700 mb-1 block">
-          Dauer (Minuten) *
+          {t('duration')}
         </label>
         <Input
           type="number"
@@ -67,7 +69,7 @@ export function ServiceFormFields({ data, onChange }: ServiceFormFieldsProps) {
       </div>
       <div>
         <label className="text-sm font-medium text-gray-700 mb-1 block">
-          Pufferzeit (Minuten)
+          {t('bufferTime')}
         </label>
         <Input
           type="number"
@@ -78,19 +80,19 @@ export function ServiceFormFields({ data, onChange }: ServiceFormFieldsProps) {
       </div>
       <div>
         <label className="text-sm font-medium text-gray-700 mb-1 block">
-          Preis (€)
+          {t('price')}
         </label>
         <Input
           type="number"
           step="0.01"
           value={data.price || ''}
           onChange={(e) => onChange({ ...data, price: e.target.value })}
-          placeholder="0,00"
+          placeholder={t('pricePlaceholder')}
         />
       </div>
       <div>
         <label className="text-sm font-medium text-gray-700 mb-1 block">
-          Kapazität (Teilnehmer)
+          {t('capacity')}
         </label>
         <Input
           type="number"
@@ -101,8 +103,7 @@ export function ServiceFormFields({ data, onChange }: ServiceFormFieldsProps) {
           placeholder="1"
         />
         <p className="text-xs text-gray-500 mt-1">
-          Wie viele Personen können diesen Service gleichzeitig buchen?
-          Auf 1 setzen für Einzeltermine, höher für Gruppenkurse.
+          {t('capacityDesc')}
         </p>
       </div>
     </div>

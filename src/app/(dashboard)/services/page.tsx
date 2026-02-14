@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -39,6 +40,7 @@ interface EditingService {
 }
 
 export default function ServicesPage() {
+  const t = useTranslations('dashboard.services')
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
   const [businessId, setBusinessId] = useState<string | null>(null)
@@ -70,13 +72,13 @@ export default function ServicesPage() {
         if (data.businesses?.[0]?.businessId) {
           setBusinessId(data.businesses[0].businessId)
         } else if (data.businesses?.length === 0) {
-          setBusinessError('Kein Unternehmen gefunden. Bitte erstellen Sie zuerst ein Unternehmen.')
+          setBusinessError(t('noBusinessFound'))
         } else if (data.error) {
           setBusinessError(data.error)
         }
       } catch (error) {
         log.error('Failed to fetch business:', error)
-        setBusinessError('Fehler beim Laden des Unternehmens')
+        setBusinessError(t('errorLoading'))
       }
     }
     fetchBusiness()
@@ -114,7 +116,7 @@ export default function ServicesPage() {
   // Group by category
   const grouped = useMemo(() => {
     return filteredServices.reduce((acc, service) => {
-      const cat = service.category || 'Uncategorized'
+      const cat = service.category || t('uncategorized')
       if (!acc[cat]) acc[cat] = []
       acc[cat].push(service)
       return acc
@@ -211,10 +213,10 @@ export default function ServicesPage() {
         await fetchServices()
       } else {
         const data = await res.json()
-        alert(`Fehler beim Löschen: ${data.error || 'Unbekannter Fehler'}`)
+        alert(`${t('errorDeleting')}: ${data.error}`)
       }
     } catch {
-      alert('Fehler beim Löschen. Bitte erneut versuchen.')
+      alert(t('errorDeletingRetry'))
     } finally {
       setIsDeleting(false)
     }
@@ -231,7 +233,7 @@ export default function ServicesPage() {
       setShowBulkDeleteDialog(false)
       await fetchServices()
     } catch {
-      alert('Fehler beim Löschen der Services. Bitte erneut versuchen.')
+      alert(t('errorBulkDeleting'))
     } finally {
       setIsBulkDeleting(false)
     }
@@ -242,12 +244,12 @@ export default function ServicesPage() {
       {/* Header */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Dienstleistungen</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{t('title')}</h1>
           <p className="text-gray-600 mt-1">
-            Verwalten Sie Ihre Dienstleistungen
+            {t('subtitle')}
             {!loading && (
               <span className="ml-2">
-                ({activeCount} aktiv{inactiveCount > 0 && `, ${inactiveCount} inaktiv`})
+                ({activeCount} {t('active')}{inactiveCount > 0 && `, ${inactiveCount} ${t('inactive')}`})
               </span>
             )}
           </p>
@@ -258,22 +260,22 @@ export default function ServicesPage() {
               {showInactive ? (
                 <>
                   <Eye className="mr-2 h-4 w-4" />
-                  <span className="hidden sm:inline">Inaktive ausblenden</span>
-                  <span className="sm:hidden">Ausblenden</span>
+                  <span className="hidden sm:inline">{t('hideInactive')}</span>
+                  <span className="sm:hidden">{t('hide')}</span>
                 </>
               ) : (
                 <>
                   <EyeOff className="mr-2 h-4 w-4" />
-                  <span className="hidden sm:inline">Inaktive anzeigen ({inactiveCount})</span>
-                  <span className="sm:hidden">Inaktive ({inactiveCount})</span>
+                  <span className="hidden sm:inline">{t('showInactive')} ({inactiveCount})</span>
+                  <span className="sm:hidden">{t('inactive')} ({inactiveCount})</span>
                 </>
               )}
             </Button>
           )}
           <Button onClick={openNewServiceSheet}>
             <Plus className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">Dienstleistung hinzufügen</span>
-            <span className="sm:hidden">Hinzufügen</span>
+            <span className="hidden sm:inline">{t('addService')}</span>
+            <span className="sm:hidden">{t('add')}</span>
           </Button>
         </div>
       </div>
@@ -310,17 +312,17 @@ export default function ServicesPage() {
         <>
           <Alert className="mb-6">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Ersten Service hinzufügen</AlertTitle>
+            <AlertTitle>{t('addFirstService')}</AlertTitle>
             <AlertDescription>
-              Nutzen Sie die automatische Erkennung oben, um Services von Ihrer Website zu importieren, oder fügen Sie sie manuell hinzu.
+              {t('addFirstServiceDesc')}
             </AlertDescription>
           </Alert>
           <Card>
             <CardContent className="py-12 text-center">
-              <p className="text-gray-500 mb-4">Noch keine Services konfiguriert.</p>
+              <p className="text-gray-500 mb-4">{t('noServices')}</p>
               <Button onClick={openNewServiceSheet}>
                 <Plus className="mr-2 h-4 w-4" />
-                Ersten Service hinzufügen
+                {t('addFirstService')}
               </Button>
             </CardContent>
           </Card>
@@ -330,9 +332,9 @@ export default function ServicesPage() {
           {Object.entries(grouped).map(([category, categoryServices]) => (
             <Card key={category}>
               <CardHeader className="bg-gray-50 border-b">
-                <CardTitle>{category === 'Uncategorized' ? 'Ohne Kategorie' : category}</CardTitle>
+                <CardTitle>{category}</CardTitle>
                 <CardDescription>
-                  {categoryServices.length} Dienstleistung{categoryServices.length !== 1 ? 'en' : ''}
+                  {t('serviceCount', { count: categoryServices.length })}
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-0">
@@ -369,22 +371,22 @@ export default function ServicesPage() {
       <ConfirmDialog
         open={!!deleteService}
         onOpenChange={(open) => !open && setDeleteService(null)}
-        title="Dienstleistung löschen"
-        description={`Sind Sie sicher, dass Sie "${deleteService?.name}" löschen möchten? Die Dienstleistung wird aus Ihrer Liste entfernt und neue Buchungen werden verhindert, aber bestehende Buchungsdaten bleiben erhalten.`}
+        title={t('deleteService')}
+        description={t('deleteServiceDesc', { name: deleteService?.name || '' })}
         onConfirm={handleDelete}
         isConfirming={isDeleting}
-        confirmLabel="Löschen"
+        confirmLabel={t('delete')}
       />
 
       {/* Bulk Delete Confirmation */}
       <ConfirmDialog
         open={showBulkDeleteDialog}
         onOpenChange={setShowBulkDeleteDialog}
-        title="Mehrere Services löschen"
-        description={`Sind Sie sicher, dass Sie ${selectedIds.size} Service${selectedIds.size !== 1 ? 's' : ''} löschen möchten? Dies kann nicht rückgängig gemacht werden.`}
+        title={t('bulkDelete')}
+        description={t('bulkDeleteDesc', { count: selectedIds.size })}
         onConfirm={handleBulkDelete}
         isConfirming={isBulkDeleting}
-        confirmLabel={`${selectedIds.size} löschen`}
+        confirmLabel={t('deleteCount', { count: selectedIds.size })}
       />
     </div>
   )

@@ -9,6 +9,7 @@ import {
   Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet,
 } from '@/components/ui/field'
 import { CalendarCheck, Pencil, Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import type { Business } from '../types'
 
 interface BookingRulesCardProps {
@@ -28,6 +29,8 @@ export function BookingRulesCard({
   onSave,
   isSaving,
 }: BookingRulesCardProps) {
+  const t = useTranslations('dashboard.business.bookingRules')
+  const tc = useTranslations('dashboard.business')
   const [form, setForm] = useState({
     minBookingNoticeHours: 24,
     maxAdvanceBookingDays: 60,
@@ -67,18 +70,18 @@ export function BookingRulesCard({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <CalendarCheck className="h-5 w-5" />
-          Buchungsregeln
+          {t('title')}
         </CardTitle>
-        <CardDescription>Zeitfenster, Stornierung und Bestätigungsablauf</CardDescription>
+        <CardDescription>{t('description')}</CardDescription>
         <CardAction>
           {editing ? (
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={handleCancel} disabled={isSaving}>
-                Abbrechen
+                {tc('cancel')}
               </Button>
               <Button size="sm" onClick={handleSave} disabled={isSaving}>
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Speichern
+                {tc('save')}
               </Button>
             </div>
           ) : (
@@ -93,10 +96,10 @@ export function BookingRulesCard({
           {/* Zeitfenster */}
           <div className="rounded-lg border p-4">
             <FieldSet className="gap-3">
-              <FieldLegend className="mb-1">Zeitfenster</FieldLegend>
+              <FieldLegend className="mb-1">{t('timeWindows')}</FieldLegend>
               <FieldGroup className="gap-4">
                 <Field>
-                  <FieldLabel>Mindestvorlaufzeit</FieldLabel>
+                  <FieldLabel>{t('minNotice')}</FieldLabel>
                   <div className="flex items-center gap-2">
                     <Input
                       type="number"
@@ -105,11 +108,11 @@ export function BookingRulesCard({
                       onChange={(e) => setForm({ ...form, minBookingNoticeHours: parseInt(e.target.value) || 0 })}
                       readOnly={!editing}
                     />
-                    <span className="text-sm text-muted-foreground whitespace-nowrap">Stunden</span>
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">{t('hours')}</span>
                   </div>
                 </Field>
                 <Field>
-                  <FieldLabel>Stornierungsfrist</FieldLabel>
+                  <FieldLabel>{t('cancellationDeadline')}</FieldLabel>
                   <div className="flex items-center gap-2">
                     <Input
                       type="number"
@@ -118,7 +121,7 @@ export function BookingRulesCard({
                       onChange={(e) => setForm({ ...form, cancellationPolicyHours: parseInt(e.target.value) || 0 })}
                       readOnly={!editing}
                     />
-                    <span className="text-sm text-muted-foreground whitespace-nowrap">Stunden</span>
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">{t('hours')}</span>
                   </div>
                 </Field>
               </FieldGroup>
@@ -128,10 +131,10 @@ export function BookingRulesCard({
           {/* Vorausbuchung */}
           <div className="rounded-lg border p-4">
             <FieldSet className="gap-3">
-              <FieldLegend className="mb-1">Vorausbuchung</FieldLegend>
+              <FieldLegend className="mb-1">{t('advanceBooking')}</FieldLegend>
               <FieldGroup className="gap-4">
                 <Field>
-                  <FieldLabel>Max. Vorausbuchung</FieldLabel>
+                  <FieldLabel>{t('maxAdvance')}</FieldLabel>
                   <div className="flex items-center gap-2">
                     <Input
                       type="number"
@@ -140,13 +143,13 @@ export function BookingRulesCard({
                       onChange={(e) => setForm({ ...form, maxAdvanceBookingDays: parseInt(e.target.value) || 1 })}
                       readOnly={!editing}
                     />
-                    <span className="text-sm text-muted-foreground whitespace-nowrap">Tage</span>
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">{t('days')}</span>
                   </div>
                 </Field>
                 <Field orientation="horizontal">
                   <FieldContent>
-                    <FieldLabel>Warteliste</FieldLabel>
-                    <FieldDescription>Bei ausgebuchten Terminen</FieldDescription>
+                    <FieldLabel>{t('waitlist')}</FieldLabel>
+                    <FieldDescription>{t('waitlistDesc')}</FieldDescription>
                   </FieldContent>
                   <Switch
                     checked={form.allowWaitlist}
@@ -161,12 +164,12 @@ export function BookingRulesCard({
           {/* Bestätigung */}
           <div className="rounded-lg border p-4">
             <FieldSet className="gap-3">
-              <FieldLegend className="mb-1">Bestätigung</FieldLegend>
+              <FieldLegend className="mb-1">{t('confirmation')}</FieldLegend>
               <FieldGroup className="gap-4">
                 <Field orientation="horizontal">
                   <FieldContent>
-                    <FieldLabel>E-Mail-Bestätigung</FieldLabel>
-                    <FieldDescription>Kunden bestätigen per Link</FieldDescription>
+                    <FieldLabel>{t('emailConfirmation')}</FieldLabel>
+                    <FieldDescription>{t('emailConfirmationDesc')}</FieldDescription>
                   </FieldContent>
                   <Switch
                     checked={form.requireEmailConfirmation}
@@ -176,8 +179,8 @@ export function BookingRulesCard({
                 </Field>
                 <Field orientation="horizontal">
                   <FieldContent>
-                    <FieldLabel>Admin-Genehmigung</FieldLabel>
-                    <FieldDescription>Team muss freigeben</FieldDescription>
+                    <FieldLabel>{t('adminApproval')}</FieldLabel>
+                    <FieldDescription>{t('adminApprovalDesc')}</FieldDescription>
                   </FieldContent>
                   <Switch
                     checked={form.requireApproval}

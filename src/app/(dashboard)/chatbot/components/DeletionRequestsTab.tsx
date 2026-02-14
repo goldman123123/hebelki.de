@@ -12,6 +12,7 @@ import { Card } from '@/components/ui/card'
 import { Loader2, Shield, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
+import { useTranslations } from 'next-intl'
 
 interface DeletionRequest {
   id: string
@@ -24,14 +25,29 @@ interface DeletionRequest {
   expiresAt: string
 }
 
-const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
-  pending: { label: 'Ausstehend', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
-  confirmed: { label: 'Bestätigt', color: 'bg-blue-100 text-blue-800', icon: AlertCircle },
-  completed: { label: 'Abgeschlossen', color: 'bg-green-100 text-green-800', icon: CheckCircle },
-  expired: { label: 'Abgelaufen', color: 'bg-gray-100 text-gray-600', icon: XCircle },
+const STATUS_ICONS: Record<string, typeof Clock> = {
+  pending: Clock,
+  confirmed: AlertCircle,
+  completed: CheckCircle,
+  expired: XCircle,
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  pending: 'bg-yellow-100 text-yellow-800',
+  confirmed: 'bg-blue-100 text-blue-800',
+  completed: 'bg-green-100 text-green-800',
+  expired: 'bg-gray-100 text-gray-600',
+}
+
+const STATUS_KEYS: Record<string, string> = {
+  pending: 'statusPending',
+  confirmed: 'statusConfirmed',
+  completed: 'statusCompleted',
+  expired: 'statusExpired',
 }
 
 export function DeletionRequestsTab({ businessId }: { businessId: string }) {
+  const t = useTranslations('dashboard.chatbot.deletionRequests')
   const [requests, setRequests] = useState<DeletionRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -44,10 +60,10 @@ export function DeletionRequestsTab({ businessId }: { businessId: string }) {
       if (res.ok) {
         setRequests(data.requests)
       } else {
-        setError(data.error || 'Fehler beim Laden')
+        setError(data.error || t('loadError'))
       }
     } catch {
-      setError('Netzwerkfehler beim Laden der Löschanfragen')
+      setError(t('networkError'))
     } finally {
       setLoading(false)
     }
@@ -62,7 +78,7 @@ export function DeletionRequestsTab({ businessId }: { businessId: string }) {
       <div className="flex min-h-[300px] items-center justify-center">
         <div className="flex items-center gap-2 text-gray-500">
           <Loader2 className="h-5 w-5 animate-spin" />
-          <span>Löschanfragen laden...</span>
+          <span>{t('loading')}</span>
         </div>
       </div>
     )
@@ -82,10 +98,10 @@ export function DeletionRequestsTab({ businessId }: { businessId: string }) {
       <Card className="p-12 text-center">
         <Shield className="mx-auto h-12 w-12 text-gray-400" />
         <h3 className="mt-4 text-lg font-medium text-gray-900">
-          Keine Löschanfragen
+          {t('noRequests')}
         </h3>
         <p className="mt-2 text-sm text-gray-500">
-          Es wurden noch keine DSGVO-Löschanfragen für Ihr Unternehmen gestellt.
+          {t('noRequestsDesc')}
         </p>
       </Card>
     )
@@ -95,14 +111,15 @@ export function DeletionRequestsTab({ businessId }: { businessId: string }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-600">
-          {requests.length} {requests.length === 1 ? 'Anfrage' : 'Anfragen'} insgesamt
+          {t('requestCount', { count: requests.length })}
         </p>
       </div>
 
       <div className="space-y-2">
         {requests.map((req) => {
-          const config = statusConfig[req.status] || statusConfig.pending
-          const StatusIcon = config.icon
+          const statusColor = STATUS_COLORS[req.status] || STATUS_COLORS.pending
+          const StatusIcon = STATUS_ICONS[req.status] || STATUS_ICONS.pending
+          const statusLabel = t(STATUS_KEYS[req.status] || STATUS_KEYS.pending)
 
           return (
             <Card key={req.id} className="p-4">
@@ -112,9 +129,9 @@ export function DeletionRequestsTab({ businessId }: { businessId: string }) {
                     <span className="font-medium text-gray-900 truncate">
                       {req.customerName || req.customerEmail}
                     </span>
-                    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${config.color}`}>
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColor}`}>
                       <StatusIcon className="h-3 w-3" />
-                      {config.label}
+                      {statusLabel}
                     </span>
                   </div>
                   {req.customerName && (
@@ -124,7 +141,7 @@ export function DeletionRequestsTab({ businessId }: { businessId: string }) {
 
                 <div className="text-right text-xs text-gray-500 shrink-0 space-y-1">
                   <div>
-                    Angefragt:{' '}
+                    {t('requested')}{' '}
                     {formatDistanceToNow(new Date(req.requestedAt), {
                       addSuffix: true,
                       locale: de,
@@ -132,7 +149,7 @@ export function DeletionRequestsTab({ businessId }: { businessId: string }) {
                   </div>
                   {req.confirmedAt && (
                     <div>
-                      Bestätigt:{' '}
+                      {t('confirmed')}{' '}
                       {formatDistanceToNow(new Date(req.confirmedAt), {
                         addSuffix: true,
                         locale: de,
@@ -141,7 +158,7 @@ export function DeletionRequestsTab({ businessId }: { businessId: string }) {
                   )}
                   {req.completedAt && (
                     <div>
-                      Gelöscht:{' '}
+                      {t('deleted')}{' '}
                       {formatDistanceToNow(new Date(req.completedAt), {
                         addSuffix: true,
                         locale: de,
@@ -150,7 +167,7 @@ export function DeletionRequestsTab({ businessId }: { businessId: string }) {
                   )}
                   {req.status === 'pending' && (
                     <div className="text-yellow-600">
-                      Läuft ab:{' '}
+                      {t('expires')}{' '}
                       {formatDistanceToNow(new Date(req.expiresAt), {
                         addSuffix: true,
                         locale: de,

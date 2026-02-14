@@ -26,6 +26,7 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { DataPurpose } from './DocumentList'
 import { createLogger } from '@/lib/logger'
 
@@ -174,6 +175,7 @@ export function SectionUploadZone({
   purpose,
   onUploadComplete,
 }: SectionUploadZoneProps) {
+  const t = useTranslations('dashboard.chatbot.data.upload')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const fileConfig = purposeFileConfig[purpose]
   const classification = purposeClassification[purpose]
@@ -237,14 +239,14 @@ export function SectionUploadZone({
       )
 
     if (!isSupported) {
-      const fileTypes = purpose === 'daten' ? 'CSV oder Excel' : 'PDF, Word, TXT oder HTML'
-      toast.error(`Dateityp wird nicht unterstützt. Unterstützt: ${fileTypes}`)
+      const fileTypes = purpose === 'daten' ? t('typesCsvExcel') : t('typesDocuments')
+      toast.error(t('unsupportedType', { types: fileTypes }))
       return
     }
 
     const maxSize = 50 * 1024 * 1024
     if (f.size > maxSize) {
-      toast.error('Datei ist zu groß (max. 50MB)')
+      toast.error(t('fileTooLarge'))
       return
     }
 
@@ -295,7 +297,7 @@ export function SectionUploadZone({
 
     // Validate customer selection for kunden purpose
     if (purpose === 'kunden' && !selectedCustomerId) {
-      toast.error('Bitte wählen Sie einen Kunden aus')
+      toast.error(t('selectCustomerRequired'))
       return
     }
 
@@ -327,7 +329,7 @@ export function SectionUploadZone({
 
       if (!initResponse.ok) {
         // Build detailed error message
-        let errorMsg = initData.error || 'Fehler beim Initialisieren'
+        let errorMsg = initData.error || t('initError')
 
         // Append detailed message if present (from improved API)
         if (initData.message && initData.message !== initData.error) {
@@ -357,7 +359,7 @@ export function SectionUploadZone({
       })
 
       if (!uploadResponse.ok) {
-        throw new Error('Fehler beim Hochladen der Datei')
+        throw new Error(t('r2UploadError'))
       }
 
       // Step 3: Mark upload as complete
@@ -375,15 +377,15 @@ export function SectionUploadZone({
       const completeData = await completeResponse.json()
 
       if (!completeResponse.ok) {
-        throw new Error(completeData.error || 'Fehler beim Abschließen')
+        throw new Error(completeData.error || t('completeError'))
       }
 
       setProgress(100)
       setStatus('complete')
 
       const message = classification.dataClass === 'stored_only'
-        ? 'Datei gespeichert'
-        : 'Dokument wird verarbeitet...'
+        ? t('fileSaved')
+        : t('processingDocument')
       toast.success(message)
 
       // Auto-collapse after delay
@@ -395,15 +397,15 @@ export function SectionUploadZone({
     } catch (err) {
       log.error('Upload error:', err)
       setStatus('error')
-      setError(err instanceof Error ? err.message : 'Fehler beim Hochladen')
-      toast.error(err instanceof Error ? err.message : 'Fehler beim Hochladen')
+      setError(err instanceof Error ? err.message : t('uploadError'))
+      toast.error(err instanceof Error ? err.message : t('uploadError'))
     }
   }
 
   // Get selected customer name
   const getSelectedCustomerName = () => {
     const customer = customers.find(c => c.id === selectedCustomerId)
-    return customer?.name || 'Kunde auswählen'
+    return customer?.name || t('selectCustomer')
   }
 
   // Render idle/dragging state (compact)
@@ -434,7 +436,7 @@ export function SectionUploadZone({
             </div>
             <div>
               <p className="text-sm font-medium text-gray-700">
-                Datei hochladen oder hierher ziehen
+                {t('dragOrUpload')}
               </p>
               <p className="text-xs text-gray-500">
                 {fileConfig.description}
@@ -448,7 +450,7 @@ export function SectionUploadZone({
             onClick={() => fileInputRef.current?.click()}
           >
             <Upload className="mr-2 h-4 w-4" />
-            Datei auswählen
+            {t('selectFile')}
           </Button>
         </div>
       </div>
@@ -507,11 +509,11 @@ export function SectionUploadZone({
                 {loadingCustomers ? (
                   <div className="p-3 text-center text-gray-500 text-sm">
                     <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
-                    Lädt Kunden...
+                    {t('loadingCustomers')}
                   </div>
                 ) : customers.length === 0 ? (
                   <div className="p-3 text-center text-gray-500 text-sm">
-                    Keine Kunden gefunden
+                    {t('noCustomersFound')}
                   </div>
                 ) : (
                   customers.map((customer) => (
@@ -542,7 +544,7 @@ export function SectionUploadZone({
             {!selectedCustomerId && (
               <p className="mt-2 text-xs text-amber-600 flex items-center gap-1">
                 <AlertCircle className="h-3 w-3" />
-                Bitte wählen Sie einen Kunden aus
+                {t('selectCustomerRequired')}
               </p>
             )}
           </div>
@@ -551,14 +553,14 @@ export function SectionUploadZone({
         {/* Action buttons */}
         <div className="flex items-center justify-end gap-2">
           <Button variant="outline" onClick={reset}>
-            Abbrechen
+            {t('cancel')}
           </Button>
           <Button
             onClick={handleUpload}
             disabled={purpose === 'kunden' && !selectedCustomerId}
           >
             <Upload className="mr-2 h-4 w-4" />
-            Hochladen
+            {t('upload')}
           </Button>
         </div>
       </div>
@@ -575,7 +577,7 @@ export function SectionUploadZone({
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-700">
-              Wird hochgeladen...
+              {t('uploading')}
             </p>
             <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
               <div
@@ -599,7 +601,7 @@ export function SectionUploadZone({
           </div>
           <div>
             <p className="text-sm font-medium text-green-700">
-              Upload abgeschlossen
+              {t('uploadComplete')}
             </p>
             <p className="text-xs text-green-600">
               {file?.name}
@@ -621,20 +623,20 @@ export function SectionUploadZone({
             </div>
             <div>
               <p className="text-sm font-medium text-red-700">
-                Upload fehlgeschlagen
+                {t('uploadFailed')}
               </p>
               <p className="text-xs text-red-600">
-                {error || 'Ein Fehler ist aufgetreten'}
+                {error || t('defaultError')}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={reset}>
-              Abbrechen
+              {t('cancel')}
             </Button>
             <Button size="sm" onClick={handleUpload}>
               <RefreshCw className="mr-2 h-4 w-4" />
-              Erneut versuchen
+              {t('retry')}
             </Button>
           </div>
         </div>

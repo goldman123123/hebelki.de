@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { UserButton, useUser } from '@clerk/nextjs'
+import { useTranslations } from 'next-intl'
 import {
   LayoutDashboard,
   Calendar,
@@ -17,6 +18,7 @@ import {
   FileText,
   Bot,
   Brain,
+  Shield,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -32,51 +34,68 @@ import {
   SidebarRail,
 } from '@/components/ui/sidebar'
 import { DevUserSwitcher } from './dashboard/DevUserSwitcher'
+import type { LucideIcon } from 'lucide-react'
 
-const navGroups = [
+interface NavItem {
+  nameKey: string
+  href: string
+  icon: LucideIcon
+}
+
+interface NavGroup {
+  labelKey: string
+  items: NavItem[]
+}
+
+const navGroups: NavGroup[] = [
   {
-    label: 'Übersicht',
+    labelKey: 'overview',
     items: [
-      { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-      { name: 'Buchungen', href: '/bookings', icon: Calendar },
-      { name: 'Kalender', href: '/calendar', icon: CalendarDays },
+      { nameKey: 'dashboard', href: '/dashboard', icon: LayoutDashboard },
+      { nameKey: 'bookings', href: '/bookings', icon: Calendar },
+      { nameKey: 'calendar', href: '/calendar', icon: CalendarDays },
     ],
   },
   {
-    label: 'Verwaltung',
+    labelKey: 'management',
     items: [
-      { name: 'Dienstleistungen', href: '/services', icon: Briefcase },
-      { name: 'Team & Planung', href: '/team-scheduling', icon: Users },
-      { name: 'Kunden', href: '/customers', icon: UserRound },
+      { nameKey: 'services', href: '/services', icon: Briefcase },
+      { nameKey: 'teamScheduling', href: '/team-scheduling', icon: Users },
+      { nameKey: 'customers', href: '/customers', icon: UserRound },
     ],
   },
   {
-    label: 'Kommunikation',
+    labelKey: 'communication',
     items: [
-      { name: 'Chatbot & Daten', href: '/chatbot', icon: MessageSquare },
-      { name: 'Live-Chat', href: '/support-chat', icon: Headphones },
+      { nameKey: 'chatbotData', href: '/chatbot', icon: MessageSquare },
+      { nameKey: 'liveChat', href: '/support-chat', icon: Headphones },
     ],
   },
   {
-    label: 'Tools',
+    labelKey: 'tools',
     items: [
-      { name: 'Make Website', href: '/tools/website', icon: Globe },
-      { name: 'Make Posts', href: '/tools/posts', icon: FileText },
-      { name: 'Virtual Assistant', href: '/tools/assistant', icon: Bot },
+      { nameKey: 'makeWebsite', href: '/tools/website', icon: Globe },
+      { nameKey: 'makePosts', href: '/tools/posts', icon: FileText },
+      { nameKey: 'virtualAssistant', href: '/tools/assistant', icon: Bot },
     ],
   },
   {
-    label: 'Einstellungen',
+    labelKey: 'settingsGroup',
     items: [
-      { name: 'Mein Betrieb', href: '/unternehmen', icon: Building2 },
-      { name: 'KI-Einstellungen', href: '/ai-settings', icon: Brain },
+      { nameKey: 'myBusiness', href: '/unternehmen', icon: Building2 },
+      { nameKey: 'aiSettings', href: '/ai-settings', icon: Brain },
     ],
   },
 ]
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  isPlatformAdmin?: boolean
+}
+
+export function AppSidebar({ isPlatformAdmin = false }: AppSidebarProps) {
   const pathname = usePathname()
   const { user } = useUser()
+  const t = useTranslations('dashboard.sidebar')
 
   return (
     <Sidebar collapsible="icon">
@@ -99,20 +118,20 @@ export function AppSidebar() {
 
       <SidebarContent>
         {navGroups.map((group) => (
-          <SidebarGroup key={group.label}>
-            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+          <SidebarGroup key={group.labelKey}>
+            <SidebarGroupLabel>{t(group.labelKey)}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((item) => (
-                  <SidebarMenuItem key={item.name}>
+                  <SidebarMenuItem key={item.nameKey}>
                     <SidebarMenuButton
                       asChild
                       isActive={pathname === item.href}
-                      tooltip={item.name}
+                      tooltip={t(item.nameKey)}
                     >
                       <Link href={item.href}>
                         <item.icon />
-                        <span>{item.name}</span>
+                        <span>{t(item.nameKey)}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -121,6 +140,28 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         ))}
+
+        {isPlatformAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel>{t('platform')}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === '/platform'}
+                    tooltip={t('platform')}
+                  >
+                    <Link href="/platform">
+                      <Shield />
+                      <span>{t('platform')}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter>

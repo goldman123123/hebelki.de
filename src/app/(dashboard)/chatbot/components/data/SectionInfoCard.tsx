@@ -8,6 +8,7 @@
  */
 
 import { Bot, Building2, User, Database } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { DataPurpose } from './DocumentList'
 
 interface SectionInfoCardProps {
@@ -16,8 +17,8 @@ interface SectionInfoCardProps {
 
 const sectionConfig: Record<DataPurpose, {
   icon: React.ElementType
-  title: string
-  description: string
+  titleKey: string
+  descKey: string
   bgColor: string
   borderColor: string
   iconColor: string
@@ -25,8 +26,8 @@ const sectionConfig: Record<DataPurpose, {
 }> = {
   chatbot: {
     icon: Bot,
-    title: 'Öffentliche Chatbot-Dokumente',
-    description: 'Diese Dokumente sind für Kunden über den Chatbot sichtbar. Der Chatbot kann deren Inhalte verwenden, um Kundenanfragen zu beantworten.',
+    titleKey: 'chatbotTitle',
+    descKey: 'chatbotDesc',
     bgColor: 'bg-green-50',
     borderColor: 'border-green-200',
     iconColor: 'text-green-600',
@@ -34,8 +35,8 @@ const sectionConfig: Record<DataPurpose, {
   },
   intern: {
     icon: Building2,
-    title: 'Interne Dokumente',
-    description: 'Nur für Mitarbeiter und Inhaber sichtbar. Diese Dokumente werden nicht an Kunden weitergegeben, können aber vom Chatbot für interne Abfragen genutzt werden.',
+    titleKey: 'internTitle',
+    descKey: 'internDesc',
     bgColor: 'bg-blue-50',
     borderColor: 'border-blue-200',
     iconColor: 'text-blue-600',
@@ -43,8 +44,8 @@ const sectionConfig: Record<DataPurpose, {
   },
   kunden: {
     icon: User,
-    title: 'Kundendokumente',
-    description: 'Dokumente, die einzelnen Kunden zugeordnet sind. Sie werden nur sichtbar, wenn der jeweilige Kunde identifiziert ist.',
+    titleKey: 'kundenTitle',
+    descKey: 'kundenDesc',
     bgColor: 'bg-purple-50',
     borderColor: 'border-purple-200',
     iconColor: 'text-purple-600',
@@ -52,8 +53,8 @@ const sectionConfig: Record<DataPurpose, {
   },
   daten: {
     icon: Database,
-    title: 'Geschäftsdaten',
-    description: 'CSV- und Excel-Dateien mit Geschäftsdaten wie Kundenlisten, Produktkataloge, etc. Diese werden gespeichert, aber nicht für den Chatbot indexiert.',
+    titleKey: 'datenTitle',
+    descKey: 'datenDesc',
     bgColor: 'bg-amber-50',
     borderColor: 'border-amber-200',
     iconColor: 'text-amber-600',
@@ -62,6 +63,7 @@ const sectionConfig: Record<DataPurpose, {
 }
 
 export function SectionInfoCard({ purpose }: SectionInfoCardProps) {
+  const t = useTranslations('dashboard.chatbot.data.info')
   const config = sectionConfig[purpose]
   const Icon = config.icon
 
@@ -73,10 +75,10 @@ export function SectionInfoCard({ purpose }: SectionInfoCardProps) {
         </div>
         <div>
           <h3 className={`font-medium ${config.textColor}`}>
-            {config.title}
+            {t(config.titleKey)}
           </h3>
           <p className={`mt-1 text-sm ${config.textColor} opacity-80`}>
-            {config.description}
+            {t(config.descKey)}
           </p>
         </div>
       </div>

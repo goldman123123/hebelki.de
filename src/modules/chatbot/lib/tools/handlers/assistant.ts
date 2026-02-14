@@ -16,9 +16,17 @@ import { sendWhatsAppMessage } from '@/lib/twilio-client'
 import { generateEmbeddingWithMetadata } from '@/lib/embeddings'
 import { downloadFile, getDownloadUrl } from '@/lib/r2/client'
 import { sendCustomEmail } from '@/lib/email'
+import { getEmailTranslations } from '@/lib/email-i18n'
+import { getBusinessLocale } from '@/lib/locale'
 import { createLogger } from '@/lib/logger'
 
 const log = createLogger('chatbot:tools:handlers:assistant')
+
+/** Helper to get tool translations for a business */
+async function getToolTranslations(businessId: string) {
+  const locale = await getBusinessLocale(businessId)
+  return getEmailTranslations(locale, 'chatbotPrompts.tools')
+}
 
 /**
  * Assistant tool handlers
@@ -90,7 +98,7 @@ export const assistantHandlers = {
           invoices: results.map(r => ({
             id: r.id,
             invoiceNumber: r.invoiceNumber,
-            customerName: r.customerName || 'Unbekannt',
+            customerName: r.customerName || 'Unknown',
             status: r.status,
             total: r.total,
             issueDate: r.issueDate,
@@ -99,13 +107,13 @@ export const assistantHandlers = {
             type: r.type,
           })),
           message: results.length > 0
-            ? `${results.length} Rechnung${results.length > 1 ? 'en' : ''} gefunden`
-            : 'Keine Rechnungen gefunden',
+            ? (await getToolTranslations(args.businessId))(results.length > 1 ? 'invoicesFoundPlural' : 'invoicesFound', { count: results.length })
+            : (await getToolTranslations(args.businessId))('noInvoicesFound'),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Suchen von Rechnungen' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorSearchingInvoices') }
     }
   },
 
@@ -120,12 +128,12 @@ export const assistantHandlers = {
       const result = await getInvoiceById(args.invoiceId)
 
       if (!result) {
-        return { success: false, error: 'Rechnung nicht gefunden' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('invoiceNotFound') }
       }
 
       // Verify business ownership
       if (result.invoice.businessId !== args.businessId) {
-        return { success: false, error: 'Rechnung nicht gefunden' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('invoiceNotFound') }
       }
 
       return {
@@ -165,7 +173,7 @@ export const assistantHandlers = {
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Abrufen der Rechnungsdetails' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorFetchingInvoiceDetails') }
     }
   },
 
@@ -193,7 +201,7 @@ export const assistantHandlers = {
         .then(rows => rows[0])
 
       if (!booking) {
-        return { success: false, error: 'Buchung nicht gefunden' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('bookingNotFound') }
       }
 
       // Get invoice for booking
@@ -217,12 +225,12 @@ export const assistantHandlers = {
             hasPdf: !!invoice.pdfR2Key,
           } : undefined,
           hasLieferschein: !!booking.lieferscheinR2Key,
-          hint: 'Verwende get_download_link um Download-Links für Rechnungen oder Lieferscheine zu erstellen.',
+          hint: 'Use get_download_link to create download links for invoices or delivery notes.',
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Abrufen der Dokumente' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorFetchingDocuments') }
     }
   },
 
@@ -247,7 +255,7 @@ export const assistantHandlers = {
         .then(rows => rows[0])
 
       if (!business) {
-        return { success: false, error: 'Business nicht gefunden' }
+        return { success: false, error: 'Business not found' }
       }
 
       const template = await getAvailabilityTemplate(args.businessId)
@@ -364,9 +372,9 @@ export const assistantHandlers = {
               endTime: b.endsAt ? new Date(b.endsAt).toLocaleTimeString('de-DE', {
                 hour: '2-digit', minute: '2-digit', timeZone: business.timezone,
               }) : 'N/A',
-              customer: b.customerName || 'Unbekannt',
+              customer: b.customerName || 'Unknown',
               service: b.serviceName || 'N/A',
-              staff: b.staffName || 'Nicht zugewiesen',
+              staff: b.staffName || 'Not assigned',
               status: b.status || 'unknown',
             })),
             isBusinessDay,
@@ -410,12 +418,12 @@ export const assistantHandlers = {
             capacityUtilization: `${utilization}%`,
           },
           schedule: byDate,
-          message: `Monatsübersicht ${args.month}/${args.year}: ${monthBookings.length} Buchungen, ${totalBusinessDays} Geschäftstage, ${utilization}% Auslastung`,
+          message: (await getToolTranslations(args.businessId))('monthlyOverview', { month: args.month, year: args.year, count: monthBookings.length, days: totalBusinessDays, utilization }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Abrufen der Monatsübersicht' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorFetchingMonthlyOverview') }
     }
   },
 
@@ -450,13 +458,13 @@ export const assistantHandlers = {
           isAvailable: args.isAvailable ?? false,
           reason: args.reason,
           message: args.isAvailable
-            ? `Sonderverfügbarkeit am ${args.date} erstellt`
-            : `${args.date} blockiert${args.reason ? `: ${args.reason}` : ''}`,
+            ? (await getToolTranslations(args.businessId))('overrideCreated', { date: args.date })
+            : `${args.date} blocked${args.reason ? `: ${args.reason}` : ''}`,
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Blockieren des Tages' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorBlockingDay') }
     }
   },
 
@@ -485,11 +493,11 @@ export const assistantHandlers = {
         .then(rows => rows[0])
 
       if (!customer) {
-        return { success: false, error: 'Kunde nicht gefunden' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('customerNotFound') }
       }
 
       if (!customer.phone) {
-        return { success: false, error: 'Kunde hat keine Telefonnummer hinterlegt' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('customerNoPhone') }
       }
 
       // Send WhatsApp message
@@ -501,7 +509,7 @@ export const assistantHandlers = {
       if (!result.success) {
         return {
           success: false,
-          error: `WhatsApp-Nachricht konnte nicht gesendet werden: ${result.error}`,
+          error: (await getToolTranslations(args.businessId))('whatsappSendFailed', { error: result.error || '' }),
         }
       }
 
@@ -511,12 +519,12 @@ export const assistantHandlers = {
           sid: result.sid,
           customerName: customer.name,
           phone: customer.phone,
-          message: `WhatsApp-Nachricht an ${customer.name} gesendet`,
+          message: (await getToolTranslations(args.businessId))('whatsappSent', { name: customer.name || '' }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Senden der WhatsApp-Nachricht' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorSendingWhatsapp') }
     }
   },
 
@@ -570,12 +578,12 @@ export const assistantHandlers = {
           entryId: entry.id,
           title: args.title,
           audience: args.audience,
-          message: `Wissenseintrag "${args.title}" erstellt (${args.audience})`,
+          message: (await getToolTranslations(args.businessId))('knowledgeEntryCreated', { title: args.title, audience: args.audience }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Erstellen des Wissenseintrags' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorCreatingKnowledgeEntry') }
     }
   },
 
@@ -607,7 +615,7 @@ export const assistantHandlers = {
         .then(rows => rows[0])
 
       if (!booking) {
-        return { success: false, error: 'Buchung nicht gefunden' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('bookingNotFound') }
       }
 
       // If staffId provided, validate staff is assigned to booking's service
@@ -623,7 +631,7 @@ export const assistantHandlers = {
             .then(rows => rows[0])
           return {
             success: false,
-            error: `${staffMember?.name || 'Mitarbeiter'} ist nicht für den Service "${booking.service?.name}" qualifiziert. Qualifizierte Mitarbeiter: ${qualifiedStaff.map(s => s.name).join(', ')}`,
+            error: (await getToolTranslations(args.businessId))('staffNotQualifiedForService', { staffName: staffMember?.name || 'Staff', serviceName: booking.service?.name || '', qualified: qualifiedStaff.map(s => s.name).join(', ') }),
           }
         }
       }
@@ -640,19 +648,19 @@ export const assistantHandlers = {
           .where(eq(staff.id, args.staffId))
           .limit(1)
           .then(rows => rows[0])
-        changes.push(`Mitarbeiter: ${booking.staffMember?.name || 'keiner'} → ${newStaff?.name || args.staffId}`)
+        changes.push(`Staff: ${booking.staffMember?.name || 'none'} -> ${newStaff?.name || args.staffId}`)
       }
       if (args.notes !== undefined) {
         updateData.notes = args.notes
-        changes.push('Kundennotizen aktualisiert')
+        changes.push('Customer notes updated')
       }
       if (args.internalNotes !== undefined) {
         updateData.internalNotes = args.internalNotes
-        changes.push('Interne Notizen aktualisiert')
+        changes.push('Internal notes updated')
       }
 
       if (changes.length === 0) {
-        return { success: false, error: 'Keine Änderungen angegeben' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('noChangesSpecified') }
       }
 
       // Update booking
@@ -680,12 +688,12 @@ export const assistantHandlers = {
         data: {
           bookingId: updated.id,
           changes,
-          message: `Buchung aktualisiert: ${changes.join(', ')}`,
+          message: (await getToolTranslations(args.businessId))('bookingUpdated', { changes: changes.join(', ') }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Aktualisieren der Buchung' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorUpdatingBooking') }
     }
   },
 
@@ -713,7 +721,7 @@ export const assistantHandlers = {
         .then(rows => rows[0])
 
       if (!staffMember) {
-        return { success: false, error: 'Mitarbeiter nicht gefunden' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('staffNotFound') }
       }
 
       // Get business timezone
@@ -763,7 +771,7 @@ export const assistantHandlers = {
         time: b.startsAt ? new Date(b.startsAt).toLocaleTimeString('de-DE', {
           hour: '2-digit', minute: '2-digit', timeZone: timezone,
         }) : 'N/A',
-        customer: b.customerName || 'Unbekannt',
+        customer: b.customerName || 'Unknown',
         customerEmail: b.customerEmail,
         customerPhone: b.customerPhone,
         customerId: b.customerId,
@@ -775,17 +783,17 @@ export const assistantHandlers = {
         success: true,
         data: {
           staffName: staffMember.name,
-          period: `${args.startDate} bis ${args.endDate}`,
+          period: `${args.startDate} to ${args.endDate}`,
           totalAffected: formatted.length,
           bookings: formatted,
           message: formatted.length > 0
-            ? `${formatted.length} Buchung${formatted.length > 1 ? 'en' : ''} von ${staffMember.name} betroffen (${args.startDate} bis ${args.endDate})`
-            : `Keine aktiven Buchungen für ${staffMember.name} in diesem Zeitraum`,
+            ? `${formatted.length} booking${formatted.length > 1 ? 's' : ''} affected for ${staffMember.name} (${args.startDate} to ${args.endDate})`
+            : `No active bookings for ${staffMember.name} in this period`,
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Abrufen der betroffenen Buchungen' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorBlockingPeriod') }
     }
   },
 
@@ -809,7 +817,7 @@ export const assistantHandlers = {
         .then(rows => rows[0])
 
       if (!staffMember) {
-        return { success: false, error: 'Mitarbeiter nicht gefunden' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('staffNotFound') }
       }
 
       // Calculate dates
@@ -817,7 +825,7 @@ export const assistantHandlers = {
       const end = new Date(args.endDate)
 
       if (end < start) {
-        return { success: false, error: 'Enddatum muss nach Startdatum liegen' }
+        return { success: false, error: 'End date must be after start date' }
       }
 
       // Loop from startDate to endDate, create override for each day
@@ -860,12 +868,14 @@ export const assistantHandlers = {
           daysBlocked,
           reason: args.reason,
           affectedBookings: affectedCount,
-          message: `${staffMember.name} blockiert für ${daysBlocked} Tage (${args.reason}). ${affectedCount > 0 ? `⚠️ ${affectedCount} bestehende Buchung${affectedCount > 1 ? 'en' : ''} betroffen — bitte umplanen oder stornieren!` : 'Keine bestehenden Buchungen betroffen.'}`,
+          message: affectedCount > 0
+            ? (await getToolTranslations(args.businessId))(affectedCount > 1 ? 'staffBlockedWithAffectedPlural' : 'staffBlockedWithAffected', { name: staffMember.name, days: daysBlocked, reason: args.reason, affected: affectedCount })
+            : (await getToolTranslations(args.businessId))('staffBlockedNoAffected', { name: staffMember.name, days: daysBlocked, reason: args.reason }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Blockieren des Zeitraums' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorBlockingStaffPeriod') }
     }
   },
 
@@ -904,12 +914,12 @@ export const assistantHandlers = {
           category: service.category,
           bufferMinutes: service.bufferMinutes,
           capacity: service.capacity,
-          message: `Dienstleistung "${service.name}" erstellt (${service.durationMinutes} Min.${service.price ? `, ${service.price} €` : ''})`,
+          message: (await getToolTranslations(args.businessId))('serviceCreated', { name: service.name, duration: service.durationMinutes, price: service.price ? `, ${service.price} EUR` : '' }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Erstellen der Dienstleistung' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorCreatingService') }
     }
   },
 
@@ -930,7 +940,7 @@ export const assistantHandlers = {
     try {
       const existing = await getServiceById(args.serviceId, args.businessId)
       if (!existing) {
-        return { success: false, error: 'Dienstleistung nicht gefunden' }
+        return { success: false, error: 'Service not found' }
       }
 
       const updateData: Record<string, unknown> = {}
@@ -938,35 +948,35 @@ export const assistantHandlers = {
 
       if (args.name !== undefined) {
         updateData.name = args.name
-        changes.push(`Name: ${existing.name} → ${args.name}`)
+        changes.push(`Name: ${existing.name} -> ${args.name}`)
       }
       if (args.durationMinutes !== undefined) {
         updateData.durationMinutes = args.durationMinutes
-        changes.push(`Dauer: ${existing.durationMinutes} → ${args.durationMinutes} Min.`)
+        changes.push(`Duration: ${existing.durationMinutes} -> ${args.durationMinutes} min`)
       }
       if (args.description !== undefined) {
         updateData.description = args.description
-        changes.push('Beschreibung aktualisiert')
+        changes.push('Description updated')
       }
       if (args.category !== undefined) {
         updateData.category = args.category
-        changes.push(`Kategorie: ${existing.category || 'keine'} → ${args.category}`)
+        changes.push(`Category: ${existing.category || 'none'} -> ${args.category}`)
       }
       if (args.price !== undefined) {
         updateData.price = args.price
-        changes.push(`Preis: ${existing.price || 'keiner'} → ${args.price} €`)
+        changes.push(`Price: ${existing.price || 'none'} -> ${args.price} EUR`)
       }
       if (args.bufferMinutes !== undefined) {
         updateData.bufferMinutes = args.bufferMinutes
-        changes.push(`Pufferzeit: ${existing.bufferMinutes} → ${args.bufferMinutes} Min.`)
+        changes.push(`Buffer: ${existing.bufferMinutes} -> ${args.bufferMinutes} min`)
       }
       if (args.isActive !== undefined) {
         updateData.isActive = args.isActive
-        changes.push(`Status: ${args.isActive ? 'aktiviert' : 'deaktiviert'}`)
+        changes.push(`Status: ${args.isActive ? 'activated' : 'deactivated'}`)
       }
 
       if (changes.length === 0) {
-        return { success: false, error: 'Keine Änderungen angegeben' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('noChangesSpecified') }
       }
 
       const updated = await updateService(args.serviceId, updateData)
@@ -977,12 +987,12 @@ export const assistantHandlers = {
           serviceId: updated.id,
           name: updated.name,
           changes,
-          message: `Dienstleistung "${updated.name}" aktualisiert: ${changes.join(', ')}`,
+          message: (await getToolTranslations(args.businessId))('serviceUpdated', { name: updated.name, changes: changes.join(', ') }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Aktualisieren der Dienstleistung' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorUpdatingService') }
     }
   },
 
@@ -996,7 +1006,7 @@ export const assistantHandlers = {
     try {
       const existing = await getServiceById(args.serviceId, args.businessId)
       if (!existing) {
-        return { success: false, error: 'Dienstleistung nicht gefunden' }
+        return { success: false, error: 'Service not found' }
       }
 
       await deleteService(args.serviceId)
@@ -1006,12 +1016,12 @@ export const assistantHandlers = {
         data: {
           serviceId: args.serviceId,
           name: existing.name,
-          message: `Dienstleistung "${existing.name}" deaktiviert`,
+          message: `Service "${existing.name}" deactivated`,
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Deaktivieren der Dienstleistung' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorDeletingService') }
     }
   },
 
@@ -1047,12 +1057,12 @@ export const assistantHandlers = {
           email: newStaff.email,
           phone: newStaff.phone,
           title: newStaff.title,
-          message: `Mitarbeiter "${newStaff.name}" erstellt${newStaff.title ? ` (${newStaff.title})` : ''}`,
+          message: (await getToolTranslations(args.businessId))('staffCreated', { name: newStaff.name }) + (newStaff.title ? ` (${newStaff.title})` : ''),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Erstellen des Mitarbeiters' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorCreatingStaff') }
     }
   },
 
@@ -1083,7 +1093,7 @@ export const assistantHandlers = {
         .then(rows => rows[0])
 
       if (!existing) {
-        return { success: false, error: 'Mitarbeiter nicht gefunden' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('staffNotFound') }
       }
 
       const updateData: Record<string, unknown> = {}
@@ -1091,31 +1101,31 @@ export const assistantHandlers = {
 
       if (args.name !== undefined) {
         updateData.name = args.name
-        changes.push(`Name: ${existing.name} → ${args.name}`)
+        changes.push(`Name: ${existing.name} -> ${args.name}`)
       }
       if (args.email !== undefined) {
         updateData.email = args.email
-        changes.push(`E-Mail: ${existing.email || 'keine'} → ${args.email}`)
+        changes.push(`Email: ${existing.email || 'none'} -> ${args.email}`)
       }
       if (args.phone !== undefined) {
         updateData.phone = args.phone
-        changes.push(`Telefon: ${existing.phone || 'keine'} → ${args.phone}`)
+        changes.push(`Phone: ${existing.phone || 'none'} -> ${args.phone}`)
       }
       if (args.title !== undefined) {
         updateData.title = args.title
-        changes.push(`Titel: ${existing.title || 'keiner'} → ${args.title}`)
+        changes.push(`Title: ${existing.title || 'none'} -> ${args.title}`)
       }
       if (args.bio !== undefined) {
         updateData.bio = args.bio
-        changes.push('Bio aktualisiert')
+        changes.push('Bio updated')
       }
       if (args.isActive !== undefined) {
         updateData.isActive = args.isActive
-        changes.push(`Status: ${args.isActive ? 'aktiviert' : 'deaktiviert'}`)
+        changes.push(`Status: ${args.isActive ? 'activated' : 'deactivated'}`)
       }
 
       if (changes.length === 0) {
-        return { success: false, error: 'Keine Änderungen angegeben' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('noChangesSpecified') }
       }
 
       const [updated] = await db
@@ -1130,12 +1140,12 @@ export const assistantHandlers = {
           staffId: updated.id,
           name: updated.name,
           changes,
-          message: `Mitarbeiter "${updated.name}" aktualisiert: ${changes.join(', ')}`,
+          message: (await getToolTranslations(args.businessId))('staffUpdated', { name: updated.name, changes: changes.join(', ') }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Aktualisieren des Mitarbeiters' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorUpdatingStaff') }
     }
   },
 
@@ -1160,7 +1170,7 @@ export const assistantHandlers = {
         .then(rows => rows[0])
 
       if (!existing) {
-        return { success: false, error: 'Mitarbeiter nicht gefunden' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('staffNotFound') }
       }
 
       // Count future bookings for warning
@@ -1194,12 +1204,14 @@ export const assistantHandlers = {
           staffId: args.staffId,
           name: existing.name,
           affectedBookings,
-          message: `Mitarbeiter "${existing.name}" gelöscht${affectedBookings > 0 ? `. Achtung: ${affectedBookings} zukünftige Buchung${affectedBookings > 1 ? 'en' : ''} betroffen — bitte umplanen oder stornieren!` : ''}`,
+          message: affectedBookings > 0
+            ? (await getToolTranslations(args.businessId))(affectedBookings > 1 ? 'staffDeletedWithAffectedPlural' : 'staffDeletedWithAffected', { name: existing.name, count: affectedBookings })
+            : (await getToolTranslations(args.businessId))('staffDeleted', { name: existing.name }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Löschen des Mitarbeiters' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorDeletingStaff') }
     }
   },
 
@@ -1226,13 +1238,13 @@ export const assistantHandlers = {
         .then(rows => rows[0])
 
       if (!staffMember) {
-        return { success: false, error: 'Mitarbeiter nicht gefunden' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('staffNotFound') }
       }
 
       // Verify service belongs to business
       const service = await getServiceById(args.serviceId, args.businessId)
       if (!service) {
-        return { success: false, error: 'Dienstleistung nicht gefunden' }
+        return { success: false, error: 'Service not found' }
       }
 
       // Upsert into staffServices (insert or update on conflict)
@@ -1262,12 +1274,12 @@ export const assistantHandlers = {
           serviceId: args.serviceId,
           serviceName: service.name,
           sortOrder: args.sortOrder ?? 999,
-          message: `${staffMember.name} der Dienstleistung "${service.name}" zugewiesen`,
+          message: (await getToolTranslations(args.businessId))('staffAssignedToService', { staffName: staffMember.name, serviceName: service.name }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Zuweisen des Mitarbeiters zur Dienstleistung' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorAssigningStaff') }
     }
   },
 
@@ -1293,13 +1305,13 @@ export const assistantHandlers = {
         .then(rows => rows[0])
 
       if (!staffMember) {
-        return { success: false, error: 'Mitarbeiter nicht gefunden' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('staffNotFound') }
       }
 
       // Verify service belongs to business
       const service = await getServiceById(args.serviceId, args.businessId)
       if (!service) {
-        return { success: false, error: 'Dienstleistung nicht gefunden' }
+        return { success: false, error: 'Service not found' }
       }
 
       // Delete the assignment
@@ -1312,7 +1324,7 @@ export const assistantHandlers = {
         .returning()
 
       if (deleted.length === 0) {
-        return { success: false, error: `${staffMember.name} ist nicht der Dienstleistung "${service.name}" zugewiesen` }
+        return { success: false, error: (await getToolTranslations(args.businessId))('staffNotAssignedToService', { staffName: staffMember.name, serviceName: service.name }) }
       }
 
       return {
@@ -1322,12 +1334,12 @@ export const assistantHandlers = {
           staffName: staffMember.name,
           serviceId: args.serviceId,
           serviceName: service.name,
-          message: `${staffMember.name} von der Dienstleistung "${service.name}" entfernt`,
+          message: (await getToolTranslations(args.businessId))('staffRemovedFromService', { staffName: staffMember.name, serviceName: service.name }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Entfernen der Zuweisung' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorRemovingAssignment') }
     }
   },
 
@@ -1348,14 +1360,14 @@ export const assistantHandlers = {
             templateId: null,
             staffId: args.staffId || null,
             schedule: [],
-            message: 'Kein Wochenplan vorhanden. Verwende update_availability_template um einen zu erstellen.',
+            message: (await getToolTranslations(args.businessId))('noWeeklySchedule'),
           },
         }
       }
 
       const slots = await getAvailabilitySlots(template.id)
 
-      const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag']
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
       // Group by day
       const byDay: Record<number, Array<{ startTime: string; endTime: string }>> = {}
@@ -1378,12 +1390,14 @@ export const assistantHandlers = {
           name: template.name,
           staffId: args.staffId || null,
           schedule,
-          message: `Wochenplan${args.staffId ? ' (Mitarbeiter)' : ' (Geschäftszeiten)'}: ${slots.length} Zeitfenster an ${Object.keys(byDay).length} Tagen`,
+          message: args.staffId
+            ? (await getToolTranslations(args.businessId))('weeklyScheduleStaff', { slots: slots.length, days: Object.keys(byDay).length })
+            : (await getToolTranslations(args.businessId))('weeklySchedule', { slots: slots.length, days: Object.keys(byDay).length }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Abrufen des Wochenplans' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorFetchingSchedule') }
     }
   },
 
@@ -1399,13 +1413,13 @@ export const assistantHandlers = {
       // Validate slots
       for (const slot of args.slots) {
         if (slot.dayOfWeek < 0 || slot.dayOfWeek > 6) {
-          return { success: false, error: `Ungültiger Wochentag: ${slot.dayOfWeek}. Muss 0 (Sonntag) bis 6 (Samstag) sein.` }
+          return { success: false, error: `Invalid day of week: ${slot.dayOfWeek}. Must be 0 (Sunday) to 6 (Saturday).` }
         }
         if (!/^\d{2}:\d{2}$/.test(slot.startTime) || !/^\d{2}:\d{2}$/.test(slot.endTime)) {
-          return { success: false, error: 'Zeitformat muss HH:MM sein (z.B. "09:00")' }
+          return { success: false, error: 'Time format must be HH:MM (e.g. "09:00")' }
         }
         if (slot.startTime >= slot.endTime) {
-          return { success: false, error: `Endzeit muss nach Startzeit liegen: ${slot.startTime} - ${slot.endTime}` }
+          return { success: false, error: `End time must be after start time: ${slot.startTime} - ${slot.endTime}` }
         }
       }
 
@@ -1422,12 +1436,12 @@ export const assistantHandlers = {
           templateId: template.id,
           slotsCount: args.slots.length,
           activeDays: dayList,
-          message: `Wochenplan aktualisiert: ${args.slots.length} Zeitfenster (${dayList})`,
+          message: (await getToolTranslations(args.businessId))('scheduleUpdated', { slots: args.slots.length, days: dayList }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Aktualisieren des Wochenplans' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorUpdatingSchedule') }
     }
   },
 
@@ -1454,7 +1468,7 @@ export const assistantHandlers = {
         .then(rows => rows[0])
 
       if (!existing) {
-        return { success: false, error: 'Unternehmen nicht gefunden' }
+        return { success: false, error: 'Business not found' }
       }
 
       const updateData: Record<string, unknown> = { updatedAt: new Date() }
@@ -1462,39 +1476,39 @@ export const assistantHandlers = {
 
       if (args.name !== undefined) {
         updateData.name = args.name
-        changes.push(`Name: ${existing.name} → ${args.name}`)
+        changes.push(`Name: ${existing.name} -> ${args.name}`)
       }
       if (args.email !== undefined) {
         updateData.email = args.email
-        changes.push(`E-Mail: ${existing.email || 'keine'} → ${args.email}`)
+        changes.push(`Email: ${existing.email || 'none'} -> ${args.email}`)
       }
       if (args.phone !== undefined) {
         updateData.phone = args.phone
-        changes.push(`Telefon: ${existing.phone || 'keine'} → ${args.phone}`)
+        changes.push(`Phone: ${existing.phone || 'none'} -> ${args.phone}`)
       }
       if (args.address !== undefined) {
         updateData.address = args.address
-        changes.push(`Adresse aktualisiert`)
+        changes.push('Address updated')
       }
       if (args.legalName !== undefined) {
         updateData.legalName = args.legalName
-        changes.push(`Firmenname: ${existing.legalName || 'keiner'} → ${args.legalName}`)
+        changes.push(`Legal name: ${existing.legalName || 'none'} -> ${args.legalName}`)
       }
       if (args.legalForm !== undefined) {
         updateData.legalForm = args.legalForm
-        changes.push(`Rechtsform: ${existing.legalForm || 'keine'} → ${args.legalForm}`)
+        changes.push(`Legal form: ${existing.legalForm || 'none'} -> ${args.legalForm}`)
       }
       if (args.description !== undefined) {
         updateData.description = args.description
-        changes.push('Beschreibung aktualisiert')
+        changes.push('Description updated')
       }
       if (args.tagline !== undefined) {
         updateData.tagline = args.tagline
-        changes.push(`Tagline: ${existing.tagline || 'keine'} → ${args.tagline}`)
+        changes.push(`Tagline: ${existing.tagline || 'none'} -> ${args.tagline}`)
       }
 
       if (changes.length === 0) {
-        return { success: false, error: 'Keine Änderungen angegeben' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('noChangesSpecified') }
       }
 
       await db
@@ -1507,12 +1521,12 @@ export const assistantHandlers = {
         data: {
           businessId: args.businessId,
           changes,
-          message: `Geschäftsprofil aktualisiert: ${changes.join(', ')}`,
+          message: (await getToolTranslations(args.businessId))('profileUpdated', { changes: changes.join(', ') }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Aktualisieren des Geschäftsprofils' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorUpdatingProfile') }
     }
   },
 
@@ -1537,7 +1551,7 @@ export const assistantHandlers = {
         .then(rows => rows[0])
 
       if (!existing) {
-        return { success: false, error: 'Unternehmen nicht gefunden' }
+        return { success: false, error: 'Business not found' }
       }
 
       const updateData: Record<string, unknown> = { updatedAt: new Date() }
@@ -1545,31 +1559,31 @@ export const assistantHandlers = {
 
       if (args.minBookingNoticeHours !== undefined) {
         updateData.minBookingNoticeHours = args.minBookingNoticeHours
-        changes.push(`Mindestvorlaufzeit: ${existing.minBookingNoticeHours}h → ${args.minBookingNoticeHours}h`)
+        changes.push(`Min notice: ${existing.minBookingNoticeHours}h -> ${args.minBookingNoticeHours}h`)
       }
       if (args.maxAdvanceBookingDays !== undefined) {
         updateData.maxAdvanceBookingDays = args.maxAdvanceBookingDays
-        changes.push(`Max. Vorausbuchung: ${existing.maxAdvanceBookingDays} → ${args.maxAdvanceBookingDays} Tage`)
+        changes.push(`Max advance booking: ${existing.maxAdvanceBookingDays} -> ${args.maxAdvanceBookingDays} days`)
       }
       if (args.cancellationPolicyHours !== undefined) {
         updateData.cancellationPolicyHours = args.cancellationPolicyHours
-        changes.push(`Stornierungsfrist: ${existing.cancellationPolicyHours}h → ${args.cancellationPolicyHours}h`)
+        changes.push(`Cancellation policy: ${existing.cancellationPolicyHours}h -> ${args.cancellationPolicyHours}h`)
       }
       if (args.requireApproval !== undefined) {
         updateData.requireApproval = args.requireApproval
-        changes.push(`Bestätigung erforderlich: ${args.requireApproval ? 'ja' : 'nein'}`)
+        changes.push(`Approval required: ${args.requireApproval ? 'yes' : 'no'}`)
       }
       if (args.requireEmailConfirmation !== undefined) {
         updateData.requireEmailConfirmation = args.requireEmailConfirmation
-        changes.push(`E-Mail-Bestätigung: ${args.requireEmailConfirmation ? 'ja' : 'nein'}`)
+        changes.push(`Email confirmation: ${args.requireEmailConfirmation ? 'yes' : 'no'}`)
       }
       if (args.allowWaitlist !== undefined) {
         updateData.allowWaitlist = args.allowWaitlist
-        changes.push(`Warteliste: ${args.allowWaitlist ? 'aktiviert' : 'deaktiviert'}`)
+        changes.push(`Waitlist: ${args.allowWaitlist ? 'enabled' : 'disabled'}`)
       }
 
       if (changes.length === 0) {
-        return { success: false, error: 'Keine Änderungen angegeben' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('noChangesSpecified') }
       }
 
       await db
@@ -1582,12 +1596,12 @@ export const assistantHandlers = {
         data: {
           businessId: args.businessId,
           changes,
-          message: `Buchungsrichtlinien aktualisiert: ${changes.join(', ')}`,
+          message: (await getToolTranslations(args.businessId))('policiesUpdated', { changes: changes.join(', ') }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Aktualisieren der Buchungsrichtlinien' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorUpdatingPolicies') }
     }
   },
 
@@ -1616,7 +1630,7 @@ export const assistantHandlers = {
         .then(rows => rows[0])
 
       if (!existing) {
-        return { success: false, error: 'Wissenseintrag nicht gefunden' }
+        return { success: false, error: 'Knowledge entry not found' }
       }
 
       const updateData: Record<string, unknown> = { updatedAt: new Date() }
@@ -1624,27 +1638,27 @@ export const assistantHandlers = {
 
       if (args.title !== undefined) {
         updateData.title = args.title
-        changes.push(`Titel: ${existing.title || 'keiner'} → ${args.title}`)
+        changes.push(`Title: ${existing.title || 'none'} -> ${args.title}`)
       }
       if (args.content !== undefined) {
         updateData.content = args.content
-        changes.push('Inhalt aktualisiert')
+        changes.push('Content updated')
       }
       if (args.category !== undefined) {
         updateData.category = args.category
-        changes.push(`Kategorie: ${existing.category || 'keine'} → ${args.category}`)
+        changes.push(`Category: ${existing.category || 'none'} -> ${args.category}`)
       }
       if (args.audience !== undefined) {
         updateData.audience = args.audience
-        changes.push(`Zielgruppe: ${existing.audience} → ${args.audience}`)
+        changes.push(`Audience: ${existing.audience} -> ${args.audience}`)
       }
       if (args.scopeType !== undefined) {
         updateData.scopeType = args.scopeType
-        changes.push(`Geltungsbereich: ${existing.scopeType} → ${args.scopeType}`)
+        changes.push(`Scope: ${existing.scopeType} -> ${args.scopeType}`)
       }
 
       if (changes.length === 0) {
-        return { success: false, error: 'Keine Änderungen angegeben' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('noChangesSpecified') }
       }
 
       // Regenerate embedding if content or title changed
@@ -1675,12 +1689,12 @@ export const assistantHandlers = {
           title: args.title ?? existing.title,
           changes,
           embeddingRegenerated: args.content !== undefined || args.title !== undefined,
-          message: `Wissenseintrag aktualisiert: ${changes.join(', ')}`,
+          message: (await getToolTranslations(args.businessId))('knowledgeEntryUpdated', { changes: changes.join(', ') }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Aktualisieren des Wissenseintrags' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorUpdatingKnowledgeEntry') }
     }
   },
 
@@ -1704,7 +1718,7 @@ export const assistantHandlers = {
         .then(rows => rows[0])
 
       if (!existing) {
-        return { success: false, error: 'Wissenseintrag nicht gefunden' }
+        return { success: false, error: 'Knowledge entry not found' }
       }
 
       await db
@@ -1716,12 +1730,12 @@ export const assistantHandlers = {
         data: {
           entryId: args.entryId,
           title: existing.title,
-          message: `Wissenseintrag "${existing.title || 'Ohne Titel'}" gelöscht`,
+          message: (await getToolTranslations(args.businessId))('knowledgeEntryDeleted', { title: existing.title || 'Untitled' }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Löschen des Wissenseintrags' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorDeletingKnowledgeEntry') }
     }
   },
 
@@ -1745,7 +1759,7 @@ export const assistantHandlers = {
         .then(rows => rows[0])
 
       if (!customer) {
-        return { success: false, error: 'Kunde nicht gefunden' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('customerNotFound') }
       }
 
       // Count related records before deletion
@@ -1773,12 +1787,12 @@ export const assistantHandlers = {
           customerName: customer.name,
           deletedBookings: bookingCount,
           deletedConversations: conversationCount,
-          message: `Kunde "${customer.name || customer.email || 'Unbekannt'}" gelöscht (${bookingCount} Buchungen, ${conversationCount} Gespräche entfernt)`,
+          message: (await getToolTranslations(args.businessId))('customerDeleted', { name: customer.name || customer.email || 'Unknown', bookings: bookingCount, conversations: conversationCount }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Löschen des Kunden' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorDeletingCustomer') }
     }
   },
 
@@ -1794,7 +1808,7 @@ export const assistantHandlers = {
       // Verify service belongs to business
       const service = await getServiceById(args.serviceId, args.businessId)
       if (!service) {
-        return { success: false, error: 'Dienstleistung nicht gefunden' }
+        return { success: false, error: 'Service not found' }
       }
 
       // Update each staff-service sortOrder
@@ -1817,7 +1831,7 @@ export const assistantHandlers = {
             .where(eq(staff.id, entry.staffId))
             .limit(1)
             .then(rows => rows[0])
-          updated.push(`${staffMember?.name || entry.staffId}: Priorität ${entry.sortOrder}`)
+          updated.push(`${staffMember?.name || entry.staffId}: priority ${entry.sortOrder}`)
         }
       }
 
@@ -1828,12 +1842,12 @@ export const assistantHandlers = {
           serviceName: service.name,
           updatedCount: updated.length,
           priorities: updated,
-          message: `Prioritäten für "${service.name}" aktualisiert: ${updated.join(', ')}`,
+          message: (await getToolTranslations(args.businessId))('prioritiesUpdated', { service: service.name, staff: updated.join(', ') }),
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Aktualisieren der Prioritäten' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorUpdatingPriorities') }
     }
   },
 
@@ -1867,7 +1881,7 @@ export const assistantHandlers = {
         .then(rows => rows[0])
 
       if (!document) {
-        return { success: false, error: 'Dokument nicht gefunden' }
+        return { success: false, error: 'Document not found' }
       }
 
       const previousDataClass = document.dataClass
@@ -1919,12 +1933,12 @@ export const assistantHandlers = {
           dataClass: args.dataClass,
           scopeType: args.scopeType || 'global',
           willBeIndexed: args.dataClass === 'knowledge',
-          message: `Dokument "${document.title}" klassifiziert: ${args.audience}, ${args.dataClass}${args.dataClass === 'knowledge' && previousDataClass === 'stored_only' ? ' — wird jetzt indexiert' : ''}`,
+          message: `Document "${document.title}" classified: ${args.audience}, ${args.dataClass}${args.dataClass === 'knowledge' && previousDataClass === 'stored_only' ? ' — will now be indexed' : ''}`,
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Klassifizieren des Dokuments' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorClassifyingDocument') }
     }
   },
 
@@ -1955,11 +1969,11 @@ export const assistantHandlers = {
         .then(rows => rows[0])
 
       if (!customer) {
-        return { success: false, error: 'Kunde nicht gefunden' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('customerNotFound') }
       }
 
       if (!customer.email) {
-        return { success: false, error: 'Kunde hat keine E-Mail-Adresse hinterlegt' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('customerNoEmailForAttachment') }
       }
 
       // Look up business name
@@ -1989,7 +2003,7 @@ export const assistantHandlers = {
             log.error(`Failed to download ${att.r2Key}:`, dlError)
             return {
               success: false,
-              error: `Datei "${att.filename}" konnte nicht geladen werden`,
+              error: `File "${att.filename}" could not be loaded`,
             }
           }
         }
@@ -2011,12 +2025,14 @@ export const assistantHandlers = {
           customerName: customer.name,
           email: customer.email,
           attachmentCount: attachments.length,
-          message: `E-Mail an ${customer.name} gesendet${attachments.length > 0 ? ` mit ${attachments.length} Anhang${attachments.length > 1 ? 'en' : ''}` : ''}`,
+          message: attachments.length > 0
+            ? (await getToolTranslations(args.businessId))(attachments.length > 1 ? 'emailSentWithAttachmentsPlural' : 'emailSentWithAttachments', { name: customer.name || '', count: attachments.length })
+            : `Email sent to ${customer.name}`,
         },
       }
     } catch (error) {
       log.error('Error:', error)
-      return { success: false, error: 'Fehler beim Senden der E-Mail mit Anhängen' }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorSendingEmailWithAttachments') }
     }
   },
 
@@ -2041,7 +2057,7 @@ export const assistantHandlers = {
         .then(rows => rows[0])
 
       if (!booking) {
-        return { success: false, error: 'Buchung nicht gefunden' }
+        return { success: false, error: 'Booking not found' }
       }
 
       const invoice = await createInvoiceForBooking(args.bookingId)
@@ -2053,19 +2069,19 @@ export const assistantHandlers = {
           invoiceNumber: invoice.invoiceNumber,
           total: invoice.total,
           status: invoice.status,
-          message: `Rechnung ${invoice.invoiceNumber} erstellt (Entwurf, ${invoice.total} €)`,
+          message: (await getToolTranslations(args.businessId))('invoiceCreated', { number: invoice.invoiceNumber, total: invoice.total }),
         },
       }
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Unbekannter Fehler'
+      const msg = error instanceof Error ? error.message : 'Unknown error'
       log.error('Error:', error)
       if (msg.includes('already exists') || msg.includes('bereits')) {
-        return { success: false, error: 'Für diese Buchung existiert bereits eine aktive Rechnung. Verwende get_booking_documents um sie zu finden.' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('invoiceAlreadyExists') }
       }
       if (msg.includes('address') || msg.includes('Adresse')) {
-        return { success: false, error: 'Kunde hat keine Adresse hinterlegt. Bitte zuerst mit update_customer ergänzen.' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('customerNoAddress') }
       }
-      return { success: false, error: `Fehler beim Erstellen der Rechnung: ${msg}` }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorCreatingInvoice', { error: msg }) }
     }
   },
 
@@ -2080,7 +2096,7 @@ export const assistantHandlers = {
       // Verify invoice belongs to business
       const result = await getInvoiceById(args.invoiceId)
       if (!result || result.invoice.businessId !== args.businessId) {
-        return { success: false, error: 'Rechnung nicht gefunden' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('invoiceNotFound') }
       }
 
       const invoice = await sendInvoice(args.invoiceId)
@@ -2092,19 +2108,19 @@ export const assistantHandlers = {
           invoiceNumber: invoice.invoiceNumber,
           status: invoice.status,
           sentAt: invoice.sentAt,
-          message: `Rechnung ${invoice.invoiceNumber} versendet`,
+          message: (await getToolTranslations(args.businessId))('invoiceSent', { number: invoice.invoiceNumber }),
         },
       }
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Unbekannter Fehler'
+      const msg = error instanceof Error ? error.message : 'Unknown error'
       log.error('Error:', error)
       if (msg.includes('draft') || msg.includes('Entwurf')) {
-        return { success: false, error: 'Nur Rechnungen im Status "Entwurf" können versendet werden.' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('invoiceDraftOnly') }
       }
       if (msg.includes('email') || msg.includes('E-Mail')) {
-        return { success: false, error: 'Kunde hat keine E-Mail-Adresse. Bitte zuerst mit update_customer ergänzen.' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('customerNoEmailForInvoice') }
       }
-      return { success: false, error: `Fehler beim Versenden der Rechnung: ${msg}` }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorSendingInvoice', { error: msg }) }
     }
   },
 
@@ -2120,7 +2136,7 @@ export const assistantHandlers = {
     try {
       const result = await getInvoiceById(args.invoiceId)
       if (!result || result.invoice.businessId !== args.businessId) {
-        return { success: false, error: 'Rechnung nicht gefunden' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('invoiceNotFound') }
       }
 
       const invoice = await markInvoicePaid(args.invoiceId, undefined, {
@@ -2135,16 +2151,16 @@ export const assistantHandlers = {
           invoiceNumber: invoice.invoiceNumber,
           status: invoice.status,
           paidAt: invoice.paidAt,
-          message: `Rechnung ${invoice.invoiceNumber} als bezahlt markiert${args.paymentMethod ? ` (${args.paymentMethod})` : ''}`,
+          message: (await getToolTranslations(args.businessId))('invoiceMarkedPaid', { number: invoice.invoiceNumber }) + (args.paymentMethod ? ` (${args.paymentMethod})` : ''),
         },
       }
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Unbekannter Fehler'
+      const msg = error instanceof Error ? error.message : 'Unknown error'
       log.error('Error:', error)
       if (msg.includes('sent') || msg.includes('versendet')) {
-        return { success: false, error: 'Nur versendete Rechnungen können als bezahlt markiert werden.' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('invoiceSentOnly') }
       }
-      return { success: false, error: `Fehler beim Markieren als bezahlt: ${msg}` }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorMarkingPaid', { error: msg }) }
     }
   },
 
@@ -2159,7 +2175,7 @@ export const assistantHandlers = {
     try {
       const result = await getInvoiceById(args.invoiceId)
       if (!result || result.invoice.businessId !== args.businessId) {
-        return { success: false, error: 'Rechnung nicht gefunden' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('invoiceNotFound') }
       }
 
       const { cancelled, storno } = await cancelInvoiceWithStorno(args.invoiceId, undefined, args.reason)
@@ -2171,19 +2187,19 @@ export const assistantHandlers = {
           cancelledInvoiceNumber: cancelled.invoiceNumber,
           stornoInvoiceId: storno.id,
           stornoInvoiceNumber: storno.invoiceNumber,
-          message: `Rechnung ${cancelled.invoiceNumber} storniert. Stornorechnung ${storno.invoiceNumber} erstellt.`,
+          message: (await getToolTranslations(args.businessId))('invoiceCancelled', { number: cancelled.invoiceNumber, stornoNumber: storno.invoiceNumber }),
         },
       }
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Unbekannter Fehler'
+      const msg = error instanceof Error ? error.message : 'Unknown error'
       log.error('Error:', error)
       if (msg.includes('storno') || msg.includes('Storno')) {
-        return { success: false, error: 'Diese Rechnung ist bereits eine Stornorechnung und kann nicht erneut storniert werden.' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('invoiceAlreadyStorno') }
       }
       if (msg.includes('sent') || msg.includes('paid') || msg.includes('status')) {
-        return { success: false, error: 'Nur versendete oder bezahlte Rechnungen können storniert werden.' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('invoiceSentOrPaidOnly') }
       }
-      return { success: false, error: `Fehler bei der Stornierung: ${msg}` }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorCancellingInvoice', { error: msg }) }
     }
   },
 
@@ -2205,16 +2221,16 @@ export const assistantHandlers = {
         .then(rows => rows[0])
 
       if (!booking) {
-        return { success: false, error: 'Buchung nicht gefunden' }
+        return { success: false, error: 'Booking not found' }
       }
 
       // Verify cancelled invoice belongs to business and is cancelled
       const cancelledResult = await getInvoiceById(args.cancelledInvoiceId)
       if (!cancelledResult || cancelledResult.invoice.businessId !== args.businessId) {
-        return { success: false, error: 'Stornierte Rechnung nicht gefunden' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('cancelledInvoiceNotFound') }
       }
       if (cancelledResult.invoice.status !== 'cancelled') {
-        return { success: false, error: 'Die angegebene Rechnung ist nicht storniert. Bitte zuerst cancel_invoice_storno verwenden.' }
+        return { success: false, error: (await getToolTranslations(args.businessId))('invoiceNotCancelled') }
       }
 
       const invoice = await createReplacementInvoice(args.bookingId, args.cancelledInvoiceId)
@@ -2227,13 +2243,13 @@ export const assistantHandlers = {
           total: invoice.total,
           status: invoice.status,
           replacesInvoiceId: args.cancelledInvoiceId,
-          message: `Ersatzrechnung ${invoice.invoiceNumber} erstellt (${invoice.total} €, ersetzt ${cancelledResult.invoice.invoiceNumber})`,
+          message: (await getToolTranslations(args.businessId))('replacementInvoiceCreated', { number: invoice.invoiceNumber, total: invoice.total, replaced: cancelledResult.invoice.invoiceNumber }),
         },
       }
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Unbekannter Fehler'
+      const msg = error instanceof Error ? error.message : 'Unknown error'
       log.error('Error:', error)
-      return { success: false, error: `Fehler beim Erstellen der Ersatzrechnung: ${msg}` }
+      return { success: false, error: (await getToolTranslations(args.businessId))('errorCreatingReplacementInvoice', { error: msg }) }
     }
   },
 
@@ -2254,7 +2270,7 @@ export const assistantHandlers = {
         .then(rows => rows[0])
 
       if (!booking) {
-        return { success: false, error: 'Buchung nicht gefunden' }
+        return { success: false, error: 'Booking not found' }
       }
 
       const r2Key = await generateAndUploadLieferschein(args.bookingId)
@@ -2300,7 +2316,7 @@ export const assistantHandlers = {
         .then(rows => rows[0])
 
       if (!booking) {
-        return { success: false, error: 'Buchung nicht gefunden' }
+        return { success: false, error: 'Booking not found' }
       }
 
       const currentItems: InvoiceLineItem[] = (booking.items as InvoiceLineItem[] | null) || []
@@ -2400,7 +2416,7 @@ export const assistantHandlers = {
         // Get invoice and verify ownership
         const result = await getInvoiceById(args.documentId)
         if (!result || result.invoice.businessId !== args.businessId) {
-          return { success: false, error: 'Rechnung nicht gefunden' }
+          return { success: false, error: (await getToolTranslations(args.businessId))('invoiceNotFound') }
         }
 
         // Auto-generate PDF if missing
@@ -2433,7 +2449,7 @@ export const assistantHandlers = {
           .then(rows => rows[0])
 
         if (!booking) {
-          return { success: false, error: 'Buchung nicht gefunden' }
+          return { success: false, error: 'Booking not found' }
         }
 
         if (!booking.lieferscheinR2Key) {
