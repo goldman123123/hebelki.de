@@ -2,11 +2,12 @@ import { createLogger } from '@/lib/logger'
 
 const log = createLogger('env-check')
 
-const REQUIRED_VARS = [
-  'DATABASE_URL',
-  'CLERK_SECRET_KEY',
-  'NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY',
-] as const
+// Voice relay runs as a standalone process and only needs DATABASE_URL + OPENAI_API_KEY
+const isVoiceRelay = !!process.env.VOICE_RELAY_PORT
+
+const REQUIRED_VARS: readonly string[] = isVoiceRelay
+  ? ['DATABASE_URL']
+  : ['DATABASE_URL', 'CLERK_SECRET_KEY', 'NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY']
 
 const WARN_VARS = [
   'OPENROUTER_API_KEY',
